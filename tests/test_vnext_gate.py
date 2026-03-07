@@ -65,6 +65,16 @@ def _metric(payload: dict[str, Any], *keys: str) -> Any:
     return None
 
 
+def _schema_parity_failure_message(payload: dict[str, Any]) -> str:
+    return (
+        "Schema parity gate failed: "
+        f"parity_ok={payload.get('parity_ok')} "
+        f"total_checks={payload.get('total_checks')} "
+        f"required_artifact_count={payload.get('required_artifact_count')} "
+        f"parity_message={payload.get('parity_message') or ''}"
+    )
+
+
 def _login(client, user_id: int) -> None:
     with client.session_transaction() as sess:
         sess["user_id"] = int(user_id)
@@ -188,6 +198,35 @@ def test_vnext_gate(gate_app, monkeypatch):
     runner = gate_app.test_cli_runner()
 
     # A) Schema capability gate
+    migration_smoke = subprocess.run(
+        ["python3", "scripts/migration_smoke_vnext.py"],
+        cwd=str(ROOT),
+        text=True,
+        capture_output=True,
+    )
+    _assert_inv(
+        "INV-SCHEMA-001",
+        migration_smoke.returncode == 0,
+        observed={
+            "exit_code": migration_smoke.returncode,
+            "stdout": migration_smoke.stdout,
+            "stderr": migration_smoke.stderr,
+        },
+        expected={"exit_code": 0},
+        context={"gate": "migration_smoke_vnext"},
+    )
+    migration_payload = _json_from_text(migration_smoke.stdout)
+    total_checks = migration_payload.get("total_checks")
+    required_artifact_count = migration_payload.get("required_artifact_count")
+    parity_ok = migration_payload.get("parity_ok")
+    parity_is_true = parity_ok is True
+    counts_match = (
+        total_checks is not None
+        and required_artifact_count is not None
+        and int(total_checks) == int(required_artifact_count)
+    )
+    assert parity_is_true and counts_match, _schema_parity_failure_message(migration_payload)
+
     schema_result = runner.invoke(args=["schema-status"])
     _assert_inv(
         "INV-SCHEMA-001",

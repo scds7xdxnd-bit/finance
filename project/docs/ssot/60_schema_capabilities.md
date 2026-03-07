@@ -40,9 +40,24 @@ Capability-based schema guard contract for sensitive operations.
 - Bypass configuration keys: `finance_app/__init__.py`
 - Verification SQL: `scripts/verify_schema_capabilities.sql`
 - Capability matrix reference: `project/docs/schema_capability_matrix_vnext.md`
+- Verifier parity playbook: `project/docs/ssot/61_schema_verifier_parity_playbook.md`
 
 ## 60.6 Gate/Test Pointers
 - Capability tests: `tests/test_schema_guard_service.py`
 - Release gate schema checks: `tests/test_vnext_gate.py`
 - Sensitive-route guard tests: `tests/test_security_sensitive_endpoints.py`
 - Migration smoke runner: `scripts/migration_smoke_vnext.py`
+
+## 60.7 Verifier Parity (Release-Blocking)
+- `scripts/verify_schema_capabilities.sql` must assert exactly one check row per artifact in the deduplicated global `required_artifact_set` defined in `SSOT 61.3`.
+- `scripts/migration_smoke_vnext.py` must report both:
+  - `required_artifact_count`: derived from `_CAPABILITY_REQUIREMENTS` via deduplicated `required_artifact_set` (SSOT 61.3)
+  - `total_checks`: derived from SQL verifier output rows
+- Release parity condition is strict equality: `total_checks == required_artifact_count`.
+- Any parity mismatch is a `GATE-SCHEMA` failure and blocks release.
+- `GATE-SCHEMA` failure payload must include:
+  - `ok=false`
+  - non-empty `failed_checks` when artifact checks fail
+  - `failed_checks` may be empty for parity-only failures
+  - explicit parity mismatch metadata when counts differ (`total_checks`, `required_artifact_count`, `parity_ok=false`, `parity_message`, `parity_delta`).
+  - `parity_message` must start with `Schema verifier parity mismatch:`.

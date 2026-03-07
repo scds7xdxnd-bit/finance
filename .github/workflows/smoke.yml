@@ -56,8 +56,27 @@ jobs:
           pip install alembic pytest
 
       - name: vNext migration smoke
+        shell: bash
         run: |
-          python3 scripts/migration_smoke_vnext.py
+          set +e
+          : > migration_smoke_vnext.json
+          python3 scripts/migration_smoke_vnext.py | tee migration_smoke_vnext.json
+          cmd_status=${PIPESTATUS[0]}
+          set -e
+          parity_line_count=$(grep -c '^parity_ok=[a-z]\+ total_checks=[0-9]\+ required_artifact_count=[0-9]\+$' migration_smoke_vnext.json || true)
+          if [ "${parity_line_count}" -ne 1 ]; then
+            echo "Expected exactly one parity line in migration smoke output; found ${parity_line_count}." >&2
+            cmd_status=1
+          fi
+          exit "${cmd_status}"
+
+      - name: Upload migration smoke artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration_smoke_vnext.json
+          path: migration_smoke_vnext.json
+          if-no-files-found: error
 
       - name: vNext gate tests
         run: |

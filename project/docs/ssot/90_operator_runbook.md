@@ -6,6 +6,7 @@ Canonical procedure for backup/restore, migrations, backfill, reconcile, cutover
 
 ## 90.2 Non-Negotiable Contracts
 - Do not run import/backfill/reset/cutover operations until `schema-status` passes.
+- Do not run import/backfill/reset/cutover operations when schema verifier parity fails (`total_checks != required_artifact_count`).
 - Always create a backup/snapshot before migrations or destructive operations.
 - Run backfill as dry-run before apply.
 - Do not cut over while `ledger-reconcile` fails or coverage thresholds are below defaults.
@@ -27,7 +28,14 @@ Canonical procedure for backup/restore, migrations, backfill, reconcile, cutover
 - `alembic upgrade head`
 - `python3 -m flask --app finance_app schema-status`
 - `sqlite3 instance/finance_app.db < scripts/verify_schema_capabilities.sql`
-- optional smoke: `python3 scripts/migration_smoke_vnext.py`
+- required smoke: `python3 scripts/migration_smoke_vnext.py`
+- confirm all:
+  - migration smoke exits `0`
+  - payload `ok=true`
+  - `parity_ok=true`
+  - `total_checks == required_artifact_count`
+  - stdout contains `parity_ok=true total_checks=<int> required_artifact_count=<int>`
+- if parity fails, stop and do not continue to backfill/reconcile/cutover.
 
 4. Convergence baseline + backfill
 - `python3 -m flask --app finance_app ledger-convergence-metrics`
@@ -65,7 +73,13 @@ Run these in order for release readiness:
 - must exit non-zero on missing required capability
 2. Migration smoke:
 - `python3 scripts/migration_smoke_vnext.py`
-- expected: top-level `ok=true` and `failed_checks=[]`
+- expected:
+  - top-level `ok=true`
+  - `failed_checks=[]`
+  - `parity_ok=true`
+  - `total_checks == required_artifact_count`
+  - summary line `parity_ok=true total_checks=<int> required_artifact_count=<int>`
+  - on mismatch: release is blocked; do not proceed.
 3. Reconcile gate:
 - `python3 -m flask --app finance_app ledger-reconcile`
 - required pass thresholds:
@@ -90,4 +104,5 @@ Branch protection must require checks mapped in `project/docs/ssot/80_quality_ga
 - CLI runbook commands: `finance_app/cli/management.py`
 - TB snapshot implementation: `finance_app/services/trial_balance_service.py`
 - Schema verification SQL: `scripts/verify_schema_capabilities.sql`
+- Verifier parity playbook: `project/docs/ssot/61_schema_verifier_parity_playbook.md`
 - Existing operator reference: `project/docs/operator_runbook.md`

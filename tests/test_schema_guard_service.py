@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import datetime as dt
+import json
 import os
+import subprocess
+from pathlib import Path
+from typing import Any
 
 import pytest
 from finance_app import create_app, db
@@ -11,6 +15,32 @@ from finance_app.services.schema_guard_service import (
     validate_schema_guard_bypass,
 )
 from sqlalchemy.engine.url import make_url
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def _json_from_text(text: str) -> dict[str, Any]:
+    body = (text or "").strip()
+    if not body:
+        return {}
+    try:
+        return json.loads(body)
+    except json.JSONDecodeError:
+        start = body.find("{")
+        end = body.rfind("}")
+        if start >= 0 and end > start:
+            return json.loads(body[start : end + 1])
+        raise
+
+
+def _schema_parity_failure_message(payload: dict[str, Any]) -> str:
+    return (
+        "Schema parity gate failed: "
+        f"parity_ok={payload.get('parity_ok')} "
+        f"total_checks={payload.get('total_checks')} "
+        f"required_artifact_count={payload.get('required_artifact_count')} "
+        f"parity_message={payload.get('parity_message') or ''}"
+    )
 
 
 @pytest.fixture()
@@ -112,3 +142,28 @@ def test_create_app_uses_database_url_fallback(monkeypatch, tmp_path):
     parsed = make_url(app.config["SQLALCHEMY_DATABASE_URI"])
     assert parsed.drivername == "sqlite"
     assert parsed.database == str(db_path)
+
+
+def test_migration_smoke_simulated_parity_mismatch_is_release_blocking():
+    completed = subprocess.run(
+        ["python3", "scripts/migration_smoke_vnext.py", "--simulate-parity-mismatch", "1"],
+        cwd=str(ROOT),
+        text=True,
+        capture_output=True,
+    )
+    payload = _json_from_text(completed.stdout)
+    summary_text = _schema_parity_failure_message(payload)
+
+    assert completed.returncode != 0, summary_text
+    assert payload.get("ok") is False, summary_text
+    assert payload.get("parity_ok") is False, summary_text
+
+    total_checks = int(payload.get("total_checks") or -1)
+    required_artifact_count = int(payload.get("required_artifact_count") or -1)
+    assert total_checks != required_artifact_count, summary_text
+
+    # Parity mismatch can happen independently from schema artifact check failures.
+    assert isinstance(payload.get("failed_checks"), list), summary_text
+
+    parity_message = str(payload.get("parity_message") or "")
+    assert parity_message.startswith("Schema verifier parity mismatch:"), summary_text
