@@ -368,6 +368,19 @@
             object-fit: cover;
             border: 2px solid var(--accent-soft);
         }
+        .post-avatar-fallback {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 2px solid var(--accent-soft);
+            background: linear-gradient(135deg, var(--accent-soft), #fff);
+            color: var(--accent);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
         .post-author strong {
             display: block;
             font-size: 1rem;
@@ -495,8 +508,8 @@
                 <div class="hero-main">
                     <div class="avatar-panel">
                         <div class="avatar-frame">
-                            {% if profile.profile_pic %}
-                                <img src="/{{ profile.profile_pic }}" alt="Profile Picture">
+                            {% if profile_pic_url %}
+                                <img src="{{ profile_pic_url }}" alt="Profile Picture">
                             {% else %}
                                 <div class="avatar-fallback">No Image</div>
                             {% endif %}
@@ -704,7 +717,11 @@
                                 <article class="post-card">
                                     <div class="post-header">
                                         <div class="post-author">
-                                            <img src="/{{ profile.profile_pic if profile.profile_pic else 'static/profile_pics/default.png' }}" alt="Profile">
+                                            {% if profile_pic_url %}
+                                                <img src="{{ profile_pic_url }}" alt="Profile">
+                                            {% else %}
+                                                <div class="post-avatar-fallback">{{ user.username[:1] }}</div>
+                                            {% endif %}
                                             <div>
                                                 <strong>{{ user.username }}</strong>
                                                 <div class="post-subtitle">Shared from personal ledger</div>

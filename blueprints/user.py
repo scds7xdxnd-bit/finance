@@ -11,7 +11,7 @@ from finance_app.models.accounting_models import (
     Transaction,
 )
 from finance_app.models.user_models import User, UserPost, UserProfile
-from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, send_from_directory, url_for
 from flask import session as flask_session
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
@@ -31,6 +31,76 @@ def _maybe_scan_file(file_path: str) -> None:
     # Hook for AV scanning; integrate with external service/CLI if available.
     # Currently a no-op to avoid blocking local dev.
     return
+
+
+def _upload_root() -> str:
+    root = str(current_app.config.get("UPLOAD_FOLDER") or "instance/uploads")
+    return root if os.path.isabs(root) else os.path.abspath(root)
+
+
+def _profile_pic_store_dir() -> str:
+    pic_dir = os.path.join(_upload_root(), "profile_pics")
+    os.makedirs(pic_dir, exist_ok=True)
+    return pic_dir
+
+
+def _default_profile_pic_url() -> str | None:
+    static_root = current_app.static_folder or ""
+    default_file = os.path.join(static_root, "profile_pics", "default.png")
+    if os.path.isfile(default_file):
+        return url_for("static", filename="profile_pics/default.png")
+    return None
+
+
+def _profile_pic_url(raw_path: str | None) -> str | None:
+    if not raw_path:
+        return _default_profile_pic_url()
+    raw = str(raw_path).strip().replace("\\", "/")
+    if not raw:
+        return _default_profile_pic_url()
+    if raw.startswith(("http://", "https://", "data:")):
+        return raw
+
+    normalized = raw.lstrip("/")
+    static_root = current_app.static_folder or ""
+    if normalized.startswith("static/"):
+        rel = normalized[len("static/") :]
+        if rel and os.path.isfile(os.path.join(static_root, rel)):
+            return url_for("static", filename=rel)
+    elif normalized and os.path.isfile(os.path.join(static_root, normalized)):
+        return url_for("static", filename=normalized)
+
+    filename = secure_filename(os.path.basename(normalized))
+    if filename:
+        upload_root = _upload_root()
+        for directory in (os.path.join(upload_root, "profile_pics"), upload_root):
+            if os.path.isfile(os.path.join(directory, filename)):
+                return url_for("user_bp.profile_picture_file", filename=filename)
+        legacy_static_dir = os.path.join(static_root, "profile_pics")
+        if os.path.isfile(os.path.join(legacy_static_dir, filename)):
+            return url_for("user_bp.profile_picture_file", filename=filename)
+    return _default_profile_pic_url()
+
+
+@user_bp.route('/profile_pics/<path:filename>')
+def profile_picture_file(filename):
+    user = current_user()
+    if not user:
+        return redirect(url_for('auth_bp.login'))
+
+    safe_name = secure_filename(os.path.basename(filename))
+    if not safe_name:
+        abort(404)
+
+    upload_root = _upload_root()
+    for directory in (os.path.join(upload_root, "profile_pics"), upload_root):
+        if os.path.isfile(os.path.join(directory, safe_name)):
+            return send_from_directory(directory, safe_name)
+
+    legacy_static_dir = os.path.join(current_app.static_folder or "", "profile_pics")
+    if os.path.isfile(os.path.join(legacy_static_dir, safe_name)):
+        return send_from_directory(legacy_static_dir, safe_name)
+    abort(404)
 
 
 def _compute_financial_pulse(user):
@@ -110,16 +180,20 @@ def profile():
                     flash('Unsupported file type.', 'danger')
                     return redirect(url_for('user_bp.profile'))
                 filename = secure_filename(file.filename)
-                upload_root = current_app.config.get("UPLOAD_FOLDER") or "instance/uploads"
-                os.makedirs(upload_root, exist_ok=True)
-                filepath = os.path.join(upload_root, filename)
+                if not filename:
+                    flash('Invalid filename.', 'danger')
+                    return redirect(url_for('user_bp.profile'))
+                ext = os.path.splitext(filename)[1].lower()
+                stamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S%f")
+                stored_name = f"user_{user.id}_{stamp}{ext}"
+                filepath = os.path.join(_profile_pic_store_dir(), stored_name)
                 # Enforce size limit via stream length if provided
                 if request.content_length and request.content_length > int(current_app.config.get("MAX_CONTENT_LENGTH") or 0):
                     flash('File exceeds size limit.', 'danger')
                     return redirect(url_for('user_bp.profile'))
                 file.save(filepath)
                 _maybe_scan_file(filepath)
-                profile.profile_pic = filepath
+                profile.profile_pic = f"profile_pics/{stored_name}"
         if 'notes' in request.form:
             profile.notes = request.form['notes']
         db.session.commit()
@@ -212,6 +286,7 @@ def profile():
         'profile.html',
         user=user,
         profile=profile,
+        profile_pic_url=_profile_pic_url(profile.profile_pic),
         posts=posts,
         ledger_count=ledger_count,
         latest_entry_display=latest_entry_display,

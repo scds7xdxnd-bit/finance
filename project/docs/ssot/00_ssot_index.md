@@ -16,6 +16,7 @@ Section IDs in this file and all SSOT files are stable citation anchors.
 - Convergence linking policy is `exact|strong|weak_ambiguous`; weak never auto-links.
 - Strong linking requires stable provenance; `row_dedupe_key` is treated as stable with strict 1:1 cardinality.
 - Schema guard is capability-based and blocks sensitive operations when required capabilities are missing.
+- Schema verifier parity is release-blocking: `total_checks == required_artifact_count` is mandatory.
 - Canonical ledger query API is the reporting contract surface.
 - CI vNext gate enforces schema, dedupe, convergence, reporting parity, and scope invariants.
 
@@ -43,6 +44,7 @@ Any change to locked decisions, contract surfaces, or gate thresholds must satis
 - Include section references in PR description (for example `SSOT 40.3`, `SSOT 80.2`).
 - Obtain architect signoff for stable interface changes listed in `99_team_boundaries.md`.
 - Include the mandatory `SSOT Impact` section from `.github/pull_request_template.md`.
+- For schema verifier or capability changes, include parity evidence from `SSOT 61.8`.
 
 ## 00.6 Document Map
 | File | Purpose |
@@ -54,6 +56,7 @@ Any change to locked decisions, contract surfaces, or gate thresholds must satis
 | `40_import_contracts.md` | CSV normalization/dedupe/provenance contracts and summary schema. |
 | `50_reporting_contracts.md` | Canonical query API, ranked endpoint mapping, journal-only totals rule. |
 | `60_schema_capabilities.md` | Capability matrix and hard-fail guard behavior. |
+| `61_schema_verifier_parity_playbook.md` | Formal verifier parity definition, release rule, and implementation checklists. |
 | `70_security_model.md` | AuthN/AuthZ, CSRF, admin safety, audit requirements, endpoint sensitivity classes. |
 | `80_quality_gates.md` | Gate invariants, CI jobs, thresholds, failure drills. |
 | `90_operator_runbook.md` | Backup/restore/migrate/backfill/reconcile/cutover/rollback operations. |
