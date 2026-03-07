@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Lightweight smoke test to validate core routes and blueprint wiring.
+"""Lightweight smoke test to validate core routes and blueprint wiring.
 
 Run:
   python3 scripts/smoke_test.py
@@ -9,37 +8,40 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
 from contextlib import contextmanager
 
 # Ensure ML is disabled for quick smoke runs
 os.environ.setdefault('DISABLE_ML', '1')
+# Ensure fresh CI environments can serve routes without a pre-migrated DB.
+os.environ.setdefault('AUTO_CREATE_SCHEMA', 'true')
 
 
 @contextmanager
 def app_ctx():
-    """Load local app.py explicitly to avoid importing a different 'app' module."""
-    import importlib.util
+    """Build the Flask app from finance_app factory in this repository."""
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    # Make project root importable so `import blueprints.*` in app.py works
+    # Make project root importable so `import blueprints.*` resolves locally.
     if base not in sys.path:
         sys.path.insert(0, base)
-    # Also run in project root so relative paths resolve
+    # Run in project root so relative paths resolve.
     try:
         os.chdir(base)
     except Exception:
         pass
-    app_py = os.path.join(base, 'app.py')
-    spec = importlib.util.spec_from_file_location('finance_app_local', app_py)
-    if spec is None or spec.loader is None:
-        raise RuntimeError('Unable to locate local app.py')
-    module = importlib.util.module_from_spec(spec)
-    sys.modules['finance_app_local'] = module
-    spec.loader.exec_module(module)  # type: ignore[attr-defined]
-    app = getattr(module, 'app', None)
-    if app is None:
-        raise RuntimeError("Loaded app.py but couldn't find 'app' Flask instance")
-    with app.app_context():
-        yield app
+
+    # Use an isolated throwaway sqlite DB for smoke runs.
+    with tempfile.TemporaryDirectory(prefix='finance_smoke_') as tmpdir:
+        db_path = os.path.join(tmpdir, 'smoke.db')
+        os.environ.setdefault('FINANCE_DATABASE_URL', f"sqlite:///{db_path}")
+        os.environ.setdefault('ALEMBIC_DATABASE_URL', f"sqlite:///{db_path}")
+
+        from finance_app import create_app
+
+        app = create_app()
+        app.config.update(TESTING=True)
+        with app.app_context():
+            yield app
 
 
 def expect(status, got, where):
