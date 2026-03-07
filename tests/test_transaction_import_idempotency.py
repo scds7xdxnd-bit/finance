@@ -59,6 +59,41 @@ def test_csv_import_file_hash_idempotency(app_ctx):
         assert CsvImportBatch.query.count() == 1
 
 
+def test_csv_import_summary_contract_keys_stable(app_ctx):
+    app, user_id = app_ctx
+    raw_csv = _fixture("reupload_base.csv")
+    required_top_level = {
+        "batch_id",
+        "file_sha256",
+        "write_mode",
+        "skipped_duplicate_batch",
+        "totals",
+        "duplicate_reasons",
+        "error_reasons",
+        "count_simple",
+        "count_journal",
+        "rows_new",
+        "rows_duplicate",
+        "rows_error",
+    }
+    required_totals = {
+        "rows_total",
+        "rows_new",
+        "rows_duplicate",
+        "rows_error",
+        "journal_entries_created",
+        "legacy_transactions_created",
+        "normalized_dates",
+        "unparsable_dates",
+    }
+    with app.app_context():
+        summary = import_csv_transactions(raw_csv, user_id, filename="a.csv", write_mode="journal", idempotency_enabled=True)
+        assert required_top_level.issubset(summary.keys())
+        assert required_totals.issubset((summary.get("totals") or {}).keys())
+        assert isinstance(summary.get("duplicate_reasons"), dict)
+        assert isinstance(summary.get("error_reasons"), dict)
+
+
 def test_csv_import_force_reupload_processes_and_row_dedupes(app_ctx):
     app, user_id = app_ctx
     raw_csv = _fixture("reupload_base.csv")

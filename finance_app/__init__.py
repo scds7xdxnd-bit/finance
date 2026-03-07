@@ -31,12 +31,22 @@ INSTANCE_DIR = os.path.join(PROJECT_ROOT, "instance")
 os.makedirs(INSTANCE_DIR, exist_ok=True)
 DEFAULT_DB_PATH = os.path.join(INSTANCE_DIR, "finance_app.db")
 
+
+def _resolve_database_uri() -> str:
+    """Prefer finance-specific DB URL but keep DATABASE_URL backward compatible."""
+    return (
+        os.environ.get("FINANCE_DATABASE_URL")
+        or os.environ.get("DATABASE_URL")
+        or f"sqlite:///{DEFAULT_DB_PATH}"
+    )
+
+
 def _build_default_config() -> dict:
     return {
         "SECRET_KEY": os.environ.get("SECRET_KEY", "replace-with-a-secure-key"),
-        # Prefer a finance-specific env var to avoid collisions with other apps (e.g., LifeOS)
-        # Use absolute path to avoid resolving relative to instance_path twice when running via flask CLI
-        "SQLALCHEMY_DATABASE_URI": os.environ.get("FINANCE_DATABASE_URL", f"sqlite:///{DEFAULT_DB_PATH}"),
+        # Prefer a finance-specific env var; keep DATABASE_URL fallback for existing local setups.
+        # Use absolute path to avoid resolving relative to instance_path twice when running via flask CLI.
+        "SQLALCHEMY_DATABASE_URI": _resolve_database_uri(),
         "SQLALCHEMY_TRACK_MODIFICATIONS": False,
         "SQLALCHEMY_ENGINE_OPTIONS": {"connect_args": {"timeout": 30}},
         "AUTO_CREATE_SCHEMA": os.environ.get("AUTO_CREATE_SCHEMA", "false").lower() in ("1", "true", "yes"),
@@ -55,6 +65,8 @@ def _build_default_config() -> dict:
         "ALLOW_LEGACY_REPORT_FALLBACK": os.environ.get("ALLOW_LEGACY_REPORT_FALLBACK", "false").lower() in ("1", "true", "yes"),
         "CSV_IDEMPOTENCY_ENABLED": os.environ.get("CSV_IDEMPOTENCY_ENABLED", "true").lower() in ("1", "true", "yes"),
         "ADMIN_ACTION_COOLDOWN_SECONDS": int(os.environ.get("ADMIN_ACTION_COOLDOWN_SECONDS", "5")),
+        "SCHEMA_GUARD_BYPASS_REASON": os.environ.get("SCHEMA_GUARD_BYPASS_REASON", "").strip(),
+        "SCHEMA_GUARD_BYPASS_UNTIL": os.environ.get("SCHEMA_GUARD_BYPASS_UNTIL", "").strip(),
         "MLSUGGESTER_API_URL": os.environ.get("MLSUGGESTER_API_URL", "http://127.0.0.1:8001"),
         "MLSUGGESTER_DEFAULT_CURRENCY": os.environ.get("MLSUGGESTER_DEFAULT_CURRENCY", "KRW").upper(),
         "MLSUGGESTER_TOPK": int(os.environ.get("MLSUGGESTER_TOPK", "3")),

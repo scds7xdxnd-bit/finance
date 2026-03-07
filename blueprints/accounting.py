@@ -5,6 +5,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Dict, List, Set
 
 from finance_app import LoanGroup, LoanGroupLink, current_user, db
+from finance_app.lib.auth import require_admin
 from finance_app.services.journal_service import (
     JournalBalanceError,
     JournalLinePayload,
@@ -59,7 +60,7 @@ from finance_app.services.trial_balance_service import (
 from finance_app.services.trial_balance_service import (
     set_initialization as tb_set_initialization,
 )
-from finance_app.services.schema_guard_service import guard_capabilities
+from finance_app.services.schema_guard_service import guard_capabilities, validate_schema_guard_bypass
 from flask import Blueprint, Response, current_app, flash, redirect, render_template, request, session, url_for
 from sqlalchemy import func
 
@@ -486,6 +487,26 @@ def accounting():
 def _check_csrf():
     token = request.headers.get('X-CSRF-Token') or request.form.get('csrf_token')
     return token and token == session.get('csrf_token')
+
+
+def _guard_schema_caps(required_caps, *, user_id=None):
+    enforce_guard = bool(current_app.config.get("SCHEMA_GUARD_ENFORCE", True))
+    bypass_ok, bypass_meta = validate_schema_guard_bypass(current_app.config)
+    if not bypass_ok:
+        return False, bypass_meta, 503
+    if not enforce_guard:
+        current_app.logger.warning(
+            "schema_guard_bypass_enabled path=%s method=%s user_id=%s until=%s reason=%s",
+            request.path,
+            request.method,
+            user_id,
+            bypass_meta.get("until"),
+            bypass_meta.get("reason"),
+        )
+    ok_guard, payload, status = guard_capabilities(required_caps, enforce=enforce_guard)
+    if not ok_guard:
+        return False, payload, 503 if status < 500 else status
+    return True, payload, status
 
 
 def _format_journal_entries(entries):
@@ -916,14 +937,14 @@ def set_tb_initialization():
 
 
 @accounting_bp.route('/accounting/tb/reset', methods=['POST'])
+@require_admin
 def reset_tb_data():
     if not _check_csrf():
         return ("CSRF token missing or invalid", 400)
     user = current_user()
     if not user:
         return ("Unauthorized", 401)
-    enforce_guard = bool(current_app.config.get("SCHEMA_GUARD_ENFORCE", True))
-    ok_guard, payload, status = guard_capabilities(["tb_snapshot", "admin_audit"], enforce=enforce_guard)
+    ok_guard, payload, status = _guard_schema_caps(["tb_snapshot", "admin_audit"], user_id=user.id)
     if not ok_guard:
         return payload, status
     data = request.get_json(silent=True) if request.is_json else request.form
@@ -941,7 +962,7 @@ def reset_tb_data():
         cooldown_seconds = max(0, int(current_app.config.get("ADMIN_ACTION_COOLDOWN_SECONDS", 5)))
     except Exception:
         cooldown_seconds = 5
-    now_ms = int(_dt.datetime.utcnow().timestamp() * 1000)
+    now_ms = int(_dt.datetime.now(_dt.timezone.utc).timestamp() * 1000)
     age_ms = now_ms - confirm_at_ms
     if age_ms < cooldown_seconds * 1000:
         return {"ok": False, "error": f"Please wait {cooldown_seconds} seconds before resetting TB."}, 400
@@ -2007,6 +2028,9 @@ def tb_monthly(ym_override=None):
     user = current_user()
     if not user:
         return ("Unauthorized", 401)
+    ok_guard, payload, status = _guard_schema_caps(["journal_report_perf"], user_id=user.id)
+    if not ok_guard:
+        return payload, status
     source_error = _ensure_ranked_report_source()
     if source_error:
         return source_error
@@ -2076,6 +2100,9 @@ def statement_data():
     user = current_user()
     if not user:
         return ("Unauthorized", 401)
+    ok_guard, payload, status = _guard_schema_caps(["journal_report_perf"], user_id=user.id)
+    if not ok_guard:
+        return payload, status
     source_error = _ensure_ranked_report_source()
     if source_error:
         return source_error
@@ -2618,6 +2645,9 @@ def statement_pdf():
     user = current_user()
     if not user:
         return ("Unauthorized", 401)
+    ok_guard, payload, status = _guard_schema_caps(["journal_report_perf"], user_id=user.id)
+    if not ok_guard:
+        return payload, status
     source_error = _ensure_ranked_report_source()
     if source_error:
         return source_error
@@ -2889,6 +2919,9 @@ def tb_pdf():
     user = current_user()
     if not user:
         return ("Unauthorized", 401)
+    ok_guard, payload, status = _guard_schema_caps(["journal_report_perf"], user_id=user.id)
+    if not ok_guard:
+        return payload, status
     source_error = _ensure_ranked_report_source()
     if source_error:
         return source_error

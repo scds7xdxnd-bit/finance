@@ -1,10 +1,10 @@
 # CSV Import Contracts
 _Last updated: 2026-03-07_
 
-## Scope
+## 40.1 Scope
 Journal-first CSV ingestion contract, including normalization, dedupe identity, provenance writes, and deterministic summary output.
 
-## Non-Negotiable Contracts
+## 40.2 Non-Negotiable Contracts
 - Import pipeline order is fixed: parse -> normalize -> dedupe -> post -> summarize.
 - Write mode matrix is fixed: `journal|dual|legacy`; unknown mode falls back to `journal`.
 - File-level idempotency key is `(user_id, file_sha256)` in `csv_import_batch`.
@@ -20,17 +20,18 @@ Journal-first CSV ingestion contract, including normalization, dedupe identity, 
 - Provenance writes (`CsvImportRow`) are mandatory for newly imported lines; no bypass path is allowed.
 - Import summary payload keys and reason maps are stable contract fields.
 
-## Import Summary Contract Fields (Required)
+## 40.3 Import Summary Contract Fields (Required)
 - Top-level keys: `batch_id`, `file_sha256`, `write_mode`, `skipped_duplicate_batch`, `totals`, `duplicate_reasons`, `error_reasons`, `count_simple`, `count_journal`, `rows_new`, `rows_duplicate`, `rows_error`.
 - Totals keys: `rows_total`, `rows_new`, `rows_duplicate`, `rows_error`, `journal_entries_created`, `legacy_transactions_created`, `normalized_dates`, `unparsable_dates`.
 
-## Implementation Truth Pointers
+## 40.4 Implementation Truth Pointers
 - Import orchestration and hashing: `finance_app/services/transaction_import_service.py`
 - Import route + capability guard: `blueprints/transactions.py`
 - Persistence constraints: `finance_app/models/accounting_models.py` (`CsvImportBatch`, `CsvImportRow`)
 - Summary JSON schema: `project/docs/import/csv_import_summary.schema.json`
 - Pipeline spec: `project/docs/import/csv_import_pipeline_spec.md`
+- Clause-to-code mapping: `project/docs/import/ssot40_clause_map.md`
 
-## Gate/Test Pointers
+## 40.5 Gate/Test Pointers
 - Idempotency and dedupe tests: `tests/test_transaction_import_idempotency.py`
 - Release gate dedupe assertions: `tests/test_vnext_gate.py`

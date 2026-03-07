@@ -20,6 +20,7 @@ def app_ctx():
 def _login(client, user_id: int):
     with client.session_transaction() as sess:
         sess["user_id"] = user_id
+        sess["csrf_token"] = "test-csrf-token"
 
 
 def test_add_transaction_json_flow(app_ctx):
@@ -41,7 +42,7 @@ def test_add_transaction_json_flow(app_ctx):
             {"dc": "C", "account": "Revenue", "amount": 100, "memo": "outflow"},
         ],
     }
-    resp = client.post("/add_transaction", json=payload)
+    resp = client.post("/add_transaction", json=payload, headers={"X-CSRF-Token": "test-csrf-token"})
     assert resp.status_code == 200
     body = resp.get_json()
     assert body["ok"] is True

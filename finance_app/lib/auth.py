@@ -26,14 +26,31 @@ def _get_csrf_token():
     return tok
 
 
+def csrf_token_valid() -> bool:
+    token = request.headers.get("X-CSRF-Token") or request.form.get("csrf_token")
+    return bool(token and token == session.get("csrf_token"))
+
+
 def require_csrf(fn):
     """Simple CSRF guard for JSON/form endpoints that do not use WTForms."""
 
     @wraps(fn)
     def wrapper(*args, **kwargs):
-        token = request.headers.get("X-CSRF-Token") or request.form.get("csrf_token")
-        if not token or token != session.get("csrf_token"):
+        if not csrf_token_valid():
             return ("CSRF token missing or invalid", 400)
+        return fn(*args, **kwargs)
+
+    return wrapper
+
+
+def require_admin(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        user = current_user()
+        if not user:
+            return ("Unauthorized", 401)
+        if not getattr(user, "is_admin", False):
+            return ("Forbidden", 403)
         return fn(*args, **kwargs)
 
     return wrapper
