@@ -1,0 +1,706 @@
+{
+  "schema_version": "qa-golden-v1",
+  "case_id": "vnext_gate_minimal_001",
+  "description": "Minimal vNext shipping gate fixture with journal parity, import idempotency, and scope canaries.",
+  "period": {
+    "ym": "2024-01",
+    "start": "2024-01-01",
+    "end": "2024-01-31"
+  },
+  "scenario_coverage": [
+    "transfer",
+    "refund",
+    "fee",
+    "split",
+    "receivable_repayment",
+    "csv_overlap_exports"
+  ],
+  "thresholds": {
+    "coverage_count_min": 0.99,
+    "coverage_amount_min": 0.995,
+    "unlinked_recent_max": 0,
+    "pytest_coverage_min": 85
+  },
+  "users": [
+    {
+      "key": "u_owner",
+      "username": "gate_owner"
+    },
+    {
+      "key": "u_other",
+      "username": "gate_other"
+    }
+  ],
+  "categories": [
+    {
+      "key": "owner_cash_cat",
+      "user": "u_owner",
+      "name": "Cash",
+      "tb_group": "asset"
+    },
+    {
+      "key": "owner_savings_cat",
+      "user": "u_owner",
+      "name": "Savings",
+      "tb_group": "asset"
+    },
+    {
+      "key": "owner_ar_cat",
+      "user": "u_owner",
+      "name": "Accounts Receivable",
+      "tb_group": "asset"
+    },
+    {
+      "key": "owner_payable_cat",
+      "user": "u_owner",
+      "name": "Accounts Payable",
+      "tb_group": "liability"
+    },
+    {
+      "key": "owner_income_cat",
+      "user": "u_owner",
+      "name": "Revenue",
+      "tb_group": "income"
+    },
+    {
+      "key": "owner_expense_food_cat",
+      "user": "u_owner",
+      "name": "Expense Food",
+      "tb_group": "expense"
+    },
+    {
+      "key": "owner_expense_transport_cat",
+      "user": "u_owner",
+      "name": "Expense Transport",
+      "tb_group": "expense"
+    },
+    {
+      "key": "owner_expense_misc_cat",
+      "user": "u_owner",
+      "name": "Expense Misc",
+      "tb_group": "expense"
+    },
+    {
+      "key": "other_cash_cat",
+      "user": "u_other",
+      "name": "Other Cash Category",
+      "tb_group": "asset"
+    },
+    {
+      "key": "other_income_cat",
+      "user": "u_other",
+      "name": "Other Revenue Category",
+      "tb_group": "income"
+    }
+  ],
+  "accounts": [
+    {
+      "key": "owner_cash",
+      "user": "u_owner",
+      "name": "Main Cash",
+      "category": "owner_cash_cat",
+      "currency": "KRW"
+    },
+    {
+      "key": "owner_savings",
+      "user": "u_owner",
+      "name": "Main Savings",
+      "category": "owner_savings_cat",
+      "currency": "KRW"
+    },
+    {
+      "key": "owner_ar",
+      "user": "u_owner",
+      "name": "Trade Receivable",
+      "category": "owner_ar_cat",
+      "currency": "KRW"
+    },
+    {
+      "key": "owner_payable",
+      "user": "u_owner",
+      "name": "Accounts Payable",
+      "category": "owner_payable_cat",
+      "currency": "KRW"
+    },
+    {
+      "key": "owner_revenue",
+      "user": "u_owner",
+      "name": "Product Revenue",
+      "category": "owner_income_cat",
+      "currency": "KRW"
+    },
+    {
+      "key": "owner_expense_food",
+      "user": "u_owner",
+      "name": "Food Expense",
+      "category": "owner_expense_food_cat",
+      "currency": "KRW"
+    },
+    {
+      "key": "owner_expense_transport",
+      "user": "u_owner",
+      "name": "Transport Expense",
+      "category": "owner_expense_transport_cat",
+      "currency": "KRW"
+    },
+    {
+      "key": "owner_expense_misc",
+      "user": "u_owner",
+      "name": "Misc Expense",
+      "category": "owner_expense_misc_cat",
+      "currency": "KRW"
+    },
+    {
+      "key": "other_cash",
+      "user": "u_other",
+      "name": "Other Cash",
+      "category": "other_cash_cat",
+      "currency": "KRW"
+    },
+    {
+      "key": "other_revenue",
+      "user": "u_other",
+      "name": "Other Revenue",
+      "category": "other_income_cat",
+      "currency": "KRW"
+    }
+  ],
+  "opening_balances": [
+    {
+      "user": "u_owner",
+      "account": "owner_cash",
+      "amount": 1000.0,
+      "as_of_date": "2024-01-01"
+    },
+    {
+      "user": "u_owner",
+      "account": "owner_savings",
+      "amount": 500.0,
+      "as_of_date": "2024-01-01"
+    },
+    {
+      "user": "u_owner",
+      "account": "owner_ar",
+      "amount": 200.0,
+      "as_of_date": "2024-01-01"
+    },
+    {
+      "user": "u_other",
+      "account": "other_cash",
+      "amount": 100.0,
+      "as_of_date": "2024-01-01"
+    }
+  ],
+  "journal_entries": [
+    {
+      "key": "owner_transfer",
+      "user": "u_owner",
+      "date": "2024-01-05",
+      "description": "Transfer cash to savings",
+      "scenario_tags": [
+        "transfer"
+      ],
+      "lines": [
+        {
+          "account": "owner_savings",
+          "dc": "D",
+          "amount": 300.0
+        },
+        {
+          "account": "owner_cash",
+          "dc": "C",
+          "amount": 300.0
+        }
+      ]
+    },
+    {
+      "key": "owner_fee",
+      "user": "u_owner",
+      "date": "2024-01-08",
+      "description": "Bank fee",
+      "scenario_tags": [
+        "fee"
+      ],
+      "lines": [
+        {
+          "account": "owner_expense_misc",
+          "dc": "D",
+          "amount": 50.0
+        },
+        {
+          "account": "owner_cash",
+          "dc": "C",
+          "amount": 50.0
+        }
+      ]
+    },
+    {
+      "key": "owner_refund",
+      "user": "u_owner",
+      "date": "2024-01-09",
+      "description": "Expense refund received",
+      "scenario_tags": [
+        "refund"
+      ],
+      "lines": [
+        {
+          "account": "owner_cash",
+          "dc": "D",
+          "amount": 20.0
+        },
+        {
+          "account": "owner_expense_misc",
+          "dc": "C",
+          "amount": 20.0
+        }
+      ]
+    },
+    {
+      "key": "owner_split",
+      "user": "u_owner",
+      "date": "2024-01-10",
+      "description": "Split payment across expense categories",
+      "scenario_tags": [
+        "split"
+      ],
+      "lines": [
+        {
+          "account": "owner_expense_food",
+          "dc": "D",
+          "amount": 120.0
+        },
+        {
+          "account": "owner_expense_transport",
+          "dc": "D",
+          "amount": 80.0
+        },
+        {
+          "account": "owner_cash",
+          "dc": "C",
+          "amount": 200.0
+        }
+      ]
+    },
+    {
+      "key": "owner_ar_sale",
+      "user": "u_owner",
+      "date": "2024-01-12",
+      "description": "Sale on receivable",
+      "scenario_tags": [
+        "receivable_repayment"
+      ],
+      "lines": [
+        {
+          "account": "owner_ar",
+          "dc": "D",
+          "amount": 150.0
+        },
+        {
+          "account": "owner_revenue",
+          "dc": "C",
+          "amount": 150.0
+        }
+      ]
+    },
+    {
+      "key": "owner_ar_repayment",
+      "user": "u_owner",
+      "date": "2024-01-15",
+      "description": "Receivable repayment collected",
+      "scenario_tags": [
+        "receivable_repayment"
+      ],
+      "lines": [
+        {
+          "account": "owner_cash",
+          "dc": "D",
+          "amount": 120.0
+        },
+        {
+          "account": "owner_ar",
+          "dc": "C",
+          "amount": 120.0
+        }
+      ]
+    },
+    {
+      "key": "owner_cash_sale",
+      "user": "u_owner",
+      "date": "2024-01-20",
+      "description": "Sale in cash",
+      "scenario_tags": [
+        "transfer"
+      ],
+      "lines": [
+        {
+          "account": "owner_cash",
+          "dc": "D",
+          "amount": 700.0
+        },
+        {
+          "account": "owner_revenue",
+          "dc": "C",
+          "amount": 700.0
+        }
+      ]
+    }
+  ],
+  "write_mode_matrix": [
+    {
+      "name": "journal_owner_basic",
+      "mode": "journal",
+      "payload": {
+        "date": "2026-02-01",
+        "description": "Journal mode matrix row",
+        "lines": [
+          {
+            "dc": "D",
+            "account": "Main Cash",
+            "amount": 40
+          },
+          {
+            "dc": "C",
+            "account": "Product Revenue",
+            "amount": 40
+          }
+        ]
+      },
+      "expected": {
+        "status_code": 200,
+        "delta_journal_entries": 1,
+        "delta_transactions": 0,
+        "delta_links": 0
+      }
+    },
+    {
+      "name": "dual_owner_basic",
+      "mode": "dual",
+      "payload": {
+        "date": "2026-02-02",
+        "description": "Dual mode matrix row",
+        "lines": [
+          {
+            "dc": "D",
+            "account": "Main Cash",
+            "amount": 60
+          },
+          {
+            "dc": "C",
+            "account": "Product Revenue",
+            "amount": 60
+          }
+        ]
+      },
+      "expected": {
+        "status_code": 200,
+        "delta_journal_entries": 1,
+        "delta_transactions": 1,
+        "delta_links": 1,
+        "link_source": "strong_dual_write"
+      }
+    },
+    {
+      "name": "legacy_other_basic",
+      "mode": "legacy",
+      "payload": {
+        "date": "2026-02-03",
+        "description": "Legacy mode matrix row",
+        "lines": [
+          {
+            "dc": "D",
+            "account": "Other Cash",
+            "amount": 30
+          },
+          {
+            "dc": "C",
+            "account": "Other Revenue",
+            "amount": 30
+          }
+        ]
+      },
+      "expected": {
+        "status_code": 200,
+        "delta_journal_entries": 0,
+        "delta_transactions": 1,
+        "delta_links": 0
+      }
+    },
+    {
+      "name": "dual_invalid_split_shape",
+      "mode": "dual",
+      "payload": {
+        "date": "2026-02-04",
+        "description": "Dual invalid split shape",
+        "lines": [
+          {
+            "dc": "D",
+            "account": "Main Cash",
+            "amount": 20
+          },
+          {
+            "dc": "C",
+            "account": "Product Revenue",
+            "amount": 10
+          },
+          {
+            "dc": "C",
+            "account": "Accounts Payable",
+            "amount": 10
+          }
+        ]
+      },
+      "expected": {
+        "status_code": 400,
+        "delta_journal_entries": 0,
+        "delta_transactions": 0,
+        "delta_links": 0,
+        "error_contains": "exactly one debit and one credit"
+      }
+    }
+  ],
+  "csv_import_batches": [
+    {
+      "name": "reupload_base_first",
+      "user": "u_owner",
+      "filename": "reupload_base.csv",
+      "fixture_path": "tests/fixtures/csv_import/reupload_base.csv",
+      "write_mode": "journal",
+      "idempotency_enabled": true,
+      "force": false,
+      "scenario_tags": [
+        "reupload"
+      ],
+      "expected_summary": {
+        "skipped_duplicate_batch": false,
+        "rows_new": 1,
+        "rows_duplicate": 0,
+        "rows_error": 0,
+        "count_journal": 1,
+        "count_simple": 0,
+        "duplicate_reasons": {},
+        "error_reasons": {}
+      }
+    },
+    {
+      "name": "reupload_base_second",
+      "user": "u_owner",
+      "filename": "reupload_base.csv",
+      "fixture_path": "tests/fixtures/csv_import/reupload_base.csv",
+      "write_mode": "journal",
+      "idempotency_enabled": true,
+      "force": false,
+      "scenario_tags": [
+        "reupload"
+      ],
+      "expected_summary": {
+        "skipped_duplicate_batch": true,
+        "rows_new": 0,
+        "rows_duplicate": 1,
+        "rows_error": 0,
+        "count_journal": 0,
+        "count_simple": 0,
+        "duplicate_reasons": {
+          "duplicate_batch_file_sha256": 1
+        },
+        "error_reasons": {}
+      }
+    },
+    {
+      "name": "reupload_base_force",
+      "user": "u_owner",
+      "filename": "reupload_base.csv",
+      "fixture_path": "tests/fixtures/csv_import/reupload_base.csv",
+      "write_mode": "journal",
+      "idempotency_enabled": true,
+      "force": true,
+      "scenario_tags": [
+        "reupload"
+      ],
+      "expected_summary": {
+        "skipped_duplicate_batch": false,
+        "rows_new": 0,
+        "rows_duplicate": 1,
+        "rows_error": 0,
+        "count_journal": 0,
+        "count_simple": 0,
+        "duplicate_reasons": {
+          "duplicate_row_dedupe_key": 1
+        },
+        "error_reasons": {}
+      }
+    },
+    {
+      "name": "overlap_export_a",
+      "user": "u_owner",
+      "filename": "overlap_export_a.csv",
+      "fixture_path": "tests/fixtures/csv_import/overlap_export_a.csv",
+      "write_mode": "journal",
+      "idempotency_enabled": true,
+      "force": false,
+      "scenario_tags": [
+        "overlap_export"
+      ],
+      "expected_summary": {
+        "skipped_duplicate_batch": false,
+        "rows_new": 2,
+        "rows_duplicate": 0,
+        "rows_error": 0,
+        "count_journal": 2,
+        "count_simple": 0,
+        "duplicate_reasons": {},
+        "error_reasons": {}
+      }
+    },
+    {
+      "name": "overlap_export_b",
+      "user": "u_owner",
+      "filename": "overlap_export_b.csv",
+      "fixture_path": "tests/fixtures/csv_import/overlap_export_b.csv",
+      "write_mode": "journal",
+      "idempotency_enabled": true,
+      "force": false,
+      "scenario_tags": [
+        "overlap_export"
+      ],
+      "expected_summary": {
+        "skipped_duplicate_batch": false,
+        "rows_new": 1,
+        "rows_duplicate": 1,
+        "rows_error": 0,
+        "count_journal": 1,
+        "count_simple": 0,
+        "duplicate_reasons": {
+          "duplicate_row_dedupe_key": 1
+        },
+        "error_reasons": {}
+      }
+    },
+    {
+      "name": "partial_dup_a",
+      "user": "u_owner",
+      "filename": "partial_dup_a.csv",
+      "fixture_path": "tests/fixtures/csv_import/partial_dup_a.csv",
+      "write_mode": "journal",
+      "idempotency_enabled": true,
+      "force": false,
+      "scenario_tags": [
+        "partial_duplicate"
+      ],
+      "expected_summary": {
+        "skipped_duplicate_batch": false,
+        "rows_new": 1,
+        "rows_duplicate": 0,
+        "rows_error": 0,
+        "count_journal": 1,
+        "count_simple": 0,
+        "duplicate_reasons": {},
+        "error_reasons": {}
+      }
+    },
+    {
+      "name": "partial_dup_b",
+      "user": "u_owner",
+      "filename": "partial_dup_b.csv",
+      "fixture_path": "tests/fixtures/csv_import/partial_dup_b.csv",
+      "write_mode": "journal",
+      "idempotency_enabled": true,
+      "force": false,
+      "scenario_tags": [
+        "partial_duplicate"
+      ],
+      "expected_summary": {
+        "skipped_duplicate_batch": false,
+        "rows_new": 0,
+        "rows_duplicate": 0,
+        "rows_error": 1,
+        "count_journal": 0,
+        "count_simple": 0,
+        "duplicate_reasons": {},
+        "error_reasons": {
+          "partial_duplicate_group": 1
+        }
+      }
+    }
+  ],
+  "sensitive_flow_probes": [
+    {
+      "name": "cross_user_transaction_delete",
+      "actor_user": "u_other",
+      "target_user": "u_owner",
+      "method": "POST",
+      "endpoint": "/transactions/delete/{tx_id}",
+      "expected_status": 302,
+      "must_not_include_account_keys": [
+        "owner_cash"
+      ]
+    },
+    {
+      "name": "cross_user_forecast_probe",
+      "actor_user": "u_other",
+      "target_user": "u_owner",
+      "method": "GET",
+      "endpoint": "/api/forecast.json?user_id={target_user_id}",
+      "expected_status": 200,
+      "must_not_include_account_keys": [
+        "owner_cash",
+        "owner_savings"
+      ]
+    }
+  ],
+  "expected": {
+    "reconcile_checks": {
+      "unmapped_transactions": 0,
+      "mismatched_links": 0,
+      "unbalanced_journal_entries": 0
+    },
+    "coverage_gates": {
+      "coverage_count_min": 0.99,
+      "coverage_amount_min": 0.995,
+      "unlinked_recent_max": 0
+    },
+    "dedupe_gates": {
+      "duplicate_batch_hits_min": 1,
+      "overlap_duplicate_rows_min": 1,
+      "partial_duplicate_group_errors_min": 1
+    },
+    "scope_gates": {
+      "cross_user_leakage_count": 0
+    },
+    "reports": {
+      "tb_monthly": {
+        "asset_bd": 1700.0,
+        "asset_balance": 2320.0,
+        "asset_period_debit": 1290.0,
+        "asset_period_credit": 670.0,
+        "liability_balance": 0.0,
+        "income_balance": 850.0,
+        "expense_balance": 230.0,
+        "grand_period_debit": 1540.0,
+        "grand_period_credit": 1540.0
+      },
+      "statements": {
+        "income": {
+          "revenue": 850.0,
+          "expense": 230.0,
+          "net_income": 620.0
+        },
+        "balance": {
+          "assets": 2320.0,
+          "liabilities": 0.0,
+          "equity": 2320.0,
+          "le_sum": 2320.0
+        },
+        "cashflow": {
+          "opening": 1500.0,
+          "closing": 2090.0,
+          "change": 590.0
+        }
+      },
+      "parity": {
+        "tb_vs_statement": true,
+        "statement_vs_pdf": true,
+        "tb_vs_pdf": true
+      }
+    }
+  }
+}

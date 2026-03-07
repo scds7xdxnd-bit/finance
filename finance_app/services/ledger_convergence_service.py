@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import datetime as _dt
 import hashlib
+from dataclasses import dataclass
 from decimal import Decimal
-from typing import Dict, List
+from typing import Dict
 
 from sqlalchemy import case, func
 
@@ -18,6 +19,19 @@ from finance_app.models.accounting_models import (
     TransactionJournalLink,
     TransactionLinkCandidate,
 )
+from finance_app.services.ledger_convergence_policy import (
+    LinkCandidateStatus,
+    LinkConfidence,
+    LinkReason,
+    is_auto_link_confidence,
+)
+
+
+@dataclass(frozen=True)
+class _LinkDecision:
+    confidence: LinkConfidence
+    reason: LinkReason
+    journal_entry_id: int | None = None
 
 
 def _norm_text(value: str | None) -> str:
@@ -49,10 +63,8 @@ def _row_key(
 
 def compute_convergence_metrics(user_id: int | None = None, recent_days: int = 90) -> Dict[str, object]:
     tx_q = Transaction.query
-    link_q = TransactionJournalLink.query
     if user_id is not None:
         tx_q = tx_q.filter(Transaction.user_id == int(user_id))
-        link_q = link_q.filter(TransactionJournalLink.user_id == int(user_id))
 
     total_legacy_tx = tx_q.count()
     linked_legacy_tx = (
@@ -136,23 +148,29 @@ def _upsert_candidate(
     user_id: int,
     transaction_id: int,
     journal_entry_id: int | None,
-    confidence: str,
-    reason: str,
+    confidence: LinkConfidence,
+    reason: LinkReason,
     score: float | None,
     source: str,
-    status: str = "pending_review",
+    status: LinkCandidateStatus = LinkCandidateStatus.PENDING_REVIEW,
 ) -> None:
+    confidence_value = confidence.value
+    reason_value = reason.value
+    status_value = status.value
+    now = _dt.datetime.utcnow()
     existing = (
-        TransactionLinkCandidate.query.filter_by(user_id=user_id, transaction_id=transaction_id, reason=reason)
+        TransactionLinkCandidate.query.filter_by(user_id=user_id, transaction_id=transaction_id, reason=reason_value)
         .order_by(TransactionLinkCandidate.created_at.desc())
         .first()
     )
     if existing:
         existing.journal_entry_id = journal_entry_id
-        existing.confidence = confidence
+        existing.confidence = confidence_value
         existing.score = score
-        existing.status = status
+        existing.status = status_value
         existing.source = source
+        if status != LinkCandidateStatus.PENDING_REVIEW:
+            existing.resolved_at = now
         return
 
     db.session.add(
@@ -160,26 +178,36 @@ def _upsert_candidate(
             user_id=user_id,
             transaction_id=transaction_id,
             journal_entry_id=journal_entry_id,
-            confidence=confidence,
-            reason=reason,
+            confidence=confidence_value,
+            reason=reason_value,
             score=score,
-            status=status,
+            status=status_value,
             source=source,
+            resolved_at=(None if status == LinkCandidateStatus.PENDING_REVIEW else now),
         )
     )
 
 
-def _strong_journal_for_transaction(tx: Transaction) -> tuple[int | None, str]:
+def _decide_from_row_keys(tx: Transaction) -> _LinkDecision:
     # Strong criterion uses stable row-level dedupe keys and exact 1:1 cardinality.
     if not tx.debit_account_id or not tx.credit_account_id:
-        return None, "weak_unlinked"
+        return _LinkDecision(
+            confidence=LinkConfidence.WEAK_AMBIGUOUS,
+            reason=LinkReason.WEAK_NO_STABLE_ID,
+        )
     try:
         debit_amt = Decimal(str(tx.debit_amount or 0)).quantize(Decimal("0.01"))
         credit_amt = Decimal(str(tx.credit_amount or 0)).quantize(Decimal("0.01"))
     except Exception:
-        return None, "weak_unlinked"
+        return _LinkDecision(
+            confidence=LinkConfidence.WEAK_AMBIGUOUS,
+            reason=LinkReason.WEAK_NO_STABLE_ID,
+        )
     if debit_amt <= 0 or credit_amt <= 0:
-        return None, "weak_unlinked"
+        return _LinkDecision(
+            confidence=LinkConfidence.WEAK_AMBIGUOUS,
+            reason=LinkReason.WEAK_NO_STABLE_ID,
+        )
 
     currency = "KRW"
     date_raw = tx.date or (tx.date_parsed.isoformat() if tx.date_parsed else "")
@@ -218,12 +246,42 @@ def _strong_journal_for_transaction(tx: Transaction) -> tuple[int | None, str]:
 
     d_entries = {int(r.journal_entry_id) for r in d_rows if r.journal_entry_id}
     c_entries = {int(r.journal_entry_id) for r in c_rows if r.journal_entry_id}
+    if not d_entries or not c_entries:
+        return _LinkDecision(
+            confidence=LinkConfidence.WEAK_AMBIGUOUS,
+            reason=LinkReason.WEAK_NO_STABLE_ID,
+        )
     intersection = d_entries.intersection(c_entries)
-    if len(intersection) == 1:
-        return next(iter(intersection)), "strong_row_key"
-    if len(intersection) > 1 or len(d_entries) > 1 or len(c_entries) > 1:
-        return None, "weak_ambiguous"
-    return None, "weak_unlinked"
+    if len(intersection) == 1 and len(d_entries) == 1 and len(c_entries) == 1:
+        return _LinkDecision(
+            confidence=LinkConfidence.STRONG,
+            reason=LinkReason.STRONG_ROW_KEY_UNIQUE,
+            journal_entry_id=next(iter(intersection)),
+        )
+    return _LinkDecision(
+        confidence=LinkConfidence.WEAK_AMBIGUOUS,
+        reason=LinkReason.WEAK_AMBIGUOUS_CARDINALITY,
+    )
+
+
+def _create_link_with_policy_guard(
+    *,
+    user_id: int,
+    transaction_id: int,
+    journal_entry_id: int,
+    source: str,
+    confidence: LinkConfidence,
+) -> None:
+    if not is_auto_link_confidence(confidence):
+        raise AssertionError("Weak candidates must never auto-link.")
+    db.session.add(
+        TransactionJournalLink(
+            user_id=user_id,
+            transaction_id=transaction_id,
+            journal_entry_id=journal_entry_id,
+            source=source,
+        )
+    )
 
 
 def backfill_links(
@@ -231,6 +289,7 @@ def backfill_links(
     user_id: int | None = None,
     dry_run: bool = True,
     max_rows: int | None = None,
+    source_marker: str | None = None,
 ) -> Dict[str, object]:
     q = Transaction.query
     if user_id is not None:
@@ -245,6 +304,7 @@ def backfill_links(
     created_strong = 0
     weak_candidates = 0
     already_linked = 0
+    marker = (source_marker or f"bf_{_dt.datetime.utcnow().strftime('%Y%m%d%H%M%S')}")[:40]
 
     for tx in q.all():
         scanned += 1
@@ -254,31 +314,67 @@ def backfill_links(
             continue
 
         # exact by explicit reference
-        exact_entry = JournalEntry.query.filter_by(user_id=tx.user_id, reference=f"TX:{tx.id}").first()
-        if exact_entry:
+        exact_entry_ids = [
+            int(row[0])
+            for row in db.session.query(JournalEntry.id).filter_by(user_id=tx.user_id, reference=f"TX:{tx.id}").all()
+        ]
+        if len(exact_entry_ids) == 1:
+            exact_entry_id = exact_entry_ids[0]
             if not dry_run:
-                db.session.add(
-                    TransactionJournalLink(
-                        user_id=tx.user_id,
-                        transaction_id=tx.id,
-                        journal_entry_id=exact_entry.id,
-                        source="exact_ref",
-                    )
+                _create_link_with_policy_guard(
+                    user_id=tx.user_id,
+                    transaction_id=tx.id,
+                    journal_entry_id=exact_entry_id,
+                    source=LinkReason.EXACT_TX_REF.value,
+                    confidence=LinkConfidence.EXACT,
+                )
+                _upsert_candidate(
+                    user_id=tx.user_id,
+                    transaction_id=tx.id,
+                    journal_entry_id=exact_entry_id,
+                    confidence=LinkConfidence.EXACT,
+                    reason=LinkReason.EXACT_TX_REF,
+                    score=1.0,
+                    source=marker,
+                    status=LinkCandidateStatus.AUTO_LINKED,
                 )
             created_exact += 1
             continue
+        if len(exact_entry_ids) > 1:
+            weak_candidates += 1
+            if not dry_run:
+                _upsert_candidate(
+                    user_id=tx.user_id,
+                    transaction_id=tx.id,
+                    journal_entry_id=None,
+                    confidence=LinkConfidence.WEAK_AMBIGUOUS,
+                    reason=LinkReason.WEAK_AMBIGUOUS_CARDINALITY,
+                    score=0.0,
+                    source=marker,
+                    status=LinkCandidateStatus.PENDING_REVIEW,
+                )
+            continue
 
         # strong by stable row-level dedupe provenance
-        strong_entry_id, weak_reason = _strong_journal_for_transaction(tx)
-        if strong_entry_id:
+        decision = _decide_from_row_keys(tx)
+        if decision.confidence == LinkConfidence.STRONG and decision.journal_entry_id:
             if not dry_run:
-                db.session.add(
-                    TransactionJournalLink(
-                        user_id=tx.user_id,
-                        transaction_id=tx.id,
-                        journal_entry_id=strong_entry_id,
-                        source="strong_row_key",
-                    )
+                _create_link_with_policy_guard(
+                    user_id=tx.user_id,
+                    transaction_id=tx.id,
+                    journal_entry_id=int(decision.journal_entry_id),
+                    source=LinkReason.STRONG_ROW_KEY_UNIQUE.value,
+                    confidence=decision.confidence,
+                )
+                _upsert_candidate(
+                    user_id=tx.user_id,
+                    transaction_id=tx.id,
+                    journal_entry_id=int(decision.journal_entry_id),
+                    confidence=decision.confidence,
+                    reason=decision.reason,
+                    score=0.9,
+                    source=marker,
+                    status=LinkCandidateStatus.AUTO_LINKED,
                 )
             created_strong += 1
             continue
@@ -289,11 +385,11 @@ def backfill_links(
                 user_id=tx.user_id,
                 transaction_id=tx.id,
                 journal_entry_id=None,
-                confidence="weak",
-                reason=weak_reason,
+                confidence=LinkConfidence.WEAK_AMBIGUOUS,
+                reason=decision.reason,
                 score=0.0,
-                source="backfill",
-                status="pending_review",
+                source=marker,
+                status=LinkCandidateStatus.PENDING_REVIEW,
             )
 
     if not dry_run:
@@ -306,11 +402,13 @@ def backfill_links(
         "created_strong": created_strong,
         "weak_candidates": weak_candidates,
         "dry_run": bool(dry_run),
+        "source_marker": marker,
     }
 
 
 def reconcile_ledger(user_id: int | None = None) -> Dict[str, object]:
-    unmapped_q = (
+    # Deterministic count of legacy transactions with no explicit transaction_journal_link.
+    missing_links_q = (
         db.session.query(func.count(Transaction.id))
         .select_from(Transaction)
         .outerjoin(
@@ -321,8 +419,8 @@ def reconcile_ledger(user_id: int | None = None) -> Dict[str, object]:
         .filter(TransactionJournalLink.id == None)
     )
     if user_id is not None:
-        unmapped_q = unmapped_q.filter(Transaction.user_id == int(user_id))
-    unmapped_transactions = int(unmapped_q.scalar() or 0)
+        missing_links_q = missing_links_q.filter(Transaction.user_id == int(user_id))
+    missing_links_count = int(missing_links_q.scalar() or 0)
 
     # linked journal totals mismatch checks
     journal_totals = (
@@ -356,8 +454,9 @@ def reconcile_ledger(user_id: int | None = None) -> Dict[str, object]:
     )
     if user_id is not None:
         mismatch_q = mismatch_q.filter(Transaction.user_id == int(user_id))
-    mismatched_links = int(mismatch_q.scalar() or 0)
+    mismatched_totals = int(mismatch_q.scalar() or 0)
 
+    # Deterministic count of journal entries whose summed debit and credit diverge.
     unbalanced_q = (
         db.session.query(JournalLine.journal_id)
         .join(JournalEntry, JournalEntry.id == JournalLine.journal_id)
@@ -372,14 +471,16 @@ def reconcile_ledger(user_id: int | None = None) -> Dict[str, object]:
     )
     if user_id is not None:
         unbalanced_q = unbalanced_q.filter(JournalEntry.user_id == int(user_id))
-    unbalanced_journal_entries = int(unbalanced_q.count())
+    unbalanced_journals_count = int(unbalanced_q.count())
 
-    checks = {
-        "unmapped_transactions": unmapped_transactions,
-        "mismatched_links": mismatched_links,
-        "unbalanced_journal_entries": unbalanced_journal_entries,
-    }
+    passed = bool(
+        missing_links_count == 0
+        and mismatched_totals == 0
+        and unbalanced_journals_count == 0
+    )
     return {
-        "ok": all(v == 0 for v in checks.values()),
-        "checks": checks,
+        "pass": passed,
+        "missing_links_count": missing_links_count,
+        "mismatched_totals": mismatched_totals,
+        "unbalanced_journals_count": unbalanced_journals_count,
     }

@@ -375,25 +375,35 @@ def ledger_reconcile_cli(user_id, fail_on_mismatch, coverage_count_min, coverage
 
     summary = reconcile_ledger(user_id=user_id)
     metrics = compute_convergence_metrics(user_id=user_id)
+    reconcile_gates = {
+        "missing_links_count": int(summary.get("missing_links_count") or 0) == 0,
+        "mismatched_totals": int(summary.get("mismatched_totals") or 0) == 0,
+        "unbalanced_journals_count": int(summary.get("unbalanced_journals_count") or 0) == 0,
+    }
     gates = {
         "coverage_count": bool(float(metrics.get("coverage_count") or 0.0) >= float(coverage_count_min)),
         "coverage_amount": bool(float(metrics.get("coverage_amount") or 0.0) >= float(coverage_amount_min)),
         "unlinked_recent_90d_count": bool(int(metrics.get("unlinked_recent_90d_count") or 0) <= int(unlinked_recent_max)),
     }
-    gate_ok = all(gates.values())
+    gate_ok = all(gates.values()) and all(reconcile_gates.values())
     output = {
-        "ok": bool(summary.get("ok")) and bool(gate_ok),
-        "reconcile": summary,
-        "coverage": metrics,
+        "pass": bool(summary.get("pass")) and bool(gate_ok),
+        "unbalanced_journals_count": int(summary.get("unbalanced_journals_count") or 0),
+        "missing_links_count": int(summary.get("missing_links_count") or 0),
+        "mismatched_totals": int(summary.get("mismatched_totals") or 0),
+        "coverage_count": float(metrics.get("coverage_count") or 0.0),
+        "coverage_amount": float(metrics.get("coverage_amount") or 0.0),
+        "unlinked_recent_90d_count": int(metrics.get("unlinked_recent_90d_count") or 0),
         "gate_thresholds": {
             "coverage_count_min": float(coverage_count_min),
             "coverage_amount_min": float(coverage_amount_min),
             "unlinked_recent_max": int(unlinked_recent_max),
         },
-        "gates": gates,
+        "gates": {**reconcile_gates, **gates},
+        "fail_on_mismatch": bool(fail_on_mismatch),
     }
     click.echo(json.dumps(output, indent=2, sort_keys=True, default=str))
-    if fail_on_mismatch and not output["ok"]:
+    if fail_on_mismatch and not output["pass"]:
         raise click.exceptions.Exit(1)
 
 

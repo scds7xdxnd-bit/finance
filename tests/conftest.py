@@ -14,3 +14,8 @@ APP_ROOT = Path(__file__).resolve().parents[1]
 app_root_str = str(APP_ROOT)
 if app_root_str not in sys.path:
     sys.path.insert(0, app_root_str)
+
+TESTS_ROOT = Path(__file__).resolve().parent
+tests_root_str = str(TESTS_ROOT)
+if tests_root_str not in sys.path:
+    sys.path.insert(0, tests_root_str)

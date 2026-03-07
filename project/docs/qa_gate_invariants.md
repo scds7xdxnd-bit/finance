@@ -1,5 +1,5 @@
 # QA Gate Invariants
-_Last updated: 2026-03-06_
+_Last updated: 2026-03-07_
 
 This catalog defines the financial correctness invariants that must hold for protected-branch CI.
 
@@ -10,22 +10,22 @@ This catalog defines the financial correctness invariants that must hold for pro
 1. `INV-JRNL-001` Journal entry balance:
 `sum(D) - sum(C)` per `journal_entry.id` must be within `<= 0.01`.
 2. `INV-JRNL-002` No unbalanced journals in reconcile output:
-`reconcile.checks.unbalanced_journal_entries == 0`.
+`reconcile.unbalanced_journals_count == 0`.
 
 ### `GATE-LINKING` (link quality + coverage)
 
 1. `INV-LINK-001` Weak auto-links are forbidden:
 no `transaction_journal_link.source` may start with `weak`.
 2. `INV-LINK-002` Reconcile mismatches are forbidden:
-`reconcile.checks.mismatched_links == 0`.
+`reconcile.mismatched_totals == 0`.
 3. `INV-LINK-003` Reconcile unmapped transactions are forbidden:
-`reconcile.checks.unmapped_transactions == 0`.
+`reconcile.missing_links_count == 0`.
 4. `INV-LINK-004` Coverage count threshold:
-`coverage.coverage_count >= coverage_count_min`.
+`reconcile.coverage_count >= coverage_count_min`.
 5. `INV-LINK-005` Coverage amount threshold:
-`coverage.coverage_amount >= coverage_amount_min`.
+`reconcile.coverage_amount >= coverage_amount_min`.
 6. `INV-LINK-006` Recent unlinked threshold:
-`coverage.unlinked_recent_90d_count <= unlinked_recent_max`.
+`reconcile.unlinked_recent_90d_count <= unlinked_recent_max`.
 
 ### `GATE-DEDUPE` (CSV idempotency + overlap handling)
 
