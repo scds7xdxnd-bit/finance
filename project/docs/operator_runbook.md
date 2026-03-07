@@ -42,11 +42,21 @@
 
 ## 6) Reconcile
 - Execute reconciliation gate:
-  - `python3 -m flask --app finance_app ledger-reconcile --fail-on-mismatch`
+  - `python3 -m flask --app finance_app ledger-reconcile`
 - Default cutover thresholds enforced by `ledger-reconcile`:
   - `coverage_count >= 0.99`
   - `coverage_amount >= 0.995`
   - `unlinked_recent_90d_count <= 0`
+- CLI output schema (machine-readable, deterministic):
+  - `pass`
+  - `unbalanced_journals_count`
+  - `missing_links_count`
+  - `mismatched_totals`
+  - `coverage_count`
+  - `coverage_amount`
+  - `unlinked_recent_90d_count`
+- Override flag (non-default, incident/debug only):
+  - `python3 -m flask --app finance_app ledger-reconcile --no-fail-on-mismatch`
 - Do not cut over report paths if this command fails.
 
 ## 7) Cutover
@@ -63,3 +73,38 @@
 - Restore from snapshot metadata:
   - `python3 -m flask --app finance_app tb-reset-restore --snapshot-id <id>`
 - Re-run `schema-status` and `ledger-reconcile`.
+
+## 10) Release Checklist (Merge Train Gate)
+Run in order and do not proceed on failures.
+
+1. Schema capability gate:
+   - `python3 -m flask --app finance_app schema-status`
+   - Pass criteria:
+     - exit code `0`
+     - `ok=true`
+     - required capabilities present (`tx_linking`, `link_candidates`, `csv_idempotency`, `tb_snapshot`, `admin_audit`, `journal_report_perf`)
+2. Migration smoke:
+   - `python3 scripts/migration_smoke_vnext.py`
+   - Pass criteria:
+     - top-level `ok=true`
+     - `failed_checks=[]`
+3. Reconcile release gate:
+   - `python3 -m flask --app finance_app ledger-reconcile`
+   - Pass criteria:
+     - exit code `0`
+     - `pass=true`
+     - `unbalanced_journals_count=0`
+     - `missing_links_count=0`
+     - `mismatched_totals=0`
+     - `coverage_count >= 0.99`
+     - `coverage_amount >= 0.995`
+     - `unlinked_recent_90d_count <= 0`
+4. Test gates:
+   - `pytest -q tests/test_transaction_import_idempotency.py`
+   - `pytest -q tests/test_ledger_convergence.py`
+   - `pytest -q tests/test_ranked_reporting_cutover.py`
+   - Pass criteria:
+     - all commands exit `0`
+5. Incident fallback policy:
+   - if reporting fallback is used, it must be `legacy` only, never `mixed`
+   - fallback window must be time-boxed to 7 days maximum
