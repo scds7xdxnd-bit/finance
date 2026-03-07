@@ -486,6 +486,13 @@
     let CURRENT_ENTRY_TRANSACTION_ID = null;
     let ACTIVE_SUGGESTION_ROW = null;
 
+    function getCsrfToken(){
+      const tokenFromWindow = (window.FINANCE_CSRF_TOKEN || '').trim();
+      if (tokenFromWindow) return tokenFromWindow;
+      const meta = document.querySelector('meta[name="csrf-token"]');
+      return ((meta && meta.getAttribute('content')) || '').trim();
+    }
+
     function generateId(prefix){
       if (window.crypto && window.crypto.randomUUID){
         return `${prefix}-${window.crypto.randomUUID()}`;
@@ -824,7 +831,7 @@
       try {
         await fetch(ML_SUGGESTION_LOG_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrfToken() },
           body: JSON.stringify({ logs })
         });
       } catch (err) {
@@ -859,7 +866,7 @@
         const payload = { date, description, lines: lines.map(l => ({ dc:l.dc, account:l.account, amount:l.amount, memo:l.memo })) };
         const res = await fetch('{{ url_for("transactions_bp.add_transaction") }}', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrfToken() },
           body: JSON.stringify(payload)
         });
         const data = await res.json().catch(() => ({}));
@@ -923,7 +930,7 @@
         const started = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
         const res = await fetch(ML_SUGGESTIONS_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrfToken() },
           body: JSON.stringify(payload)
         });
         const data = await res.json().catch(() => ({}));
@@ -1114,7 +1121,11 @@
         const fd = new FormData();
         fd.append('csv_file', inp.files[0]);
         try{
-          const res = await fetch('{{ url_for("transactions_bp.upload_csv") }}', { method:'POST', body: fd });
+          const res = await fetch('{{ url_for("transactions_bp.upload_csv") }}', {
+            method:'POST',
+            headers: { 'X-CSRF-Token': getCsrfToken() },
+            body: fd
+          });
           if (res.ok){ updateTxListFromURL('{{ url_for("transactions_bp.transactions") }}'); }
         }catch(err){ console.error(err); }
       };
@@ -1127,7 +1138,7 @@
       try{
         await fetch('{{ url_for("journal_bp.journal_feedback") }}', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrfToken() },
           body: JSON.stringify({ accepted: accepted, suggestion: suggestion, context: { page: location.pathname } })
         });
       }catch(err){ console.warn('Failed sending feedback', err); }

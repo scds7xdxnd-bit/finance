@@ -9,7 +9,7 @@ import tempfile
 from collections import defaultdict
 
 from finance_app.extensions import db
-from finance_app.lib.auth import current_user
+from finance_app.lib.auth import csrf_token_valid, current_user, require_admin
 from finance_app.lib.dates import _parse_date_tuple
 from finance_app.models.accounting_models import (
     AdminActionAudit,
@@ -22,14 +22,14 @@ from finance_app.models.accounting_models import (
 )
 from finance_app.models.user_models import User, UserPost, UserProfile
 from finance_app.services.account_service import _BG_JOBS, start_background_assign_account_ids
-from finance_app.services.schema_guard_service import guard_capabilities
+from finance_app.services.schema_guard_service import guard_capabilities, validate_schema_guard_bypass
 from finance_app.services.user_model_service import (
     list_user_model_statuses,
     start_background_user_model_training,
     train_user_model,
     user_model_status,
 )
-from flask import Blueprint, Response, current_app, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, Response, current_app, flash, redirect, render_template, request, url_for
 from ml.journal_model import JournalModel  # import the new ML module
 from sqlalchemy import func
 
@@ -37,12 +37,11 @@ admin_bp = Blueprint('admin_bp', __name__)
 
 
 def _csrf_ok() -> bool:
-    token = request.headers.get("X-CSRF-Token") or request.form.get("csrf_token")
-    return bool(token and token == session.get("csrf_token"))
+    return csrf_token_valid()
 
 
 def _now_ms() -> int:
-    return int(_dt.datetime.utcnow().timestamp() * 1000)
+    return int(_dt.datetime.now(_dt.timezone.utc).timestamp() * 1000)
 
 
 def _cooldown_seconds() -> int:
@@ -111,13 +110,35 @@ def _guard_admin_mutations():
         flash('Admin access required.')
         return redirect(url_for('auth_bp.login'))
     if not _csrf_ok():
-        flash('CSRF token missing or invalid.')
-        return redirect(url_for('admin_bp.admin_tools'))
+        return {"ok": False, "error": "CSRF token missing or invalid."}, 400
     enforce_guard = bool(current_app.config.get("SCHEMA_GUARD_ENFORCE", True))
+    bypass_ok, bypass_meta = validate_schema_guard_bypass(current_app.config)
+    if not bypass_ok:
+        return bypass_meta, 503
+    if not enforce_guard:
+        current_app.logger.warning(
+            "schema_guard_bypass_enabled path=%s method=%s user_id=%s until=%s reason=%s",
+            request.path,
+            request.method,
+            user.id,
+            bypass_meta.get("until"),
+            bypass_meta.get("reason"),
+        )
+        _audit_admin_action(
+            actor_user_id=user.id,
+            action="schema_guard_bypass",
+            target_type="endpoint",
+            target_id=request.path,
+            status="warning",
+            reason=str(bypass_meta.get("reason") or "bypass_enabled")[:255],
+            details={
+                "method": request.method,
+                "until": bypass_meta.get("until"),
+            },
+        )
     ok_guard, payload, _status = guard_capabilities(["admin_audit"], enforce=enforce_guard)
     if not ok_guard:
-        flash((payload or {}).get("error") or "Schema capability requirements not met.")
-        return redirect(url_for('admin_bp.admin_tools'))
+        return payload, 503
     return None
 
 
@@ -307,6 +328,7 @@ def admin():
 
 
 @admin_bp.route('/admin/grant/<int:user_id>', methods=['POST'])
+@require_admin
 def grant_admin(user_id):
     user = current_user()
     if not user or not user.is_admin:
@@ -349,6 +371,7 @@ def grant_admin(user_id):
 
 
 @admin_bp.route('/admin/delete/<int:user_id>', methods=['POST'])
+@require_admin
 def delete_user(user_id):
     user = current_user()
     if not user or not user.is_admin:
@@ -412,6 +435,7 @@ def delete_user(user_id):
 
 
 @admin_bp.route('/admin/revoke/<int:user_id>', methods=['POST'])
+@require_admin
 def revoke_admin(user_id):
     user = current_user()
     if not user or not user.is_admin:
@@ -744,6 +768,7 @@ def admin_weasy_diagnostics():
 
 
 @admin_bp.route('/admin/suggestions/train', methods=['POST'])
+@require_admin
 def admin_train_suggestions():
     user = current_user()
     if not user or not user.is_admin:
@@ -781,6 +806,7 @@ def admin_train_suggestions():
 
 
 @admin_bp.route('/admin/jobs/assign-account-ids', methods=['POST'])
+@require_admin
 def start_assign_account_ids_job():
     user = current_user()
     if not user or not user.is_admin:
@@ -828,6 +854,7 @@ def admin_jobs_status():
 
 
 @admin_bp.route('/admin/user-models/train', methods=['POST'])
+@require_admin
 def admin_train_user_model():
     user = current_user()
     if not user or not user.is_admin:
@@ -898,6 +925,7 @@ def admin_train_user_model():
 
 
 @admin_bp.route('/admin/jobs/train-user-models', methods=['POST'])
+@require_admin
 def start_train_user_models_job():
     user = current_user()
     if not user or not user.is_admin:

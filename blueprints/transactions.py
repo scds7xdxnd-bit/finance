@@ -2,10 +2,10 @@ import datetime
 import os
 
 from finance_app.extensions import db
-from finance_app.lib.auth import current_user
+from finance_app.lib.auth import csrf_token_valid, current_user
 from finance_app.lib.dates import _parse_date_tuple
 from finance_app.models.accounting_models import Account, JournalEntry, JournalLine, Transaction
-from finance_app.services.schema_guard_service import guard_capabilities
+from finance_app.services.schema_guard_service import guard_capabilities, validate_schema_guard_bypass
 from finance_app.services.transaction_import_service import import_csv_transactions
 from finance_app.services.transaction_service import delete_transaction_for_user
 from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
@@ -25,12 +25,18 @@ def _maybe_scan_file(path: str) -> None:
     return
 
 
+def _check_csrf() -> bool:
+    return csrf_token_valid()
+
+
 @transactions_bp.route('/upload_csv', methods=['POST'])
 def upload_csv():
     user = current_user()
     if not user:
         flash('Login required.')
         return redirect(url_for('auth_bp.login'))
+    if not _check_csrf():
+        return {"ok": False, "error": "CSRF token missing or invalid."}, 400
     file = request.files.get('csv_file')
     if not file or not file.filename:
         flash('Please upload a valid CSV file.')
@@ -42,10 +48,21 @@ def upload_csv():
         flash('File exceeds size limit.')
         return redirect(url_for('transactions_bp.transactions'))
     enforce_guard = bool(current_app.config.get("SCHEMA_GUARD_ENFORCE", True))
+    bypass_ok, bypass_meta = validate_schema_guard_bypass(current_app.config)
+    if not bypass_ok:
+        return bypass_meta, 503
+    if not enforce_guard:
+        current_app.logger.warning(
+            "schema_guard_bypass_enabled path=%s method=%s user_id=%s until=%s reason=%s",
+            request.path,
+            request.method,
+            user.id,
+            bypass_meta.get("until"),
+            bypass_meta.get("reason"),
+        )
     ok_guard, payload, _ = guard_capabilities(["csv_idempotency"], enforce=enforce_guard)
     if not ok_guard:
-        flash((payload or {}).get("error") or "Schema capability requirements not met.")
-        return redirect(url_for('transactions_bp.transactions'))
+        return payload, 503
     try:
         upload_root = current_app.config.get("UPLOAD_FOLDER") or "instance/uploads"
         os.makedirs(upload_root, exist_ok=True)
@@ -338,6 +355,8 @@ def transactions():
 
 @transactions_bp.route('/transactions/delete/<int:tx_id>', methods=['POST'])
 def delete_transaction(tx_id):
+    if not _check_csrf():
+        return {"ok": False, "error": "CSRF token missing or invalid."}, 400
     user = current_user()
     if not delete_transaction_for_user(tx_id, user):
         flash('Unauthorized.' if user else 'Login required.')
@@ -353,6 +372,8 @@ def add_transaction():
         return ("Unauthorized", 401)
     # JSON API used by the transactions.html UI
     if request.method == 'POST' and request.is_json:
+        if not _check_csrf():
+            return {'ok': False, 'error': 'CSRF token missing or invalid.'}, 400
         data = request.get_json(silent=True) or {}
         ok, result, status = save_transaction(data)
         return (result, status)

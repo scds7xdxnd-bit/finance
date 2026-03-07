@@ -1,10 +1,10 @@
 # vNext Architecture Overview
 _Last updated: 2026-03-07_
 
-## Scope
+## 10.1 Scope
 This document defines the canonical runtime architecture for correctness-critical finance flows (ledger posting, CSV import, convergence, reporting, schema guard, and release gates).
 
-## High-Level Module Graph (Text Diagram)
+## 10.2 High-Level Module Graph (Text Diagram)
 ```text
 Clients (browser, API callers, CLI operator)
     |
@@ -37,7 +37,7 @@ Operational Plane
   - CI gate tests: tests/test_vnext_gate.py and related suites
 ```
 
-## Canonical Data Flows
+## 10.3 Canonical Data Flows
 
 ### 1) Journal Posting (Canonical Ledger Write)
 `/add_transaction` or service callers -> `finance_app/services/transaction_create_service.py` -> `finance_app/services/journal_service.py` -> `JournalEntry` + `JournalLine`.
@@ -72,7 +72,7 @@ Guarded routes/CLI call `finance_app/services/schema_guard_service.py`.
 
 Required capabilities are checked from actual schema artifacts (tables/columns/indexes/uniques/checks), not only migration revision string.
 
-## Runtime Boundaries (Enforced Contract)
+## 10.4 Runtime Boundaries (Enforced Contract)
 
 ### Route/Blueprint Boundary
 Route modules may:
@@ -111,7 +111,7 @@ Correctness-critical operator flows are CLI-owned:
 ### Test/Gate Boundary
 Quality gates in `tests/test_vnext_gate.py` and related suites are release-blocking references for contract compliance.
 
-## Authoritative Runtime Entry Points
+## 10.5 Authoritative Runtime Entry Points
 - App factory: `finance_app/__init__.py`
 - Blueprint registration: `finance_app/controllers/__init__.py`
 - Accounting/report routes: `blueprints/accounting.py`

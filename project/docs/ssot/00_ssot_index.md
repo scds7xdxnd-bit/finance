@@ -1,12 +1,13 @@
 # Finance App SSOT Index
 _Last updated: 2026-03-07_
 
-## Purpose
+## 00.1 Purpose
 This directory is the Single Source of Truth (SSOT) for vNext financial correctness.
 
 SSOT exists to keep architecture, contracts, ownership, and gates in one place so Ledger, Import, DB, Reporting, QA, Sec, and PM can work independently without drift.
+Section IDs in this file and all SSOT files are stable citation anchors.
 
-## Locked Decisions (Do Not Relitigate)
+## 00.2 Locked Decisions (Do Not Relitigate)
 - Canonical ledger source of truth is `JournalEntry` and `JournalLine`.
 - Legacy `Transaction` is compatibility/emergency only.
 - Ranked reporting is journal-only by default.
@@ -18,7 +19,7 @@ SSOT exists to keep architecture, contracts, ownership, and gates in one place s
 - Canonical ledger query API is the reporting contract surface.
 - CI vNext gate enforces schema, dedupe, convergence, reporting parity, and scope invariants.
 
-## Source Precedence (Anti-Shadow-Truth Rule)
+## 00.3 Source Precedence (Anti-Shadow-Truth Rule)
 When sources disagree, precedence is:
 1. This SSOT directory (`project/docs/ssot/*`)
 2. Enforced code contracts (service/CLI/model constraints)
@@ -27,22 +28,23 @@ When sources disagree, precedence is:
 
 A PR is not mergeable if it introduces contradictory behavior across these layers.
 
-## How To Use SSOT
+## 00.4 How To Use SSOT
 - Start with `10_architecture_overview.md` for runtime boundaries and flow map.
 - Use `20`-`70` for domain and interface contracts.
 - Use `80_quality_gates.md` for CI/release acceptance criteria.
 - Use `90_operator_runbook.md` for operational procedures.
 - Use `99_team_boundaries.md` for ownership and change restrictions.
 
-## SSOT Change Control Protocol
+## 00.5 SSOT Change Control Protocol
 Any change to locked decisions, contract surfaces, or gate thresholds must satisfy all rules below in one PR:
 - Update impacted SSOT file(s).
 - Update or add tests and/or gate fixtures proving new behavior.
 - Update operator steps if runbook-relevant behavior changed.
 - Include section references in PR description (for example `SSOT 40.3`, `SSOT 80.2`).
 - Obtain architect signoff for stable interface changes listed in `99_team_boundaries.md`.
+- Include the mandatory `SSOT Impact` section from `.github/pull_request_template.md`.
 
-## Document Map
+## 00.6 Document Map
 | File | Purpose |
 | --- | --- |
 | `00_ssot_index.md` | SSOT policy, precedence, change control, map. |
@@ -57,15 +59,19 @@ Any change to locked decisions, contract surfaces, or gate thresholds must satis
 | `90_operator_runbook.md` | Backup/restore/migrate/backfill/reconcile/cutover/rollback operations. |
 | `99_team_boundaries.md` | Team ownership, stable interfaces, forbidden changes, signoff rules. |
 
-## PR Checklist Snippet
-Use this snippet in PR templates/descriptions:
+## 00.7 PR Checklist Snippet
+Use `.github/pull_request_template.md` as the source template. Minimum required SSOT block:
 
 ```md
-## SSOT Impact
+## SSOT Impact (Required)
 - [ ] I reviewed `project/docs/ssot/00_ssot_index.md` source precedence and change protocol.
-- [ ] This PR touches SSOT contract surfaces: `yes` / `no`.
-- [ ] If yes, I updated SSOT sections: `<file + section ids>`.
-- [ ] I added/updated tests or gates proving contract behavior: `<tests/gates>`.
+- [ ] This PR changes SSOT contract surfaces: `yes` / `no`.
+- [ ] If `yes`: I updated SSOT sections in `project/docs/ssot/*`.
+- [ ] If `yes`: I updated tests/gates proving behavior.
+- [ ] If `no`: I confirm behavior remains consistent with current SSOT.
 - [ ] I confirmed no forbidden changes from `project/docs/ssot/99_team_boundaries.md`.
-- [ ] If a stable interface changed, architect signoff is attached.
+
+### Required SSOT Section References
+- SSOT refs: `<SSOT 30.x, SSOT 40.x, SSOT 50.x, SSOT 60.x, SSOT 70.x, SSOT 80.x, SSOT 90.x>`
+- Rationale for each ref: `<why it applies>`
 ```

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as _dt
 import re
 from typing import Dict, Iterable, List, Tuple
 
@@ -210,3 +211,45 @@ def guard_capabilities(required_caps: Iterable[str], enforce: bool = True):
         }
         return False, payload, 503
     return True, {"ok": True, "capabilities": report.get("capabilities") or {}}, 200
+
+
+def validate_schema_guard_bypass(config) -> tuple[bool, dict]:
+    """Validate emergency schema-guard bypass metadata.
+
+    Contracts:
+      - only relevant when SCHEMA_GUARD_ENFORCE is false
+      - SCHEMA_GUARD_BYPASS_REASON must be present
+      - SCHEMA_GUARD_BYPASS_UNTIL must be an ISO datetime
+      - bypass window must be active and at most 7 days
+    """
+    enforce = bool(config.get("SCHEMA_GUARD_ENFORCE", True))
+    if enforce:
+        return True, {"ok": True, "enforce": True}
+
+    reason = str(config.get("SCHEMA_GUARD_BYPASS_REASON") or "").strip()
+    until_raw = str(config.get("SCHEMA_GUARD_BYPASS_UNTIL") or "").strip()
+    if not reason:
+        return False, {"ok": False, "error": "SCHEMA_GUARD_BYPASS_REASON is required when bypass is enabled."}
+    if not until_raw:
+        return False, {"ok": False, "error": "SCHEMA_GUARD_BYPASS_UNTIL is required when bypass is enabled."}
+
+    try:
+        normalized = until_raw[:-1] + "+00:00" if until_raw.endswith("Z") else until_raw
+        until_dt = _dt.datetime.fromisoformat(normalized)
+    except Exception:
+        return False, {"ok": False, "error": "SCHEMA_GUARD_BYPASS_UNTIL must be a valid ISO datetime."}
+
+    if until_dt.tzinfo is None:
+        until_dt = until_dt.replace(tzinfo=_dt.timezone.utc)
+    now = _dt.datetime.now(_dt.timezone.utc)
+    if until_dt <= now:
+        return False, {"ok": False, "error": "SCHEMA_GUARD_BYPASS_UNTIL is expired."}
+    if (until_dt - now) > _dt.timedelta(days=7):
+        return False, {"ok": False, "error": "SCHEMA_GUARD_BYPASS_UNTIL exceeds 7-day emergency window."}
+
+    return True, {
+        "ok": True,
+        "enforce": False,
+        "reason": reason,
+        "until": until_dt.isoformat(),
+    }

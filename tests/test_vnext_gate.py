@@ -68,6 +68,7 @@ def _metric(payload: dict[str, Any], *keys: str) -> Any:
 def _login(client, user_id: int) -> None:
     with client.session_transaction() as sess:
         sess["user_id"] = int(user_id)
+        sess["csrf_token"] = "test-token"
 
 
 def _user_counts(user_id: int) -> dict[str, int]:
@@ -785,7 +786,11 @@ def test_vnext_gate(gate_app, monkeypatch):
 
         other_client = gate_app.test_client()
         _login(other_client, other_id)
-        delete_resp = other_client.post(f"/transactions/delete/{owner_tx_id}", follow_redirects=False)
+        delete_resp = other_client.post(
+            f"/transactions/delete/{owner_tx_id}",
+            follow_redirects=False,
+            headers={"X-CSRF-Token": "test-token"},
+        )
         _assert_inv(
             "INV-SCOPE-001",
             delete_resp.status_code in (302, 401, 403),
