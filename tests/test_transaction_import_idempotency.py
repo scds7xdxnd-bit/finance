@@ -4,10 +4,11 @@ import os
 from pathlib import Path
 
 import pytest
+from sqlalchemy import inspect
 from finance_app import User, create_app, db
 from finance_app.models.accounting_models import CsvImportBatch, JournalEntry, Transaction, TransactionJournalLink
 from finance_app.services.transaction_create_service import save_transaction_payload
-from finance_app.services.transaction_import_service import import_csv_transactions
+from finance_app.services.transaction_import_service import _row_dedupe_key, import_csv_transactions
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "csv_import"
 
@@ -140,3 +141,34 @@ def test_dual_write_mode_creates_link(app_ctx):
         assert JournalEntry.query.count() == 1
         assert Transaction.query.count() == 1
         assert TransactionJournalLink.query.count() == 1
+
+
+def test_row_dedupe_key_contract_locked_to_unique_constraint(app_ctx):
+    app, _user_id = app_ctx
+    with app.app_context():
+        insp = inspect(db.engine)
+        unique_by_name = {
+            row.get("name"): tuple(row.get("column_names") or ())
+            for row in insp.get_unique_constraints("csv_import_row")
+        }
+        assert unique_by_name["uq_csv_import_row_user_account_direction_key"] == (
+            "user_id",
+            "account_id",
+            "direction",
+            "row_dedupe_key",
+        )
+
+        base = {
+            "date_token": "2026/03/01",
+            "amount": 10,
+            "currency": "KRW",
+            "counterparty_norm": "market",
+            "external_txn_id": None,
+        }
+        key_d = _row_dedupe_key(account_id=11, direction="D", **base)
+        key_c = _row_dedupe_key(account_id=11, direction="C", **base)
+        key_other_account = _row_dedupe_key(account_id=12, direction="D", **base)
+
+        # Contract lock: account_id and direction are dimensions both in the key and DB uniqueness tuple.
+        assert key_d != key_c
+        assert key_d != key_other_account
