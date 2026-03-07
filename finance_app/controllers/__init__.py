@@ -8,7 +8,7 @@ def register_blueprints(app):
     from blueprints.journal import journal_bp
     from blueprints.money_schedule import bp as money_schedule_bp
     from blueprints.transactions import transactions_bp
-    from blueprints.user import user_bp
+    from finance_app.blueprints.user import user_bp
     from routes import forecast_bp  # legacy module outside package
 
     from finance_app.controllers.core import core_bp

@@ -82,7 +82,6 @@ def _profile_pic_url(raw_path: str | None) -> str | None:
     return _default_profile_pic_url()
 
 
-@user_bp.route('/profile_pics/<path:filename>')
 def profile_picture_file(filename):
     user = current_user()
     if not user:
