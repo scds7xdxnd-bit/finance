@@ -1,0 +1,406 @@
+{% extends "base.html" %}
+{% block title %}Suggestion Telemetry - Finance App{% endblock %}
+
+{% block styles %}
+  {{ super() }}
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --surface: #ffffff;
+      --surface-muted: #f7f8fa;
+      --muted: #f7f8fa;
+      --border: #e0e5ec;
+      --text-strong: #14202b;
+      --text-muted: #5b6470;
+      --accent: #0f7b5f;
+      --accent-strong: #0c5c48;
+      --accent-soft: #d8f1e7;
+      --positive: #0f7b5f;
+      --negative: #b3352f;
+    }
+    body {
+      background: var(--surface-muted);
+      font-family: "Inter","Apple SD Gothic Neo",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      color: var(--text-strong);
+    }
+    .profile-cover { display: none !important; }
+    .profile-main { background: transparent; box-shadow: none; padding: 0; max-width: none; top: 0; }
+
+    .as { max-width: 1280px; margin: 0 auto; padding: 0 32px 64px; display: flex; flex-direction: column; gap: 24px; box-sizing: border-box; }
+    .as-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 8px 24px rgba(15, 32, 46, 0.06); overflow: hidden; }
+
+    .as-head { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 20px; padding: 32px; margin-top: 20px; }
+    .as-eyebrow { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); font-weight: 600; }
+    .as-head h1 { margin: 6px 0 10px; font-size: 30px; font-weight: 600; }
+    .as-lede { margin: 0; color: var(--text-muted); max-width: 680px; line-height: 1.5; }
+    .as-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; min-width: 260px; }
+    .as-meta-block { border-left: 2px solid var(--border); padding-left: 16px; display: flex; flex-direction: column; gap: 4px; }
+    .as-meta-block span { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+    .as-meta-block strong { font-size: 1.4rem; color: var(--accent); }
+    .as-meta-block small { color: var(--text-muted); font-size: 0.82rem; }
+
+    .as-toolbar { padding: 22px 28px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; align-items: end; }
+    .as-filter { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .as-filter label { font-size: 0.9rem; font-weight: 600; color: var(--text-muted); }
+    .as-select { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; font-size: 0.95rem; background: #fff; color: var(--text-strong); min-width: 200px; }
+    .as-toolbar-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+
+    .as-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 999px; padding: 10px 18px; font-weight: 600; font-size: 0.95rem; cursor: pointer; border: 1px solid transparent; background: transparent; color: var(--text-strong); text-decoration: none; transition: background 0.2s, color 0.2s, border 0.2s; }
+    .as-btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .as-btn-primary:hover { background: var(--accent-strong); }
+    .as-btn-ghost { border-color: var(--border); color: var(--accent); }
+    .as-btn-ghost:hover { background: var(--accent-soft); color: var(--accent-strong); }
+
+    .as-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .as-stat { padding: 20px 22px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); display: flex; flex-direction: column; gap: 6px; }
+    .as-stat h3 { margin: 0; font-size: 1rem; }
+    .as-stat .meta { color: var(--text-muted); font-size: 0.88rem; }
+    .as-stat .value { font-size: 1.6rem; font-weight: 700; color: var(--accent); }
+    .as-stat .subvalue { font-size: 0.9rem; color: var(--text-muted); }
+    .as-chart { height: 180px; }
+
+    .as-panel { padding: 22px 24px 26px; display: flex; flex-direction: column; gap: 14px; }
+    .as-panel header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .as-panel h3 { margin: 0; font-size: 1.1rem; }
+    .as-panel p { margin: 0; color: var(--text-muted); }
+
+    .as-table-wrapper { width: 100%; overflow-x: auto; }
+    table.as-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; min-width: 620px; }
+    table.as-table th { text-align: left; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.75rem; color: var(--text-muted); padding: 10px 8px; border-bottom: 2px solid var(--border); }
+    table.as-table td { padding: 10px 8px; border-bottom: 1px solid var(--border); }
+    table.as-table td.num { text-align: right; }
+
+    .as-empty { padding: 22px; text-align: center; color: var(--text-muted); border: 2px dashed var(--border); border-radius: 12px; background: var(--muted); }
+    .as-badge { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 4px 10px; font-size: 0.82rem; font-weight: 600; background: var(--accent-soft); color: var(--accent-strong); }
+
+    .as-search { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; background: #fff; }
+    .as-search input { border: none; outline: none; font-size: 0.95rem; width: 220px; }
+    .as-search .fa { color: var(--text-muted); }
+
+    @media (max-width: 768px) {
+      .as { padding: 0 16px 48px; }
+      .as-head { padding: 24px; }
+      .as-toolbar { padding: 18px; }
+      table.as-table { min-width: 540px; }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="as">
+  <header class="as-card as-head">
+    <div>
+      <div class="as-eyebrow">Model telemetry</div>
+      <h1>Suggestion Telemetry</h1>
+      <p class="as-lede">Monitor rank-aware feedback, latency, and corpus health to keep the suggester reliable.</p>
+    </div>
+    <div class="as-meta">
+      <div class="as-meta-block">
+        <span>Logged suggestions</span>
+        <strong>{{ stats.coverage_total }}</strong>
+        <small>Window {{ stats.window }} · Graded {{ stats.reward_samples or 0 }}</small>
+      </div>
+      <div class="as-meta-block">
+        <span>Top-1 hit rate</span>
+        <strong>{{ '%.1f'|format((stats.top1_rate or 0)*100) }}%</strong>
+        <small>Top-3 {{ '%.1f'|format((stats.top3_rate or 0)*100) }}% · Manual {{ '%.1f'|format((stats.manual_rate or 0)*100) }}%</small>
+      </div>
+      <div class="as-meta-block">
+        <span>Reward / MRR</span>
+        <strong>{{ '%.2f'|format(stats.avg_reward or 0) }} / {{ '%.2f'|format(stats.avg_mrr or 0) }}</strong>
+        <small>{{ stats.reward_samples or 0 }} graded events</small>
+      </div>
+      <div class="as-meta-block">
+        <span>Latency p50 / p95</span>
+        <strong>{{ '%.0f'|format(stats.latency_p50 or 0) }} / {{ '%.0f'|format(stats.latency_p95 or 0) }} ms</strong>
+        <small>Avg {{ '%.0f'|format(stats.latency_avg or 0) }} ms · Errors {{ stats.errors_total }}</small>
+      </div>
+    </div>
+  </header>
+
+  <section class="as-card as-toolbar">
+    <form class="as-filter" method="GET" action="{{ url_for('admin_bp.admin_suggestions') }}">
+      <label for="user_id">User</label>
+      <select class="as-select" name="user_id" id="user_id">
+        <option value="" {% if not selected_user_id %}selected{% endif %}>All users</option>
+        {% for u in all_users %}
+          <option value="{{ u.id }}" {% if selected_user_id == u.id %}selected{% endif %}>{{ u.username }}</option>
+        {% endfor %}
+      </select>
+      <label for="days">Window</label>
+      <select class="as-select" name="days" id="days">
+        <option value="" {% if not request.args.get('days') %}selected{% endif %}>All time</option>
+        <option value="7" {% if request.args.get('days') == '7' %}selected{% endif %}>Last 7 days</option>
+        <option value="30" {% if request.args.get('days') == '30' %}selected{% endif %}>Last 30 days</option>
+        <option value="90" {% if request.args.get('days') == '90' %}selected{% endif %}>Last 90 days</option>
+      </select>
+      <button class="as-btn as-btn-ghost" type="submit"><i class="fa fa-filter"></i> Apply</button>
+      <span class="as-badge">Viewing: {{ selected_user.username if selected_user else 'All users' }} · {{ stats.window }}</span>
+  </form>
+</section>
+
+  <section class="as-grid">
+    <div class="as-card as-stat">
+      <h3>Logged suggestions</h3>
+      <div class="value">{{ stats.coverage_total }}</div>
+      <div class="meta">Requests with telemetry</div>
+      <div class="subvalue">Graded {{ stats.reward_samples or 0 }} · Feedback rows {{ stats.feedback_total }}</div>
+    </div>
+    <div class="as-card as-stat">
+      <h3>Top-1 hit rate</h3>
+      <div class="value">{{ '%.1f'|format((stats.top1_rate or 0)*100) }}%</div>
+      <div class="meta">Percentage of events where rank-1 matched</div>
+      <div class="subvalue">Top-3: {{ '%.1f'|format((stats.top3_rate or 0)*100) }}% · Manual: {{ '%.1f'|format((stats.manual_rate or 0)*100) }}%</div>
+    </div>
+    <div class="as-card as-stat">
+      <h3>Reward & MRR</h3>
+      <div class="value">{{ '%.2f'|format(stats.avg_reward or 0) }} / {{ '%.2f'|format(stats.avg_mrr or 0) }}</div>
+      <div class="meta">Avg reward · Avg MRR</div>
+      <div class="subvalue">{{ stats.reward_samples or 0 }} graded samples · {{ stats.mrr_samples or stats.reward_samples or 0 }} MRR samples</div>
+    </div>
+    <div class="as-card as-stat">
+      <h3>Training corpus</h3>
+      <div class="value">{{ stats.total_hints }}</div>
+      <div class="meta">Hints gathered for model</div>
+      <div class="subvalue">{{ stats.distinct_tokens }} tokens · {{ stats.distinct_pairs }} pairs · D {{ stats.debit_hints }} / C {{ stats.credit_hints }}</div>
+    </div>
+    <div class="as-card as-stat">
+      <h3>Latency & coverage</h3>
+      <div class="value">{{ '%.0f'|format(stats.latency_p50 or 0) }} / {{ '%.0f'|format(stats.latency_p95 or 0) }} ms</div>
+      <div class="meta">p50 / p95 latency</div>
+      <div class="subvalue">Avg {{ '%.0f'|format(stats.latency_avg or 0) }} ms · Coverage {{ stats.coverage_total }} · Fallbacks {{ stats.fallback_total or 0 }} · Errors {{ stats.errors_total }}</div>
+    </div>
+    <div class="as-card as-stat">
+      <h3>Status mix</h3>
+      <div class="value">{{ stats.status_counts.get('ok',0) }} / {{ stats.status_counts.get('fallback',0) }} / {{ stats.status_counts.get('error',0) }}</div>
+      <div class="meta">OK / Fallback / Error logs</div>
+      <div class="subvalue">Window: {{ stats.window }}</div>
+    </div>
+    <div class="as-card as-stat">
+      <h3>Latency trend</h3>
+      <canvas id="latency-chart" class="as-chart"></canvas>
+      <div class="subvalue">p50 {{ '%.0f'|format(stats.latency_p50 or 0) }} ms · p95 {{ '%.0f'|format(stats.latency_p95 or 0) }} ms</div>
+    </div>
+    <div class="as-card as-stat">
+      <h3>Status mix chart</h3>
+      <canvas id="status-chart" class="as-chart"></canvas>
+      <div class="subvalue">OK / Fallback / Error</div>
+    </div>
+    <div class="as-card as-stat">
+      <h3>Rank distribution</h3>
+      <canvas id="rank-chart" class="as-chart"></canvas>
+      <div class="subvalue">Ranked picks vs manual selections</div>
+    </div>
+  </section>
+
+  <section class="as-card as-panel">
+    <header>
+      <div>
+        <h3>Top rank misses</h3>
+        <p>Cases where the user chose something other than the top-1 prediction.</p>
+      </div>
+    </header>
+    {% if rank_misses %}
+      <div class="as-table-wrapper">
+        <table class="as-table">
+          <thead>
+            <tr>
+              <th>Predicted top-1</th>
+              <th>Chosen/manual</th>
+              <th class="num">Count</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rank_misses %}
+              <tr>
+                <td>{{ row.predicted or '—' }}</td>
+                <td>{{ row.chosen or '—' }}</td>
+                <td class="num">{{ row.count }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="as-empty">No rank misses recorded yet.</div>
+    {% endif %}
+  </section>
+
+  <section class="as-card as-panel">
+    <header>
+      <div>
+        <h3>Top errors / fallbacks</h3>
+        <p>Most frequent error codes or fallback reasons from suggestion logs.</p>
+      </div>
+    </header>
+    {% if stats.error_codes %}
+      <div class="as-table-wrapper">
+        <table class="as-table">
+          <thead>
+            <tr>
+              <th>Error code</th>
+              <th class="num">Count</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for code, cnt in stats.error_codes.items()|sort(attribute=1, reverse=true) %}
+              <tr>
+                <td>{{ code }}</td>
+                <td class="num">{{ cnt }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="as-empty">No errors or fallbacks recorded.</div>
+    {% endif %}
+  </section>
+
+  {% if model_stats %}
+    <section class="as-card as-panel">
+      <header>
+        <div>
+          <h3>ML model stats</h3>
+          <p>Operational health of the active suggestion model.</p>
+        </div>
+      </header>
+      <div class="as-grid">
+        <div class="as-stat">
+          <h3>Model version</h3>
+          <div class="value">{{ model_stats.latest_model_version or 'n/a' }}</div>
+          <div class="meta">Hash {{ model_stats.latest_model_hash or '—' }}</div>
+          <div class="subvalue">{{ model_stats.latest_model_path or 'Path unknown' }}</div>
+        </div>
+        <div class="as-stat">
+          <h3>Graded feedback</h3>
+          <div class="value">{{ '%.2f'|format(stats.avg_reward or 0) }} · {{ '%.2f'|format(stats.avg_mrr or 0) }}</div>
+          <div class="meta">Avg reward · Avg MRR</div>
+        </div>
+        <div class="as-stat">
+          <h3>Cooccurrence pairs</h3>
+          <div class="value">{{ model_stats.cooccurrence_pairs }}</div>
+          <div class="meta">Account pairing signals</div>
+        </div>
+        <div class="as-stat">
+          <h3>Embeddings</h3>
+          <div class="value">{{ 'Yes' if model_stats.has_embeddings else 'No' }}</div>
+          <div class="meta">Vector coverage</div>
+        </div>
+      </div>
+      {% if model_stats.model_versions %}
+        <div class="as-table-wrapper">
+          <table class="as-table">
+            <thead>
+              <tr>
+                <th>Model version</th>
+                <th class="num">Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ver, cnt in model_stats.model_versions.items()|sort(attribute=1, reverse=true) %}
+                <tr>
+                  <td>{{ ver }}</td>
+                  <td class="num">{{ cnt }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+      {% if model_stats.model_hashes %}
+        <div class="as-table-wrapper">
+          <table class="as-table">
+            <thead>
+              <tr>
+                <th>Model hash</th>
+                <th class="num">Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for h, cnt in model_stats.model_hashes.items()|sort(attribute=1, reverse=true) %}
+                <tr>
+                  <td>{{ h }}</td>
+                  <td class="num">{{ cnt }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+    </section>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script>
+    (function() {
+      // No-op placeholder; legacy filters removed with rank-aware panels.
+    })();
+  </script>
+  <script>
+    (function(){
+      if (typeof Chart === 'undefined') return;
+      const statusData = {
+        labels: ['OK', 'Fallback', 'Error'],
+        datasets: [{
+          label: 'Status mix',
+          data: [
+            {{ stats.status_counts.get('ok',0) | tojson }},
+            {{ stats.status_counts.get('fallback',0) | tojson }},
+            {{ stats.status_counts.get('error',0) | tojson }},
+          ],
+          backgroundColor: ['#0f7b5f', '#f5b700', '#b3352f']
+        }]
+      };
+      const statusCtx = document.getElementById('status-chart');
+      if (statusCtx){
+        new Chart(statusCtx, { type: 'doughnut', data: statusData, options: { plugins: { legend: { position:'bottom' }}}});
+      }
+
+      const latencyCtx = document.getElementById('latency-chart');
+      if (latencyCtx){
+        new Chart(latencyCtx, {
+          type: 'bar',
+          data: {
+            labels: ['p50','avg','p95'],
+            datasets: [{
+              label: 'Latency (ms)',
+              data: [
+                {{ (stats.latency_p50 or 0) | tojson }},
+                {{ (stats.latency_avg or 0) | tojson }},
+                {{ (stats.latency_p95 or 0) | tojson }},
+              ],
+              backgroundColor: '#0f7b5f'
+            }]
+          },
+          options: { plugins: { legend: { display:false } }, scales: { y: { beginAtZero:true }}}
+        });
+      }
+
+      const rankCtx = document.getElementById('rank-chart');
+      if (rankCtx){
+        new Chart(rankCtx, {
+          type: 'bar',
+          data: {
+            labels: ['Rank 1','Rank 2','Rank 3','Manual/Other'],
+            datasets: [{
+              label: 'Selections',
+              data: [
+                {{ stats.rank_counts.get(1,0) | tojson }},
+                {{ stats.rank_counts.get(2,0) | tojson }},
+                {{ stats.rank_counts.get(3,0) | tojson }},
+                {{ stats.rank_counts.get('manual',0) | tojson }},
+              ],
+              backgroundColor: ['#0f7b5f','#0f9b7a','#0fbf94','#d7e7df']
+            }]
+          },
+          options: { plugins: { legend: { display:false } }, scales: { y: { beginAtZero:true }}}
+        });
+      }
+    })();
+  </script>
+{% endblock %}

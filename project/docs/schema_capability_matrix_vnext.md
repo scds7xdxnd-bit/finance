@@ -1,0 +1,21 @@
+# vNext Schema Capability Matrix
+
+This matrix is the capability-based contract for sensitive operations.  
+Authoritative verification query set lives in [scripts/verify_schema_capabilities.sql](/Users/ammarhakimi/Dev/finance_app_clean/flask_app/scripts/verify_schema_capabilities.sql).
+
+| Capability | Required artifacts | Migration source | Verification query |
+| --- | --- | --- | --- |
+| `tx_linking` | `transaction_journal_link` table, `uq_tx_journal_link_user_tx`, `uq_tx_journal_link_user_journal_entry`, `ix_tx_journal_link_user_journal`, `ix_tx_journal_link_user_source`, `ck_tx_journal_link_source_nonempty` | [20251224_finance_add_phase3_structures.py](/Users/ammarhakimi/Dev/finance_app_clean/flask_app/alembic/versions/20251224_finance_add_phase3_structures.py), [20260306_finance_harden_vnext_capabilities.py](/Users/ammarhakimi/Dev/finance_app_clean/flask_app/alembic/versions/20260306_finance_harden_vnext_capabilities.py) | `SELECT * FROM checks WHERE capability = 'tx_linking';` (inside `scripts/verify_schema_capabilities.sql`) |
+| `link_candidates` | `transaction_link_candidate` table, columns (`transaction_id`, `journal_entry_id`, `confidence`, `status`, `source`), indexes (`ix_tx_link_candidate_user_status`, `ix_tx_link_candidate_user_tx_reason`), `ck_tx_link_candidate_source_nonempty` | [20260306_finance_add_convergence_guardrails.py](/Users/ammarhakimi/Dev/finance_app_clean/flask_app/alembic/versions/20260306_finance_add_convergence_guardrails.py), [20260306_finance_harden_vnext_capabilities.py](/Users/ammarhakimi/Dev/finance_app_clean/flask_app/alembic/versions/20260306_finance_harden_vnext_capabilities.py) | `SELECT * FROM checks WHERE capability = 'link_candidates';` |
+| `csv_idempotency` | `csv_import_batch` + `csv_import_row` tables, uniques (`uq_csv_import_batch_user_file`, `uq_csv_import_row_user_account_direction_key`), checks (`ck_csv_import_batch_status`, `ck_csv_import_row_direction`), index `ix_csv_import_row_user_status` | [20260306_finance_add_convergence_guardrails.py](/Users/ammarhakimi/Dev/finance_app_clean/flask_app/alembic/versions/20260306_finance_add_convergence_guardrails.py), [20260306_finance_harden_vnext_capabilities.py](/Users/ammarhakimi/Dev/finance_app_clean/flask_app/alembic/versions/20260306_finance_harden_vnext_capabilities.py) | `SELECT * FROM checks WHERE capability = 'csv_idempotency';` |
+| `tb_snapshot` | `tb_reset_snapshot` table, columns (`db_copy_path`, `sha256`, `restore_status`, `file_size_bytes`), unique `uq_tb_reset_snapshot_user_path`, checks (`ck_tb_reset_snapshot_sha256_len`, `ck_tb_reset_snapshot_file_size_nonneg`, `ck_tb_reset_snapshot_restore_status`), index `ix_tb_reset_snapshot_user_created` | [20260306_finance_add_convergence_guardrails.py](/Users/ammarhakimi/Dev/finance_app_clean/flask_app/alembic/versions/20260306_finance_add_convergence_guardrails.py), [20260306_finance_harden_vnext_capabilities.py](/Users/ammarhakimi/Dev/finance_app_clean/flask_app/alembic/versions/20260306_finance_harden_vnext_capabilities.py) | `SELECT * FROM checks WHERE capability = 'tb_snapshot';` |
+| `admin_audit` | `admin_action_audit` table + `ix_admin_action_audit_actor_created` index | [20260306_finance_add_convergence_guardrails.py](/Users/ammarhakimi/Dev/finance_app_clean/flask_app/alembic/versions/20260306_finance_add_convergence_guardrails.py) | `SELECT * FROM checks WHERE capability = 'admin_audit';` |
+| `journal_report_perf` | report indexes `ix_journal_entry_user_date_parsed`, `ix_journal_entry_user_reference`, `ix_journal_line_journal_account_dc`, `ix_journal_line_account_dc_journal` | [20251224_finance_add_phase3_structures.py](/Users/ammarhakimi/Dev/finance_app_clean/flask_app/alembic/versions/20251224_finance_add_phase3_structures.py), [20260306_finance_harden_vnext_capabilities.py](/Users/ammarhakimi/Dev/finance_app_clean/flask_app/alembic/versions/20260306_finance_harden_vnext_capabilities.py) | `SELECT * FROM checks WHERE capability = 'journal_report_perf';` |
+
+## Standard verification sequence
+1. `alembic upgrade head`
+2. `python3 -m flask --app finance_app schema-status`
+3. `sqlite3 instance/finance_app.db < scripts/verify_schema_capabilities.sql`
+
+## One-command smoke path (ephemeral DB)
+`python3 scripts/migration_smoke_vnext.py`

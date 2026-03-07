@@ -1,0 +1,34 @@
+Metadata-Version: 2.4
+Name: ml-suggester
+Version: 0.2.0
+Summary: Transformer + models for multi-currency journal lines
+Author: You
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: pandas>=2.1
+Requires-Dist: numpy>=1.26
+Requires-Dist: python-dateutil>=2.9
+Requires-Dist: openpyxl>=3.1
+Requires-Dist: pyarrow>=15.0
+Requires-Dist: click>=8.1
+Requires-Dist: tqdm>=4.66
+Requires-Dist: scikit-learn>=1.3
+Requires-Dist: joblib>=1.3
+Requires-Dist: xgboost>=2.0
+Requires-Dist: fastapi>=0.110
+Requires-Dist: uvicorn[standard]>=0.24
+Requires-Dist: pydantic>=2.6
+
+# ML Suggester — Multi-Currency Data Transformer
+
+Transforms Excel ledger blocks (variable posting rows + total row) into a **long, line-level dataset**:
+- **Input columns** (example):  
+  `Date`, `Affected Accounts`, `Transaction Description`,  
+  `Debited Amount KRW`, `Credited Amount KRW`,  
+  `Debited Amount MYR`, `Credited Amount MYR`,  
+  `Debited Amount CNY`, `Credited Amount CNY`
+- Automatically detects any number of currencies from header suffixes.
+
+## Install
+```bash
+pip install -e .

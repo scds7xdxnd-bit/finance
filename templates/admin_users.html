@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+{% block title %}Admin Users - Finance App{% endblock %}
+
+{% block styles %}
+  {{ super() }}
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --surface: #ffffff;
+      --surface-muted: #f7f8fa;
+      --muted: #f7f8fa;
+      --border: #e0e5ec;
+      --text-strong: #14202b;
+      --text-muted: #5b6470;
+      --accent: #0f7b5f;
+      --accent-strong: #0c5c48;
+      --accent-soft: #d8f1e7;
+      --positive: #0f7b5f;
+      --negative: #b3352f;
+    }
+
+    body {
+      background: var(--surface-muted);
+      font-family: "Inter","Apple SD Gothic Neo",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      color: var(--text-strong);
+    }
+    .profile-cover { display: none !important; }
+    .profile-main { background: transparent; box-shadow: none; padding: 0; max-width: none; top: 0; }
+
+    .admin-shell { max-width: 1280px; margin: 0 auto; padding: 0 32px 64px; display: flex; flex-direction: column; gap: 24px; box-sizing: border-box; }
+    .admin-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 8px 24px rgba(15, 32, 46, 0.06); overflow: hidden; }
+    .admin-header { display: flex; justify-content: space-between; flex-wrap: wrap; padding: 32px; gap: 20px; margin-top: 20px; }
+    .admin-eyebrow { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); font-weight: 600; }
+    .admin-header h1 { margin: 6px 0 10px; font-size: 30px; font-weight: 600; }
+    .admin-lede { margin: 0; color: var(--text-muted); max-width: 660px; line-height: 1.5; }
+    .admin-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; min-width: 260px; }
+    .admin-meta-block { border-left: 2px solid var(--border); padding-left: 16px; display: flex; flex-direction: column; gap: 2px; }
+    .admin-meta-block span { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+    .admin-meta-block strong { font-size: 1.4rem; color: var(--accent); }
+    .admin-meta-block small { color: var(--text-muted); font-size: 0.82rem; }
+
+    .admin-toolbar { padding: 22px 28px; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; align-items: end; }
+    .admin-field { display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .admin-input-wrap { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); background: #fff; border-radius: 12px; padding: 10px 12px; }
+    .admin-input-wrap input { border: none; outline: none; font-size: 0.95rem; width: 100%; color: var(--text-strong); }
+    .admin-input-wrap .fa { color: var(--text-muted); }
+    .admin-select { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; font-size: 0.95rem; background: #fff; color: var(--text-strong); }
+    .admin-toolbar-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+
+    .admin-table-head { padding: 26px 28px 16px; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
+    .admin-table-head h3 { margin: 0; font-size: 1.2rem; }
+    .admin-table-head p { margin: 6px 0 0; color: var(--text-muted); max-width: 560px; }
+
+    .admin-table-wrapper { width: 100%; overflow-x: auto; padding: 0 24px 24px; box-sizing: border-box; }
+    table.admin-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; min-width: 720px; table-layout: auto; }
+    table.admin-table thead th { font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); border-bottom: 2px solid var(--border); padding: 12px 10px; background: #f3f5f7; text-align: left; }
+    table.admin-table th.num, table.admin-table td.num { text-align: right; }
+    table.admin-table tbody td { padding: 12px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; background: #fff; }
+    .user-cell { display: flex; flex-direction: column; gap: 6px; }
+    .admin-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600; }
+    .chip-admin { background: var(--accent); color: #fff; }
+    .chip-muted { background: var(--accent-soft); color: var(--accent-strong); }
+    .chip-locked { background: #f3f5f7; color: var(--text-muted); border: 1px dashed var(--border); }
+    .chip-meta { background: #f3f5f7; color: var(--text-muted); }
+
+    .tx-breakdown { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px; font-size: 0.78rem; color: var(--text-muted); }
+    .tx-breakdown span { background: #f3f5f7; border-radius: 999px; padding: 2px 8px; }
+
+    .admin-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .action-form { display: inline; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 999px; padding: 8px 14px; font-weight: 600; font-size: 0.9rem; cursor: pointer; border: 1px solid transparent; background: transparent; color: var(--text-strong); text-decoration: none; transition: background 0.2s, color 0.2s, border 0.2s; }
+    .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .btn-primary:hover { background: var(--accent-strong); }
+    .btn-ghost { border-color: var(--border); color: var(--accent); }
+    .btn-ghost:hover { background: var(--accent-soft); color: var(--accent-strong); }
+    .btn-danger { border-color: var(--negative); color: var(--negative); }
+    .btn-danger:hover { background: rgba(179, 53, 47, 0.08); }
+
+    .admin-empty { padding: 32px; text-align: center; color: var(--text-muted); border-radius: 12px; border: 2px dashed var(--border); margin: 16px; background: var(--muted); }
+
+    @media (max-width: 768px) {
+      .admin-shell { padding: 0 16px 48px; }
+      .admin-header { padding: 24px; }
+      .admin-toolbar { padding: 18px; }
+      .admin-table-head { padding: 18px; }
+      .admin-table-wrapper { padding: 0 12px 16px; }
+      table.admin-table { min-width: 640px; }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+{% set total_users = users|length %}
+{% set admin_count = (users | selectattr('is_admin') | list | length) %}
+{% set standard_count = total_users - admin_count %}
+<div class="admin-shell">
+  <header class="admin-card admin-header">
+    <div>
+      <div class="admin-eyebrow">Access oversight</div>
+      <h1>Admin Users</h1>
+    </div>
+    <div class="admin-meta">
+      <div class="admin-meta-block">
+        <span>Total users</span>
+        <strong>{{ total_users }}</strong>
+        <small>{{ standard_count }} standard</small>
+      </div>
+      <div class="admin-meta-block">
+        <span>Admins</span>
+        <strong>{{ admin_count }}</strong>
+        <small>Guarded access</small>
+      </div>
+    </div>
+  </header>
+
+  <section class="admin-card admin-toolbar">
+    <label class="admin-field">
+      <span>Search</span>
+      <div class="admin-input-wrap">
+        <i class="fa fa-search" aria-hidden="true"></i>
+        <input id="user-search" type="search" placeholder="Search by username" autocomplete="off">
+      </div>
+    </label>
+    <div class="admin-toolbar-actions">
+      <label class="admin-field" style="flex:1;">
+        <span>Role filter</span>
+        <select id="admin-filter" class="admin-select">
+          <option value="all">All users</option>
+          <option value="admin">Admins only</option>
+          <option value="user">Standard only</option>
+        </select>
+      </label>
+    </div>
+  </section>
+
+  <section class="admin-card">
+    <div class="admin-table-head">
+      <div>
+        <h3><i class="fa fa-users"></i> User roster</h3>
+        <p>Role badges, session counts, and login history keep you informed before changing access.</p>
+      </div>
+    </div>
+    {% if users %}
+      <div class="admin-table-wrapper">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Role</th>
+              <th class="num">Transactions</th>
+              <th class="num">Sessions</th>
+              <th>Last login</th>
+              <th>Last logout</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in users %}
+              {% set stats = user_stats.get(u.id, {}) %}
+              <tr data-user-row data-username="{{ u.username|lower }}" data-admin="{{ 'yes' if u.is_admin else 'no' }}">
+                <td>
+                  <div class="user-cell">
+                    <strong>{{ u.username }}</strong>
+                    <div class="admin-chips">
+                      <span class="chip {{ 'chip-admin' if u.is_admin else 'chip-muted' }}">{{ 'Admin' if u.is_admin else 'Standard' }}</span>
+                      {% if u.username == 'Admin1' %}
+                        <span class="chip chip-locked"><i class="fa fa-lock"></i> Protected</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span class="chip chip-meta">{{ 'Admin' if u.is_admin else 'User' }}</span>
+                </td>
+                <td class="num">
+                  <div>{{ stats.tx_count or 0 }}</div>
+                  <div class="tx-breakdown">
+                    <span title="Journal entries posted">JE {{ stats.tx_journal or 0 }}</span>
+                    <span title="Legacy single-line transactions">TX {{ stats.tx_legacy or 0 }}</span>
+                  </div>
+                </td>
+                <td class="num">{{ stats.session_count or 0 }}</td>
+                <td>{{ stats.latest_login or 'N/A' }}</td>
+                <td>{{ stats.latest_logout or 'N/A' }}</td>
+                <td>
+                  {% if u.username != 'Admin1' %}
+                    <div class="admin-actions">
+                      {% if not u.is_admin %}
+                        <form
+                          class="action-form grant_admin"
+                          method="POST"
+                          action="{{ url_for('admin_bp.grant_admin', user_id=u.id) }}"
+                          data-admin-destructive="true"
+                          data-confirm-action="grant_admin"
+                          data-confirm-message="Grant admin access to {{ u.username }}?"
+                        >
+                          <button class="btn btn-ghost" type="submit"><i class="fa fa-shield"></i> Grant</button>
+                        </form>
+                      {% else %}
+                        <form
+                          class="action-form revoke_admin"
+                          method="POST"
+                          action="{{ url_for('admin_bp.revoke_admin', user_id=u.id) }}"
+                          data-admin-destructive="true"
+                          data-confirm-action="revoke_admin"
+                          data-confirm-message="Revoke admin access for {{ u.username }}?"
+                        >
+                          <button class="btn btn-ghost" type="submit"><i class="fa fa-user-slash"></i> Revoke</button>
+                        </form>
+                      {% endif %}
+                      <form
+                        class="action-form remove_user"
+                        method="POST"
+                        action="{{ url_for('admin_bp.delete_user', user_id=u.id) }}"
+                        onsubmit="var v = prompt('Type {{ u.username }} to confirm deletion.'); if(!v){return false;} this.querySelector('input[name=confirm_username]').value = v; return true;"
+                        data-admin-destructive="true"
+                        data-confirm-action="delete_user"
+                        data-confirm-message="Delete {{ u.username }} and all related data? This cannot be undone."
+                      >
+                        <input type="hidden" name="confirm_username" value="">
+                        <button class="btn btn-danger" type="submit"><i class="fa fa-trash"></i></button>
+                      </form>
+                    </div>
+                  {% else %}
+                    <span class="chip chip-meta"><i class="fa fa-info-circle"></i> Seed admin</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="admin-empty">No users yet. When accounts are created, they will appear here for review.</div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script>
+    (function() {
+      var searchInput = document.getElementById('user-search');
+      var roleSelect = document.getElementById('admin-filter');
+      var rows = Array.prototype.slice.call(document.querySelectorAll('[data-user-row]'));
+
+      function applyFilters() {
+        var query = (searchInput && searchInput.value || '').trim().toLowerCase();
+        var role = roleSelect ? roleSelect.value : 'all';
+        rows.forEach(function(row) {
+          var username = row.dataset.username || '';
+          var isAdmin = row.dataset.admin === 'yes';
+          var matchesQuery = !query || username.indexOf(query) !== -1;
+          var matchesRole = role === 'all' || (role === 'admin' && isAdmin) || (role === 'user' && !isAdmin);
+          row.style.display = (matchesQuery && matchesRole) ? '' : 'none';
+        });
+      }
+
+      if (searchInput) {
+        searchInput.addEventListener('input', applyFilters);
+      }
+      if (roleSelect) {
+        roleSelect.addEventListener('change', applyFilters);
+      }
+    })();
+  </script>
+{% endblock %}

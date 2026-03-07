@@ -1,0 +1,2 @@
+date,transaction_id,description,debit_account,debit_amount,credit_account,credit_amount
+2026-01-01,TXN-1,Sale A,Cash,100,Other Revenue,100

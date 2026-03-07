@@ -1,0 +1,1136 @@
+{% extends "base.html" %}
+{% block title %}Transactions - Finance App{% endblock %}
+{% block styles %}
+  {{ super() }}
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body {
+      background: var(--surface-muted);
+      font-family: "Inter","Apple SD Gothic Neo",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      color: var(--text-strong);
+      margin: 0;
+    }
+    /* Override legacy layout */
+    .profile-cover { display: none !important; }
+    .profile-main { background: transparent; box-shadow: none; padding: 0; max-width: none; top: 0; }
+
+    a { color: var(--accent); }
+
+    .tx-shell {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 32px 64px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      box-sizing: border-box;
+    }
+    .tx-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(15, 32, 46, 0.06);
+    }
+    .tx-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      flex-wrap: wrap;
+      padding: 28px 32px;
+      margin-top: 20px;
+      align-items: center;
+    }
+    .tx-eyebrow {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .tx-head h1 { margin: 6px 0 8px; font-size: 30px; font-weight: 600; }
+    .tx-lede { margin: 0; color: var(--text-muted); line-height: 1.5; max-width: 720px; }
+    .tx-head-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      min-width: 260px;
+    }
+    .tx-meta-block {
+      border-left: 2px solid var(--border);
+      padding-left: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .tx-meta-block span { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+    .tx-meta-block strong { font-size: 1.4rem; color: var(--accent); }
+    .tx-meta-block small { color: var(--text-muted); font-size: 0.82rem; }
+
+    .tx-grid {
+      display: grid;
+      grid-template-columns: 1.6fr 0.9fr;
+      gap: 24px;
+      align-items: start;
+    }
+    .tx-main { display: flex; flex-direction: column; gap: 18px; }
+    .tx-sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+    .tx-section {
+      padding: 24px 28px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .tx-section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .tx-section-head h2, .tx-section-head h3 { margin: 0; }
+    .tx-section-head h2 { font-size: 1.3rem; }
+    .tx-section-head h3 { font-size: 1.05rem; }
+    .tx-inline-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text-strong);
+      padding: 10px 14px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, border 0.2s, box-shadow 0.2s;
+    }
+    .button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .button.primary:hover { background: var(--accent-strong); }
+    .button.ghost { background: var(--muted); border-color: var(--border); color: var(--text-strong); }
+    .button.ghost:hover { border-color: var(--accent); color: var(--accent-strong); }
+    .button.danger { background: #fff; color: var(--negative); border-color: var(--negative); }
+    .button.danger:hover { background: var(--negative); color: #fff; }
+    .button.icon-only { width: 42px; height: 42px; padding: 0; border-radius: 10px; }
+
+    .entry-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .entry-grid label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+    .entry-grid input {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.98rem;
+      background: #fdfdfd;
+      color: var(--text-strong);
+    }
+
+    .entry-lines {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fbfcfd;
+      margin-top: 4px;
+      overflow: hidden;
+      max-height: 520px;
+      overflow-y: auto;
+    }
+    .entry-line {
+      display: grid;
+      grid-template-columns: 110px 1.2fr 1.2fr 130px 46px;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .entry-line:last-child { border-bottom: none; }
+    .entry-line select,
+    .entry-line input {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 10px;
+      width: 100%;
+      font-size: 0.95rem;
+      background: #fff;
+    }
+    .entry-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+    .tx-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    .entry-feedback {
+      font-size: 0.92rem;
+      display: none;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+    }
+    .entry-feedback.success { display: block; background: #f0fff4; border-color: #a7e0b4; color: var(--positive); }
+    .entry-feedback.error { display: block; background: #fff5f5; border-color: #f1c1c1; color: var(--negative); }
+
+    .filter-legend { font-size: 0.85rem; color: var(--text-muted); margin-top: 4px; }
+    .tx-filters {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+    .tx-filters label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+    .tx-filters input,
+    .tx-filters select {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.95rem;
+      background: #fff;
+      width: 100%;
+    }
+    .tx-filter-footer {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .tx-list { display: flex; flex-direction: column; gap: 12px; }
+    .tx-list-card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px 18px;
+      background: #fff;
+      box-shadow: 0 4px 14px rgba(15, 32, 46, 0.05);
+    }
+    .tx-card-header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+    .tx-card-header strong { font-size: 1rem; color: var(--text-strong); }
+    .tx-card-description { margin: 6px 0 10px 0; color: var(--text-muted); font-size: 0.95rem; }
+    .tx-meta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; color: var(--text-muted); font-size: 0.88rem; }
+    .tx-card-lines table { width: 100%; border-collapse: collapse; }
+    .tx-card-lines th, .tx-card-lines td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.92rem; }
+    .tx-card-lines th { color: var(--text-muted); text-transform: uppercase; font-size: 0.78rem; letter-spacing: 0.06em; }
+    .tx-card-lines td.amount { text-align: right; font-variant-numeric: tabular-nums; }
+    .tx-card-kind { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+    .tx-card-footer { display: flex; gap: 8px; justify-content: flex-start; margin-top: 10px; color: var(--text-muted); font-size: 0.85rem; }
+    .tx-empty { padding: 18px; text-align: center; color: var(--text-muted); border: 2px dashed var(--border); border-radius: 12px; background: var(--muted); }
+
+    /* Suggestion chip styles scoped to transactions entry editor only */
+    #entry-lines .line-suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+      flex-basis: 100%;
+      order: 99;
+    }
+    #entry-lines .line-suggestions .suggestion-chip {
+      display: inline-flex;
+      align-items: center;
+      white-space: nowrap;
+      border: 1px solid var(--accent);
+      border-radius: 12px;
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+      font-size: 12px;
+      padding: 5px 9px;
+      cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+    #entry-lines .line-suggestions .suggestion-chip:hover {
+      background: #d1e8dd;
+    }
+    #entry-lines .line-suggestions .suggestion-chip.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .flash-card {
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid #f1c1c1;
+      background: #fff5f5;
+      color: var(--negative);
+    }
+
+    @media (max-width: 980px) {
+      .tx-grid { grid-template-columns: 1fr; }
+      .tx-shell { padding: 0 16px 48px; }
+      .entry-line { grid-template-columns: 110px 1fr; grid-auto-rows: auto; grid-template-areas:
+        "dc account"
+        "memo memo"
+        "amount remove"; }
+    }
+    @media (max-width: 720px) {
+      .entry-line { grid-template-columns: 1fr; grid-template-areas: none; }
+      .entry-actions { justify-content: flex-start; }
+      .tx-head { padding: 22px 20px; }
+      .tx-section { padding: 20px; }
+    }
+  </style>
+{% endblock %}
+{% block content %}
+  <div class="tx-shell">
+    <header class="tx-card tx-head">
+      <div>
+        <div class="tx-eyebrow">Journal entries</div>
+        <h1>Transactions & Posting</h1>
+        <p class="tx-lede">Create balanced debits and credits, lean on ML to suggest accounts, and keep your ledger tidy with filters and quick navigation.</p>
+      </div>
+      <div class="tx-head-meta">
+        <div class="tx-meta-block">
+          <span>Total entries</span>
+          <strong>{{ total_count }}</strong>
+          <small>Page {{ page }} of {{ pages }}</small>
+        </div>
+        <div class="tx-meta-block">
+          <span>Filters</span>
+          <strong>{{ filters.account or 'All' }}</strong>
+          <small>{{ filters.start_date or '—' }} → {{ filters.end_date or '—' }}</small>
+        </div>
+      </div>
+    </header>
+
+    <div class="tx-grid">
+      <section class="tx-main">
+        <div class="tx-card tx-section">
+          <div class="tx-section-head">
+            <div>
+              <div class="tx-eyebrow">Balanced entry</div>
+              <h2>New journal entry</h2>
+              <p class="tx-lede" style="margin-top:6px;">Balance debits and credits line-by-line, then save directly to your ledger.</p>
+            </div>
+            <div class="tx-inline-actions">
+              <input id="csv_file_input" type="file" name="csv_file" accept=".csv" style="display:none;">
+              <button type="button" class="button ghost icon-only" title="Import CSV" onclick="triggerCsvUpload()"><i class="fa fa-file-csv"></i></button>
+            </div>
+          </div>
+          <div class="entry-grid">
+            <label>Entry Date
+              <input type="date" id="entry-date" value="{{ (now.strftime('%Y-%m-%d') if now else '') }}">
+            </label>
+            <label>Description
+              <input type="text" id="entry-description" placeholder="Describe this entry">
+            </label>
+            <label>Total Amount (auto-calculated)
+              <input type="text" id="entry-total" value="0.00" readonly style="background:#f6fff6;color:var(--text-strong);font-weight:600; width: 60%;">
+            </label>
+          </div>
+          <div class="entry-lines" id="entry-lines"></div>
+          <div class="entry-actions">
+            <div class="tx-badge" id="entry-diff">Balanced</div>
+            <button type="button" class="button ghost" id="entry-add-debit"><i class="fa fa-plus"></i> Add Debit</button>
+            <button type="button" class="button ghost" id="entry-add-credit"><i class="fa fa-plus"></i> Add Credit</button>
+            <button type="button" class="button ghost" id="entry-suggest-debit"><i class="fa fa-magic"></i> Suggest Debit</button>
+            <button type="button" class="button ghost" id="entry-suggest-credit"><i class="fa fa-magic"></i> Suggest Credit</button>
+            <button type="button" class="button primary" id="entry-save"><i class="fa fa-save"></i> Save Entry</button>
+            <button type="button" class="button danger" id="entry-reset"><i class="fa fa-eraser"></i> Reset</button>
+          </div>
+          <div class="entry-feedback" id="entry-feedback"></div>
+        </div>
+
+        <div class="tx-card tx-section tx-list-section {% if entries %}visible{% else %}hidden{% endif %}" id="tx-list-section">
+          <div class="tx-section-head">
+            <div>
+              <div class="tx-eyebrow">Ledger</div>
+              <h2>Entries</h2>
+            </div>
+            <div class="tx-meta">
+              <span>Page {{ page }} of {{ pages }}</span>
+              <span>Showing {{ entries|length if entries else 0 }} results</span>
+            </div>
+          </div>
+          <div class="tx-list" style="margin-top:4px; max-height:520px; overflow:auto;">
+            {% if entries %}
+              {% for entry in entries %}
+                <div class="tx-list-card tx-card" data-kind="{{ entry.kind }}">
+                  <div class="tx-card-header">
+                    <strong>{{ entry.date or entry.date_parsed }}</strong>
+                    <div class="tx-meta">
+                      <span class="tx-card-kind">{{ 'Simple' if entry.kind == 'simple' else 'Multi-line' }}</span>
+                      <span>Total: {{ '{:,.2f}'.format(entry.total_debit or 0) }}</span>
+                    </div>
+                  </div>
+                  <div class="tx-card-description">{{ entry.description or '—' }}</div>
+                  <div class="tx-card-lines">
+                    <table>
+                      <thead>
+                        <tr><th>Type</th><th>Account</th><th style="width:40%">Memo</th><th style="text-align:right;">Amount</th></tr>
+                      </thead>
+                      <tbody>
+                        {% for line in entry.lines %}
+                        <tr>
+                          <td>{{ 'Debit' if line.dc == 'D' else 'Credit' }}</td>
+                          <td>{{ line.account or '—' }}</td>
+                          <td>{{ line.memo or ('—' if entry.kind == 'journal' else '') }}</td>
+                          <td class="amount">{{ '{:,.2f}'.format(line.amount or 0) }}</td>
+                        </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="tx-card-footer">
+                    <span>Edit this entry from the Accounting → Journal Entries tab.</span>
+                  </div>
+                </div>
+              {% endfor %}
+            {% else %}
+              <div class="tx-empty">No entries found for the selected filters.</div>
+            {% endif %}
+          </div>
+          {% if pages > 1 %}
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;">
+            {% if page > 1 %}
+              <a class="button ghost" href="{{ url_for('transactions_bp.transactions', page=page-1, per_page=per_page, start_date=filters.start_date, end_date=filters.end_date, account=filters.account, min_amount=filters.min_amount, max_amount=filters.max_amount) }}">&laquo; Prev</a>
+            {% endif %}
+            {% if page < pages %}
+              <a class="button ghost" href="{{ url_for('transactions_bp.transactions', page=page+1, per_page=per_page, start_date=filters.start_date, end_date=filters.end_date, account=filters.account, min_amount=filters.min_amount, max_amount=filters.max_amount) }}">Next &raquo;</a>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </section>
+
+      <aside class="tx-sidebar">
+        <div class="tx-card tx-section">
+          <div class="tx-section-head">
+            <h3>Filters</h3>
+            <button class="button ghost" id="toggle-tx-btn"><i class="fa fa-list"></i> Show Entries</button>
+          </div>
+          <form id="tx-filter-form">
+            <div class="tx-filters">
+              <label>Start Date<input type="date" name="start_date" value="{{ filters.start_date }}"></label>
+              <label>End Date<input type="date" name="end_date" value="{{ filters.end_date }}"></label>
+              <label>Account<select name="account">
+                <option value="">All accounts</option>
+                {% for acc in accounts %}
+                  <option value="{{ acc }}" {% if filters.account == acc %}selected{% endif %}>{{ acc }}</option>
+                {% endfor %}
+              </select></label>
+              <label>Min Amount<input type="number" step="0.01" name="min_amount" placeholder="0.00" value="{{ filters.min_amount }}"></label>
+              <label>Max Amount<input type="number" step="0.01" name="max_amount" placeholder="0.00" value="{{ filters.max_amount }}"></label>
+            </div>
+            <div class="tx-filter-footer">
+              <span class="filter-legend"><i class="fa fa-circle-info"></i> Filters refresh automatically.</span>
+              <button type="submit" class="button ghost"><i class="fa fa-rotate"></i> Apply</button>
+              <button type="button" class="button danger" onclick="clearTxFilters()"><i class="fa fa-eraser"></i> Clear</button>
+            </div>
+          </form>
+        </div>
+
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="flash-card tx-card">
+              <ul style="margin:0;padding-left:20px;">
+                {% for message in messages %}
+                  <li style="font-weight:600;">{{ message }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% endif %}
+        {% endwith %}
+      </aside>
+    </div>
+  </div>
+
+  <div id="tx-config" data-default-currency="{{ config['MLSUGGESTER_DEFAULT_CURRENCY'] }}" data-topk="{{ config['MLSUGGESTER_TOPK'] }}"></div>
+  <datalist id="accounts-datalist">
+    {% for acc in accounts %}
+      <option value="{{ acc }}">{{ acc }}</option>
+    {% endfor %}
+  </datalist>
+{% endblock %}
+{% block scripts %}
+  {{ super() }}
+  <script>
+    const ENTRY_LINES = document.getElementById('entry-lines');
+    const ENTRY_TOTAL = document.getElementById('entry-total');
+    const ENTRY_DIFF = document.getElementById('entry-diff');
+    const ENTRY_FEEDBACK = document.getElementById('entry-feedback');
+    const ML_SUGGESTIONS_URL = "{{ url_for('core_bp.ml_suggestions') }}";
+    const ML_SUGGESTION_LOG_URL = "{{ url_for('core_bp.ml_suggestion_log') }}";
+    const CONFIG_NODE = document.getElementById('tx-config');
+    const DEFAULT_CURRENCY = (CONFIG_NODE?.dataset.defaultCurrency || 'KRW').toUpperCase();
+    const ML_SUGGESTIONS_TOPK = Number(CONFIG_NODE?.dataset.topk || 3);
+    let CURRENT_ENTRY_TRANSACTION_ID = null;
+    let ACTIVE_SUGGESTION_ROW = null;
+
+    function generateId(prefix){
+      if (window.crypto && window.crypto.randomUUID){
+        return `${prefix}-${window.crypto.randomUUID()}`;
+      }
+      const rand = Math.random().toString(16).slice(2, 10);
+      return `${prefix}-${Date.now()}-${rand}`;
+    }
+
+    function generateTransactionId(){
+      return generateId('txn');
+    }
+
+    function generateLineId(){
+      return generateId('line');
+    }
+
+    function createLine(dc){
+      const row = document.createElement('div');
+      row.className = 'entry-line';
+      row.dataset.lineId = generateLineId();
+      row.dataset.transactionId = CURRENT_ENTRY_TRANSACTION_ID || generateTransactionId();
+      row.innerHTML = `<select class="line-dc"><option value="D">Debit</option><option value="C">Credit</option></select>
+                       <input type="text" class="line-account" placeholder="Account" list="accounts-datalist" autocomplete="off">
+                       <input type="text" class="line-memo" placeholder="Memo (optional)">
+                       <input type="number" step="0.01" class="line-amount" placeholder="0.00">
+                       <button type="button" class="button icon-only line-remove" title="Remove line"><i class="fa fa-times"></i></button>`;
+      const suggestions = document.createElement('div');
+      suggestions.className = 'line-suggestions';
+      suggestions.hidden = true;
+      row.appendChild(suggestions);
+
+      const dcSelect = row.querySelector('.line-dc');
+      const amountInput = row.querySelector('.line-amount');
+      const accountInput = row.querySelector('.line-account');
+      dcSelect.value = (dc === 'C') ? 'C' : 'D';
+      row.dataset.lineType = dcSelect.value === 'C' ? 'credit' : 'debit';
+
+      amountInput.addEventListener('input', () => {
+        updateTotals();
+        clearRowSuggestions(row);
+      });
+      dcSelect.addEventListener('change', () => {
+        row.dataset.lineType = dcSelect.value === 'C' ? 'credit' : 'debit';
+        updateTotals();
+        clearRowSuggestions(row);
+      });
+      accountInput.addEventListener('input', () => {
+        clearRowSelection(row);
+      });
+      [dcSelect, amountInput, accountInput].forEach(el => {
+        el.addEventListener('focus', () => {
+          ACTIVE_SUGGESTION_ROW = row;
+        });
+      });
+      row.querySelector('.line-remove').addEventListener('click', () => removeLine(row));
+      return row;
+    }
+
+    function clearRowSelection(row){
+      if (!row) return;
+      delete row.dataset.mlSelection;
+      const container = row.querySelector('.line-suggestions');
+      if (container){
+        container.querySelectorAll('.suggestion-chip').forEach(btn => btn.classList.remove('active'));
+      }
+    }
+
+    function clearRowSuggestions(row){
+      if (!row) return;
+      clearRowSelection(row);
+      delete row.dataset.mlContext;
+      const container = row.querySelector('.line-suggestions');
+      if (container){
+        container.hidden = true;
+        container.innerHTML = '';
+      }
+    }
+
+    function ensureMinimumLines(){
+      const rows = ENTRY_LINES.querySelectorAll('.entry-line');
+      if (rows.length < 2){
+        ENTRY_LINES.appendChild(createLine('D'));
+        ENTRY_LINES.appendChild(createLine('C'));
+      }
+      updateTotals();
+    }
+
+    function removeLine(row){
+      if (ENTRY_LINES.querySelectorAll('.entry-line').length <= 2){
+        showFeedback('Entries must contain at least one debit and one credit line.', 'error');
+        return;
+      }
+      if (ACTIVE_SUGGESTION_ROW === row){
+        ACTIVE_SUGGESTION_ROW = null;
+      }
+      row.remove();
+      updateTotals();
+    }
+
+    function updateTotals(){
+      let debit = 0, credit = 0;
+      ENTRY_LINES.querySelectorAll('.entry-line').forEach(row => {
+        const amt = parseFloat(row.querySelector('.line-amount').value || '0');
+        if (!Number.isFinite(amt)) return;
+        const dc = row.querySelector('.line-dc').value || 'D';
+        if (dc === 'D') debit += amt; else credit += amt;
+      });
+      ENTRY_TOTAL.value = debit.toFixed(2);
+      const diff = Math.abs(debit - credit);
+      if (debit === 0 && credit === 0){
+        ENTRY_DIFF.textContent = 'Enter debit & credit amounts';
+        ENTRY_DIFF.style.background = '#fffbe6';
+        ENTRY_DIFF.style.color = '#a07800';
+      } else if (diff < 0.005){
+        ENTRY_DIFF.textContent = 'Balanced';
+        ENTRY_DIFF.style.background = '#e6f7ec';
+        ENTRY_DIFF.style.color = '#1a4d2e';
+      } else {
+        ENTRY_DIFF.textContent = `Out of Balance: ${diff.toFixed(2)}`;
+        ENTRY_DIFF.style.background = '#fff0f0';
+        ENTRY_DIFF.style.color = '#b22222';
+      }
+    }
+
+    function resetEntry(){
+      CURRENT_ENTRY_TRANSACTION_ID = generateTransactionId();
+      ACTIVE_SUGGESTION_ROW = null;
+      ENTRY_LINES.innerHTML = '';
+      ENTRY_LINES.appendChild(createLine('D'));
+      ENTRY_LINES.appendChild(createLine('C'));
+      document.getElementById('entry-description').value = '';
+      updateTotals();
+      showFeedback('', '');
+    }
+
+    function getEntryLines(){
+      const result = [];
+      ENTRY_LINES.querySelectorAll('.entry-line').forEach(row => {
+        const lineId = row.dataset.lineId;
+        const dc = row.querySelector('.line-dc').value || 'D';
+        const amountRaw = parseFloat(row.querySelector('.line-amount').value || '0');
+        const amount = Number.isFinite(amountRaw) ? amountRaw : 0;
+        const account = (row.querySelector('.line-account').value || '').trim();
+        const memo = (row.querySelector('.line-memo').value || '').trim();
+        result.push({ row, lineId, dc, amount, account, memo });
+      });
+      return result;
+    }
+
+    function collectLines(){
+      return getEntryLines().filter(line => line.account && line.amount > 0).map(line => ({
+        dc: line.dc,
+        account: line.account,
+        amount: line.amount,
+        memo: line.memo,
+        lineId: line.lineId,
+      }));
+    }
+
+    function buildSuggestionPayload(targetLine, allLines, meta){
+      if (!targetLine) return null;
+      const currency = (meta.currency || DEFAULT_CURRENCY || 'KRW').toUpperCase();
+      const payload = {
+        currency,
+        top_k: ML_SUGGESTIONS_TOPK,
+        date: meta.date || new Date().toISOString().slice(0, 10),
+        description: meta.description || '',
+        transaction_id: CURRENT_ENTRY_TRANSACTION_ID || generateTransactionId(),
+        target_line_id: targetLine.lineId,
+        lines: allLines.map(line => ({
+          line_id: line.lineId,
+          dc: line.dc,
+          amount: line.amount,
+          account: line.account || null,
+          memo: line.memo || null,
+        })),
+      };
+      return payload;
+    }
+
+    function renderSuggestionOptions(row, payload){
+      const container = row.querySelector('.line-suggestions');
+      if (!container) return;
+      clearRowSelection(row);
+      const context = {
+        transaction_id: payload.transaction_id,
+        line_id: payload.line_id,
+        line_type: payload.line_type,
+        currency: payload.currency,
+        model_version: payload.model_version || null,
+        model_version_hash: payload.model_version_hash || payload.model_hash || null,
+        model_hash: payload.model_hash || payload.model_version_hash || null,
+        model_path: payload.model_path || null,
+        predictions: payload.predictions,
+        features: payload.features,
+        responded_at: payload.responded_at,
+        request_id: payload.request_id || null,
+        latency_ms: payload.latency_ms ?? null,
+        client_latency_ms: payload.client_latency_ms ?? null,
+        fallback: !!payload.fallback,
+        error: payload.error || null,
+        error_code: payload.error_code || null,
+      };
+      row.dataset.mlContext = JSON.stringify(context);
+
+      if (!payload.predictions || !payload.predictions.length){
+        container.hidden = false;
+        container.innerHTML = '<span class="suggestion-status">No suggestions available.</span>';
+        return;
+      }
+
+      container.hidden = false;
+      container.innerHTML = '';
+      payload.predictions.forEach(prediction => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'suggestion-chip';
+        const pct = Math.round(((prediction.probability || 0) * 100));
+        btn.textContent = `${prediction.account_name} (${pct}%)`;
+        btn.addEventListener('click', () => applySuggestionOption(row, prediction, context, btn));
+        container.appendChild(btn);
+      });
+    }
+
+    function applySuggestionOption(row, prediction, context, button){
+      if (!row) return;
+      const accountInput = row.querySelector('.line-account');
+      if (accountInput){
+        accountInput.value = prediction.account_name || '';
+      }
+      const selection = {
+        transaction_id: context.transaction_id,
+        line_id: context.line_id,
+        line_type: context.line_type,
+        currency: context.currency,
+        model_version: context.model_version,
+        model_version_hash: context.model_version_hash,
+        model_hash: context.model_hash,
+        model_path: context.model_path,
+        probability: prediction.probability,
+        chosen_account: prediction.account_name,
+        predictions: context.predictions,
+        features: context.features,
+        responded_at: context.responded_at,
+        request_id: context.request_id,
+        latency_ms: context.latency_ms,
+        client_latency_ms: context.client_latency_ms,
+        fallback: context.fallback,
+        error: context.error,
+        error_code: context.error_code,
+        description: (document.getElementById('entry-description').value || '').trim(),
+        date: context.features ? context.features.Date : undefined,
+      };
+      row.dataset.mlSelection = JSON.stringify(selection);
+      const container = row.querySelector('.line-suggestions');
+      if (container){
+        container.querySelectorAll('.suggestion-chip').forEach(btn => btn.classList.remove('active'));
+      }
+      if (button){
+        button.classList.add('active');
+      }
+    }
+
+    function findMatchingPrediction(predictions, accountName){
+      if (!predictions || !predictions.length) return null;
+      const target = (accountName || '').trim().toLowerCase();
+      if (!target) return null;
+      return predictions.find(p => (p.account_name || '').trim().toLowerCase() === target) || null;
+    }
+
+    function collectSuggestionFeedback(meta){
+      const description = meta && meta.description ? meta.description : '';
+      const entryDate = meta && meta.date ? meta.date : '';
+      const linesSnapshot = getEntryLines().map(line => ({
+        line_id: line.lineId,
+        dc: line.dc,
+        account: line.account,
+        amount: line.amount,
+        memo: line.memo,
+      }));
+      const logs = [];
+      ENTRY_LINES.querySelectorAll('.entry-line').forEach(row => {
+        if (!row.dataset.mlContext) return;
+        let context;
+        try {
+          context = JSON.parse(row.dataset.mlContext);
+        } catch (err) {
+          console.warn('Failed to parse ML context', err);
+          return;
+        }
+        const account = (row.querySelector('.line-account').value || '').trim();
+        if (!account) return;
+        const amount = parseFloat(row.querySelector('.line-amount').value || '0');
+        const predictions = context.predictions || [];
+        const matched = findMatchingPrediction(predictions, account);
+        const manualOverride = !matched;
+        const selection = row.dataset.mlSelection ? (() => { try { return JSON.parse(row.dataset.mlSelection); } catch (_) { return null; } })() : null;
+        const normalizedLatency = (typeof context.latency_ms === 'number') ? context.latency_ms :
+          (typeof context.client_latency_ms === 'number' ? context.client_latency_ms : null);
+        const log = {
+          transaction_id: context.transaction_id,
+          line_id: context.line_id,
+          line_type: (context.line_type || '').toLowerCase(),
+          currency: (context.currency || DEFAULT_CURRENCY).toUpperCase(),
+          model_version: context.model_version,
+          model_version_hash: context.model_version_hash,
+          model_hash: context.model_hash,
+          model_path: context.model_path,
+          predictions: predictions,
+          features: context.features,
+          responded_at: context.responded_at,
+          request_id: context.request_id,
+          latency_ms: normalizedLatency,
+          client_latency_ms: context.client_latency_ms,
+          fallback: !!context.fallback,
+          error: context.error,
+          error_code: context.error_code,
+          status: context.fallback ? 'fallback' : 'ok',
+          description,
+          date: entryDate,
+          chosen_account: account,
+          final_amount: Number.isFinite(amount) ? amount : 0,
+          probability: matched ? matched.probability : (selection && selection.probability ? selection.probability : null),
+          manual_override: manualOverride,
+          feedback_weight: manualOverride ? 3 : 1,
+          lines_snapshot: linesSnapshot,
+          logged_at: new Date().toISOString(),
+        };
+        logs.push(log);
+      });
+      return logs;
+    }
+
+    async function logMlSelections(logs){
+      if (!logs || !logs.length) return;
+      try {
+        await fetch(ML_SUGGESTION_LOG_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ logs })
+        });
+      } catch (err) {
+        console.warn('Failed to log ML selections', err);
+      }
+    }
+
+    function showFeedback(message, tone){
+      if (!ENTRY_FEEDBACK) return;
+      if (!message){
+        ENTRY_FEEDBACK.style.display = 'none';
+        ENTRY_FEEDBACK.textContent = '';
+        ENTRY_FEEDBACK.classList.remove('success', 'error');
+        return;
+      }
+      ENTRY_FEEDBACK.textContent = message;
+      ENTRY_FEEDBACK.classList.remove('success', 'error');
+      ENTRY_FEEDBACK.classList.add(tone === 'success' ? 'success' : 'error');
+    }
+
+    async function saveEntry(){
+      const date = (document.getElementById('entry-date').value || '').trim();
+      const description = (document.getElementById('entry-description').value || '').trim();
+      const lines = collectLines();
+      if (!date){ showFeedback('Date is required.', 'error'); return; }
+      if (!description){ showFeedback('Description is required.', 'error'); return; }
+      if (lines.length < 2){ showFeedback('Add at least one debit and one credit line.', 'error'); return; }
+      const dr = lines.filter(l => l.dc === 'D').reduce((s,l) => s+l.amount, 0);
+      const cr = lines.filter(l => l.dc === 'C').reduce((s,l) => s+l.amount, 0);
+      if (Math.abs(dr - cr) > 0.005){ showFeedback('Debits and credits must balance before saving.', 'error'); return; }
+      try{
+        const payload = { date, description, lines: lines.map(l => ({ dc:l.dc, account:l.account, amount:l.amount, memo:l.memo })) };
+        const res = await fetch('{{ url_for("transactions_bp.add_transaction") }}', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok){ throw new Error(data.error || 'Failed to add entry.'); }
+        showFeedback('Entry saved successfully.', 'success');
+        // Send positive feedback to the journal suggester: user accepted the suggested draft
+        try{ sendJournalFeedback(true, { entries: lines.map(l => ({ account: l.account, dc: l.dc, amount: l.amount, memo: l.memo })) }); }catch(e){ console.warn('Feedback failed', e); }
+        try {
+          const logs = collectSuggestionFeedback({ description, date });
+          await logMlSelections(logs);
+        } catch (err){
+          console.warn('Suggestion logging failed', err);
+        }
+        resetEntry();
+        const base = '{{ url_for("transactions_bp.transactions") }}';
+        updateTxListFromURL(base);
+        const list = document.getElementById('tx-list-section');
+        if (list) { list.style.display = 'block'; list.scrollIntoView({ behavior:'smooth', block:'start' }); }
+        const btn = document.getElementById('toggle-tx-btn');
+        if (btn) btn.innerHTML = '<i class="fa fa-list"></i> Hide Entries';
+      }catch(err){
+        console.error(err);
+        showFeedback(err.message || 'Failed to save entry.', 'error');
+      }
+    }
+
+    async function suggest(kind){
+      const description = (document.getElementById('entry-description').value || '').trim();
+      const dateInput = document.getElementById('entry-date');
+      const dateValue = (dateInput && dateInput.value) ? dateInput.value : '';
+      const currencyInput = document.getElementById('entry-currency');
+      const currency = currencyInput ? (currencyInput.value || DEFAULT_CURRENCY) : DEFAULT_CURRENCY;
+      const lines = getEntryLines();
+      const dcTarget = kind === 'debit' ? 'D' : 'C';
+      let target = null;
+      if (ACTIVE_SUGGESTION_ROW){
+        target = lines.find(line => line.row === ACTIVE_SUGGESTION_ROW && line.dc === dcTarget);
+      }
+      if (!target){
+        target = lines.find(line => line.dc === dcTarget);
+      }
+      if (!target){
+        showFeedback(`Add a ${kind} line before requesting suggestions.`, 'error');
+        return;
+      }
+      if (target.amount <= 0){
+        showFeedback('Enter a positive amount on the line before requesting suggestions.', 'error');
+        return;
+      }
+      const payload = buildSuggestionPayload(target, lines, { description, date: dateValue, currency });
+      if (!payload){
+        showFeedback('Unable to prepare suggestion request.', 'error');
+        return;
+      }
+      const container = target.row.querySelector('.line-suggestions');
+      if (container){
+        container.hidden = false;
+        container.innerHTML = '<span class="suggestion-status">Loading suggestions…</span>';
+      }
+      try{
+        const started = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        const res = await fetch(ML_SUGGESTIONS_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json().catch(() => ({}));
+        const ended = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        const clientLatency = Math.max(0, Math.round(ended - started));
+        data.client_latency_ms = clientLatency;
+        if (!data.latency_ms) data.latency_ms = clientLatency;
+        if (!res.ok || !data.ok){
+          if (container){
+            container.innerHTML = `<span class="suggestion-error">${data.error || 'Unable to load suggestions.'}</span>`;
+          }
+          console.error('Suggestion error', data);
+          return;
+        }
+        renderSuggestionOptions(target.row, data);
+      }catch(err){
+        if (container){
+          container.innerHTML = '<span class="suggestion-error">Suggestion service unavailable.</span>';
+        }
+        console.error('Suggestion request failed', err);
+      }
+    }
+
+    document.getElementById('entry-add-debit').addEventListener('click', () => { ENTRY_LINES.appendChild(createLine('D')); updateTotals(); });
+    document.getElementById('entry-add-credit').addEventListener('click', () => { ENTRY_LINES.appendChild(createLine('C')); updateTotals(); });
+    document.getElementById('entry-save').addEventListener('click', saveEntry);
+    document.getElementById('entry-reset').addEventListener('click', resetEntry);
+    document.getElementById('entry-suggest-debit').addEventListener('click', () => suggest('debit'));
+    document.getElementById('entry-suggest-credit').addEventListener('click', () => suggest('credit'));
+
+    resetEntry();
+
+    function buildTxListURLFromForm(form){
+      const params = new URLSearchParams();
+      const fd = new FormData(form);
+      for (const [k,v] of fd.entries()){
+        if (v !== null && String(v).trim() !== '') params.append(k, v);
+      }
+      const current = new URL(location.href);
+      if (current.searchParams.get('per_page') && !params.get('per_page')){
+        params.set('per_page', current.searchParams.get('per_page'));
+      }
+      const base = '{{ url_for("transactions_bp.transactions") }}';
+      return params.toString() ? `${base}?${params.toString()}` : base;
+    }
+
+    function attachFilterHandler(){
+      const form = document.getElementById('tx-filter-form');
+      if (!form) return;
+      const trigger = () => {
+        const url = buildTxListURLFromForm(form);
+        const section = document.getElementById('tx-list-section');
+        if (section) section.style.display = 'block';
+        const btn = document.getElementById('toggle-tx-btn');
+        if (btn) btn.innerHTML = '<i class="fa fa-list"></i> Hide Entries';
+        updateTxListFromURL(url);
+      };
+      form.addEventListener('submit', (evt) => { evt.preventDefault(); trigger(); });
+      let timer = null;
+      const debounced = () => { if (timer) clearTimeout(timer); timer = setTimeout(trigger, 320); };
+      Array.from(form.elements).forEach(el => {
+        if (el.tagName === 'INPUT'){
+          el.addEventListener('input', debounced);
+          el.addEventListener('change', debounced);
+        } else if (el.tagName === 'SELECT'){
+          el.addEventListener('change', debounced);
+        }
+      });
+    }
+
+    function clearTxFilters(){
+      const form = document.getElementById('tx-filter-form');
+      if (!form) return;
+      Array.from(form.elements).forEach(el => {
+        if (el.tagName === 'INPUT' || el.tagName === 'SELECT'){
+          if (el.type === 'checkbox' || el.type === 'radio') el.checked = false; else el.value = '';
+        }
+      });
+      const base = '{{ url_for("transactions_bp.transactions") }}';
+      updateTxListFromURL(base);
+      const section = document.getElementById('tx-list-section');
+      if (section) section.style.display = 'block';
+      const btn = document.getElementById('toggle-tx-btn');
+      if (btn) btn.innerHTML = '<i class="fa fa-list"></i> Hide Entries';
+    }
+    window.clearTxFilters = clearTxFilters;
+
+    async function updateTxListFromURL(url){
+      try{
+        const res = await fetch(url, { headers:{ 'X-Requested-With':'XMLHttpRequest' }});
+        if (!res.ok) return;
+        const html = await res.text();
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const newSection = doc.getElementById('tx-list-section');
+        const curSection = document.getElementById('tx-list-section');
+        if (newSection && curSection){
+          curSection.innerHTML = newSection.innerHTML;
+          curSection.style.display = 'block';
+          const btn = document.getElementById('toggle-tx-btn');
+          if (btn) btn.innerHTML = '<i class="fa fa-list"></i> Hide Entries';
+          window.history.pushState({}, '', url);
+          attachFilterHandler();
+          attachTxListDelegation();
+        }
+      }catch(err){ console.error(err); }
+    }
+    window.updateTxListFromURL = updateTxListFromURL;
+
+    function attachTxListDelegation(){
+      const container = document.getElementById('tx-list-section');
+      if (!container) return;
+      // existing delegation for link clicks
+      container.addEventListener('click', function handler(e){
+        const link = e.target && e.target.closest ? e.target.closest('a') : null;
+        if (link){
+          const href = link.getAttribute('href') || '';
+          if (href.includes('/transactions')){
+            e.preventDefault();
+            updateTxListFromURL(href);
+            return;
+          }
+        }
+        // accept/reject handlers
+        const acceptBtn = e.target && e.target.closest ? e.target.closest('.accept-btn') : null;
+        const rejectBtn = e.target && e.target.closest ? e.target.closest('.reject-btn') : null;
+        const tripleBtn = e.target && e.target.closest ? e.target.closest('.triple-dot') : null;
+        if (acceptBtn){
+          const id = acceptBtn.dataset.entryId;
+          // Find entry DOM to gather suggestion lines if available
+          const entryCard = acceptBtn.closest('.tx-card');
+          const suggestion = entryCard ? extractEntrySuggestion(entryCard) : null;
+          sendJournalFeedback(true, suggestion);
+          return;
+        }
+        if (rejectBtn){
+          const id = rejectBtn.dataset.entryId;
+          const entryCard = rejectBtn.closest('.tx-card');
+          const suggestion = entryCard ? extractEntrySuggestion(entryCard) : null;
+          sendJournalFeedback(false, suggestion);
+          return;
+        }
+        if (tripleBtn){
+          const card = tripleBtn.closest('.tx-card');
+          if (!card) return;
+          const menu = card.querySelector('.triple-menu');
+          if (menu) menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+          return;
+        }
+      });
+    }
+
+    function extractEntrySuggestion(card){
+      // Build a lightweight suggestion object from the rendered entry lines
+      const suggestion = { entries: [] };
+      const rows = card.querySelectorAll('.tx-card-lines tbody tr');
+      rows.forEach(row => {
+        const dcText = row.children[0].textContent.trim();
+        const account = row.children[1].textContent.trim();
+        const memo = row.children[2].textContent.trim();
+        const amount = parseFloat(row.children[3].textContent.replace(/,/g, '') || '0');
+        suggestion.entries.push({ dc: dcText === 'Debit' ? 'D' : 'C', account: account === '—' ? '' : account, memo: memo === '—' ? '' : memo, amount });
+      });
+      return suggestion;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      attachFilterHandler();
+      attachTxListDelegation();
+      const toggleBtn = document.getElementById('toggle-tx-btn');
+      if (toggleBtn){
+        toggleBtn.addEventListener('click', () => {
+          const section = document.getElementById('tx-list-section');
+          if (!section) return;
+          const isHidden = section.style.display === 'none' || section.style.display === '';
+          section.style.display = isHidden ? 'block' : 'none';
+          toggleBtn.innerHTML = isHidden ? '<i class="fa fa-list"></i> Hide Entries' : '<i class="fa fa-list"></i> Show Entries';
+          if (isHidden){ updateTxListFromURL(location.href); }
+        });
+      }
+      window.addEventListener('popstate', () => updateTxListFromURL(location.href));
+    });
+
+    function triggerCsvUpload(){
+      var inp = document.getElementById('csv_file_input');
+      if (!inp) return;
+      inp.onchange = async function(){
+        if (!inp.files || !inp.files[0]) return;
+        const fd = new FormData();
+        fd.append('csv_file', inp.files[0]);
+        try{
+          const res = await fetch('{{ url_for("transactions_bp.upload_csv") }}', { method:'POST', body: fd });
+          if (res.ok){ updateTxListFromURL('{{ url_for("transactions_bp.transactions") }}'); }
+        }catch(err){ console.error(err); }
+      };
+      inp.click();
+    }
+    window.triggerCsvUpload = triggerCsvUpload;
+
+    // Add feedback helper
+    async function sendJournalFeedback(accepted, suggestion){
+      try{
+        await fetch('{{ url_for("journal_bp.journal_feedback") }}', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accepted: accepted, suggestion: suggestion, context: { page: location.pathname } })
+        });
+      }catch(err){ console.warn('Failed sending feedback', err); }
+    }
+  </script>
+{% endblock %}

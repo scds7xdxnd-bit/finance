@@ -1,0 +1,165 @@
+/* Adding styles for the main menu */
+
+.main-menu {
+    width: 100%;
+    background: #228b22;
+    border-radius: 0 0 16px 16px;
+    box-shadow: 0 2px 12px rgba(34,139,34,0.10);
+    margin-bottom: 32px;
+}
+.main-menu ul {
+    display: flex;
+    gap: 18px;
+    list-style: none;
+    margin: 0;
+    padding: 24px 32px 24px 32px;
+    justify-content: flex-end;
+    align-items: center;
+}
+.main-menu .menu-btn {
+    background: #fff;
+    color: #228b22;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 22px;
+    font-weight: 600;
+    font-size: 1.05em;
+    box-shadow: 0 1px 6px rgba(34,139,34,0.08);
+    transition: background 0.2s, color 0.2s;
+    margin: 0 2px;
+    text-decoration: none;
+    cursor: pointer;
+}
+.main-menu .menu-btn.active, .main-menu .menu-btn:hover {
+    background: #228b22;
+    color: #fff;
+    box-shadow: 0 2px 12px rgba(34,139,34,0.15);
+}
+.main-menu .logout-btn {
+    background: #fff !important;
+    color: #b22222 !important;
+    border: 1px solid #b22222 !important;
+    margin-left: 16px;
+}
+.main-menu .logout-btn:hover {
+    background: #b22222 !important;
+    color: #fff !important;
+}
+
+body {
+    background: linear-gradient(120deg, #e6f4ea 0%, #f8fff8 100%);
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: #1a4d2e;
+    margin: 0;
+    padding: 0;
+}
+
+.container, .header, form, table, .scrollable-table, .scrollable-users, .posts, .post {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 32px 48px 32px;
+    box-sizing: border-box;
+}
+
+h3 {
+    color: #228b22;
+    margin-left: 0;
+    margin-top: 24px;
+    margin-bottom: 16px;
+}
+
+h2 {
+    color: #228b22;
+    margin-top: 24px;
+    margin-bottom: 16px;
+}
+
+form, table {
+    background: #f8fff8;
+    border-radius: 16px;
+    box-shadow: 0 2px 16px rgba(34,139,34,0.10);
+    padding: 24px 32px;
+    margin-bottom: 32px;
+    margin-top: 16px;
+    box-sizing: border-box;
+}
+
+input, select, button {
+    border: 1px solid #228b22;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 8px 0 16px 0;
+    font-size: 1.05em;
+}
+
+button, a.button {
+    background: #228b22;
+    color: #fff;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 8px;
+    cursor: pointer;
+    text-decoration: none;
+    margin-right: 8px;
+    margin-top: 8px;
+    font-weight: 600;
+    font-size: 1.05em;
+}
+
+a.logout-btn, button.delete-btn {
+    background: #fff !important;
+    color: #b22222 !important;
+    border: 1px solid #b22222 !important;
+    margin: 6px 0 6px 20px;
+}
+
+a.logout-btn:hover, button.delete-btn:hover {
+    background: #b22222 !important;
+    color: #fff !important;
+}
+
+button:hover, a.button:hover {
+    background: #1a4d2e;
+}
+
+table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 12px;
+    margin-bottom: 32px;
+    box-sizing: border-box;
+}
+
+th, td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #b2d8b2;
+    text-align: left;
+}
+
+th {
+    background: #c7f9cc;
+    color: #1a4d2e;
+    font-size: 1.08em;
+    font-weight: 600;
+}
+
+tr:nth-child(even) {
+    background: #f0fff0;
+}
+
+ul {
+    color: #b22222;
+}
+
+.header ul, .header h2 {
+    background: #228b22;
+    color: #fff;
+    padding: 24px 0 24px 0;
+    text-align: center;
+    margin-bottom: 32px;
+    border-radius: 0 0 16px 16px;
+}
+
+#documents, #return {
+    margin: 8px 0 8px 32px;
+}

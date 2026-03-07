@@ -1,0 +1,7 @@
+numpy>=1.23
+pandas>=1.5
+scikit-learn>=1.1
+torch>=2.0
+pyarrow>=11.0
+joblib>=1.2
+PyYAML>=6.0

@@ -1,0 +1,15 @@
+version: 1
+name: account-risk-training
+params:
+  seed: 42
+  data_path: ./data/transactions.csv
+  primary_metric: val_f1
+steps:
+  - name: prepare_data
+    command: python scripts/download_sample_data.py
+  - name: train_model
+    command: python -m src.models.train
+  - name: evaluate_model
+    command: python -m src.models.evaluate
+  - name: finalize
+    info: Model registered via train script based on primary metric

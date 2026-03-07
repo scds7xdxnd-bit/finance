@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CsvImportSummary",
+  "type": "object",
+  "required": [
+    "batch_id",
+    "file_sha256",
+    "write_mode",
+    "skipped_duplicate_batch",
+    "totals",
+    "duplicate_reasons",
+    "error_reasons",
+    "count_simple",
+    "count_journal",
+    "rows_new",
+    "rows_duplicate",
+    "rows_error"
+  ],
+  "properties": {
+    "batch_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "file_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "write_mode": {
+      "type": "string",
+      "enum": ["journal", "dual", "legacy"]
+    },
+    "skipped_duplicate_batch": {
+      "type": "boolean"
+    },
+    "totals": {
+      "type": "object",
+      "required": [
+        "rows_total",
+        "rows_new",
+        "rows_duplicate",
+        "rows_error",
+        "journal_entries_created",
+        "legacy_transactions_created",
+        "normalized_dates",
+        "unparsable_dates"
+      ],
+      "properties": {
+        "rows_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rows_new": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rows_duplicate": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rows_error": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "journal_entries_created": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "legacy_transactions_created": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "normalized_dates": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unparsable_dates": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "duplicate_reasons": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "error_reasons": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "count_simple": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "count_journal": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "normalized_dates": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unparsable_dates": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "rows_new": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "rows_duplicate": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "rows_error": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "skipped_unbalanced": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "skipped_existing": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}

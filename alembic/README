@@ -1,0 +1,5 @@
+This directory contains Alembic migration scripts. Install Alembic and run:
+
+  alembic revision -m "message"
+  alembic upgrade head
+

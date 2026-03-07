@@ -1,0 +1,67 @@
+:root {
+  --surface: #ffffff;
+  --surface-muted: #f7f8fa;
+  --muted: #f7f8fa;
+  --border: #e0e5ec;
+  --text-strong: #14202b;
+  --text-muted: #5b6470;
+  --accent: #0f7b5f;
+  --accent-strong: #0c5c48;
+  --accent-soft: #d8f1e7;
+  --positive: #0f7b5f;
+  --negative: #b3352f;
+  --radius-lg: 16px;
+  --radius-md: 10px;
+  --radius-sm: 6px;
+  --shadow-soft: 0 8px 24px rgba(15, 32, 46, 0.06);
+}
+
+body {
+  background: var(--surface-muted);
+  font-family: "Inter","Apple SD Gothic Neo",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  color: var(--text-strong);
+  margin: 0;
+}
+
+.profile-cover {
+  background: linear-gradient(120deg, #51cf66 0%, #c7f9cc 100%);
+}
+
+.app-footer {
+  margin-top: 48px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.app-footer__inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 18px 32px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.app-footer__title {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.app-footer__subtitle {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.app-footer__meta {
+  color: var(--text-muted);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.app-footer .dot {
+  opacity: 0.6;
+}

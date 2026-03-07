@@ -1,0 +1,11 @@
+version: 1
+name: account-risk-batch-inference
+params:
+  input_path: ./data/sample.parquet
+  output_path: ./out/predictions.parquet
+  model: best
+steps:
+  - name: ensure_data
+    command: python scripts/download_sample_data.py
+  - name: run_batch_inference
+    command: python -m src.service_batch.entry --in {{ params.input_path }} --out {{ params.output_path }} --model {{ params.model }}

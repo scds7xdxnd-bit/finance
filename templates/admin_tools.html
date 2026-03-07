@@ -1,0 +1,374 @@
+{% extends "base.html" %}
+{% block title %}Admin Tools - Finance App{% endblock %}
+
+{% block styles %}
+  {{ super() }}
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --surface: #ffffff;
+      --surface-muted: #f7f8fa;
+      --muted: #f7f8fa;
+      --border: #e0e5ec;
+      --text-strong: #14202b;
+      --text-muted: #5b6470;
+      --accent: #0f7b5f;
+      --accent-strong: #0c5c48;
+      --accent-soft: #d8f1e7;
+      --positive: #0f7b5f;
+      --negative: #b3352f;
+    }
+    body {
+      background: var(--surface-muted);
+      font-family: "Inter","Apple SD Gothic Neo",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      color: var(--text-strong);
+    }
+    .profile-cover { display: none !important; }
+    .profile-main { background: transparent; box-shadow: none; padding: 0; max-width: none; top: 0; }
+
+    .at { max-width: 1280px; margin: 0 auto; padding: 0 32px 64px; display: flex; flex-direction: column; gap: 24px; box-sizing: border-box; }
+    .at-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 8px 24px rgba(15, 32, 46, 0.06); overflow: hidden; }
+
+    .at-head { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 20px; padding: 32px; margin-top: 20px; }
+    .at-eyebrow { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); font-weight: 600; }
+    .at-head h1 { margin: 6px 0 10px; font-size: 30px; font-weight: 600; }
+    .at-lede { margin: 0; color: var(--text-muted); max-width: 700px; line-height: 1.5; }
+    .at-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; min-width: 260px; }
+    .at-meta-block { border-left: 2px solid var(--border); padding-left: 16px; display: flex; flex-direction: column; gap: 4px; }
+    .at-meta-block span { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+    .at-meta-block strong { font-size: 1.4rem; color: var(--accent); }
+    .at-meta-block small { color: var(--text-muted); font-size: 0.82rem; }
+
+    .at-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
+    .at-panel { padding: 22px 26px 26px; display: flex; flex-direction: column; gap: 14px; }
+    .at-panel header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .at-panel h3 { margin: 0; font-size: 1.15rem; }
+    .at-panel p { margin: 0; color: var(--text-muted); }
+
+    .at-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .at-list a { color: var(--accent); text-decoration: none; font-weight: 600; display: inline-flex; gap: 8px; align-items: center; }
+    .at-list a:hover { color: var(--accent-strong); }
+
+    .at-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 999px; padding: 10px 16px; font-weight: 600; font-size: 0.95rem; cursor: pointer; border: 1px solid transparent; background: transparent; color: var(--text-strong); text-decoration: none; transition: background 0.2s, color 0.2s, border 0.2s; }
+    .at-btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .at-btn-primary:hover { background: var(--accent-strong); }
+    .at-btn-ghost { border-color: var(--border); color: var(--accent); }
+    .at-btn-ghost:hover { background: var(--accent-soft); color: var(--accent-strong); }
+
+    .at-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    .at-select { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; font-size: 0.95rem; background: #fff; color: var(--text-strong); min-width: 200px; }
+    .at-hint { color: var(--text-muted); font-size: 0.85rem; }
+
+    .at-table-wrapper { width: 100%; overflow-x: auto; }
+    table.at-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; min-width: 620px; }
+    table.at-table th { text-align: left; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.75rem; color: var(--text-muted); padding: 10px 8px; border-bottom: 2px solid var(--border); }
+    table.at-table td { padding: 10px 8px; border-bottom: 1px solid var(--border); }
+    table.at-table td.num { text-align: right; }
+    .badge { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 4px 10px; font-size: 0.82rem; font-weight: 600; background: #f3f5f7; color: var(--text-muted); }
+    .badge.info { background: var(--accent-soft); color: var(--accent-strong); }
+    .badge.success { background: rgba(15,123,95,0.12); color: var(--accent-strong); }
+    .badge.warn { background: rgba(255,193,7,0.15); color: #8a6d1d; }
+
+    .at-empty { padding: 22px; text-align: center; color: var(--text-muted); border: 2px dashed var(--border); border-radius: 12px; background: var(--muted); }
+    .at-msg { font-size: 0.92rem; }
+    /* Profile-style cards for quick lists */
+    .profile-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 8px 20px rgba(15, 32, 46, 0.05); padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+    .posts-header { display:flex; align-items:center; justify-content: space-between; gap:12px; flex-wrap:wrap; }
+    .hero-eyebrow { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); font-weight: 600; }
+    .card-title { margin: 0; font-size: 1.1rem; }
+    .activity-list { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px; }
+    .activity-item { display:flex; justify-content: space-between; align-items:center; gap:12px; border:1px solid var(--border); border-radius:12px; padding:10px 12px; background:#fbfcfd; }
+    .activity-copy { color: var(--text-muted); font-size: 0.9rem; }
+    .activity-time { color: var(--text-muted); font-size: 0.85rem; }
+    .status-chip { border-radius: 999px; padding: 4px 10px; font-size: 0.82rem; font-weight: 600; background: #f3f5f7; color: var(--text-muted); }
+    .status-chip.live, .status-chip.success { background: rgba(15,123,95,0.12); color: var(--accent-strong); }
+    .status-chip.warn { background: rgba(255,193,7,0.15); color: #8a6d1d; }
+    .activity-meta { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+
+    @media (max-width: 768px) {
+      .at { padding: 0 16px 48px; }
+      .at-head { padding: 24px; }
+      table.at-table { min-width: 540px; }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+{% set job_count = jobs|length %}
+<div class="at">
+  <header class="at-card at-head" style="display:grid; grid-template-columns: minmax(0,2fr) minmax(0,1fr); gap:16px; align-items:center;">
+    <div>
+      <div class="at-eyebrow">Operations</div>
+      <h1>Admin Tools</h1>
+      <p class="at-lede">Run quick exports and monitor background jobs without leaving your workspace.</p>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:10px; align-items:flex-end;">
+      <div class="at-meta" style="grid-template-columns: repeat(2, minmax(140px, 1fr)); width:100%;">
+        <div class="at-meta-block">
+          <span>Active jobs</span>
+          <strong>{{ job_count }}</strong>
+          <small>Auto-refresh every 2s · kinds: assign IDs, train models</small>
+        </div>
+        <div class="at-meta-block">
+          <span>Exports</span>
+          <strong>2</strong>
+          <small>Login sessions · User list</small>
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <a class="at-btn at-btn-primary" href="{{ url_for('admin_bp.download_login_sessions') }}">
+          <i class="fa fa-clock-rotate-left"></i> Login sessions
+        </a>
+        <a class="at-btn at-btn-primary" href="{{ url_for('admin_bp.download_user_list') }}">
+          <i class="fa fa-users"></i> User list
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <section class="at-grid">
+    <article class="at-card profile-card">
+      <div class="posts-header">
+        <div>
+          <div class="hero-eyebrow"><i class="fa fa-robot"></i> User models</div>
+          <h2 class="card-title" style="margin-top:4px;">Model status</h2>
+        </div>
+        <form
+          class="at-form"
+          method="POST"
+          action="{{ url_for('admin_bp.start_train_user_models_job') }}"
+          data-admin-destructive="true"
+          data-confirm-action="train_user_models_job"
+          data-confirm-message="Start bulk user-model training job?"
+        >
+          <select name="user_id" class="at-select">
+            <option value="">All eligible</option>
+            {% for u in all_users %}
+              <option value="{{ u.id }}">{{ u.username }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="at-btn at-btn-ghost"><i class="fa fa-play"></i> Train eligible</button>
+        </form>
+      </div>
+      <div class="as-search" style="margin-bottom:8px;">
+        <i class="fa fa-search" aria-hidden="true"></i>
+        <input id="user-model-search" type="search" placeholder="Search user or hash">
+      </div>
+      {% if model_statuses %}
+        <ul class="activity-list" id="user-models-body">
+          {% for ms in model_statuses %}
+            {% set uname = user_map.get(ms.user_id, ms.user_id) %}
+            <li class="activity-item" data-user-model-row data-text="{{ (uname|string + ' ' + (ms.model_hash or '') )|lower }}">
+              <div>
+                <strong>{{ uname }}</strong>
+                <div class="activity-copy">Logs {{ ms.log_count }} · Trained rows {{ ms.row_count }}</div>
+                <div class="activity-time">{{ ms.trained_at or 'Not trained' }}</div>
+              </div>
+              <div class="activity-meta">
+                {% if ms.model_exists %}
+                  <span class="status-chip success">ready</span>
+                {% elif ms.needs_train %}
+                  <span class="status-chip warn">needs train</span>
+                {% else %}
+                  <span class="status-chip">cold</span>
+                {% endif %}
+                <form
+                  method="POST"
+                  action="{{ url_for('admin_bp.admin_train_user_model') }}"
+                  data-admin-destructive="true"
+                  data-confirm-action="train_user_model"
+                  data-confirm-message="Retrain model for this user?"
+                >
+                  <input type="hidden" name="user_id" value="{{ ms.user_id }}">
+                  <button class="at-btn at-btn-primary" type="submit" {% if not ms.needs_train and not ms.model_exists %}disabled{% endif %}>Retrain</button>
+                </form>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="empty-state">No user model data yet.</div>
+      {% endif %}
+    </article>
+  </section>
+
+  <section class="at-card at-panel">
+    <header>
+      <div>
+        <h3><i class="fa fa-gears"></i> Background jobs</h3>
+        <p>Assign account IDs or train user models; jobs refresh automatically.</p>
+      </div>
+      <div class="at-hint">Starts immediately; confirm before launching.</div>
+    </header>
+    <form
+      id="assign-form"
+      class="at-form"
+      method="POST"
+      action="{{ url_for('admin_bp.start_assign_account_ids_job') }}"
+      data-admin-destructive="true"
+      data-confirm-action="assign_account_ids_job"
+      data-confirm-message="Start background job to assign account IDs?"
+    >
+      <label style="font-weight:600;">Assign account ids:</label>
+      <select name="user_id" class="at-select">
+        <option value="">All users</option>
+        {% for u in all_users %}
+          <option value="{{ u.id }}">{{ u.username }}</option>
+        {% endfor %}
+      </select>
+      <button class="at-btn at-btn-ghost" type="submit"><i class="fa fa-play"></i> Start job</button>
+    </form>
+    <div class="at-hint">Progress updates every 2 seconds while this page is open.</div>
+
+    {% if jobs %}
+      <div class="at-table-wrapper">
+        <table class="at-table">
+          <thead>
+            <tr>
+              <th>Job ID</th>
+              <th>Kind</th>
+              <th>Status</th>
+              <th class="num">Processed</th>
+              <th class="num">Total</th>
+              <th class="num">Progress</th>
+            </tr>
+          </thead>
+          <tbody id="jobs-body">
+            {% for jid, data in jobs.items() %}
+              {% set processed = data.get('processed', 0) %}
+              {% set total = data.get('total', 0) %}
+              {% set pct = (processed * 100 // total) if total else 0 %}
+              <tr data-job-id="{{ jid }}">
+                <td style="font-family:monospace;">{{ jid }}</td>
+                <td><span class="badge info">{{ data.get('kind','job') }}</span></td>
+                <td><span class="badge {{ 'info' if data.get('status')=='running' else '' }}">{{ data.get('status','unknown') }}</span></td>
+                <td class="num">{{ processed }}</td>
+                <td class="num">{{ total }}</td>
+                <td class="num">{{ pct }}%</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="at-hint" id="job-kind-summary"></div>
+    {% else %}
+      <div class="at-empty">No background jobs yet. Start a run to begin processing.</div>
+      <tbody id="jobs-body" style="display:none;"></tbody>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script>
+    const adminEndpoints = (window.FINANCE_ENDPOINTS && window.FINANCE_ENDPOINTS.admin) || {};
+    const adminJobsStatusUrl = adminEndpoints.jobsStatus || '/admin/jobs/status';
+    const adminUserModelsStatusUrl = adminEndpoints.userModelsStatus || '/admin/api/user-models/status';
+    const adminUserModelsTrainUrl = adminEndpoints.userModelsTrain || '/admin/user-models/train';
+
+    async function pollJobs(){
+      try{
+        var res = await fetch(adminJobsStatusUrl);
+        if (!res.ok) return;
+        var data = await res.json();
+        if (!data.ok) return;
+        var jobs = data.jobs || {};
+        var tbody = document.getElementById('jobs-body');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        var hasRows = false;
+        var kindCounts = {};
+        Object.entries(jobs).forEach(function(entry){
+          var jid = entry[0];
+          var d = entry[1] || {};
+          hasRows = true;
+          var processed = d.processed || 0;
+          var total = d.total || 0;
+          var pct = total ? Math.floor(processed * 100 / total) : 0;
+          var kind = d.kind || 'job';
+          kindCounts[kind] = (kindCounts[kind] || 0) + 1;
+          var tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td style="font-family:monospace;">'+ jid +'</td>' +
+            '<td><span class="badge info">'+ kind +'</span></td>' +
+            '<td><span class="badge '+ (d.status==='running' ? 'info' : '') +'">'+ (d.status || 'unknown') +'</span></td>' +
+            '<td class="num">'+ processed +'</td>' +
+            '<td class="num">'+ total +'</td>' +
+            '<td class="num">'+ pct +'%</td>';
+          tbody.appendChild(tr);
+        });
+        var emptyBox = document.querySelector('.at-empty');
+        if (emptyBox) {
+          emptyBox.style.display = hasRows ? 'none' : '';
+        }
+        var summary = document.getElementById('job-kind-summary');
+        if (summary){
+          var parts = Object.keys(kindCounts).map(function(k){ return k + ': ' + kindCounts[k]; });
+          summary.textContent = parts.length ? ('Job kinds — ' + parts.join(' · ')) : '';
+        }
+      }catch(e){ console.error(e); }
+    }
+
+    async function pollUserModels(){
+      try{
+        var res = await fetch(adminUserModelsStatusUrl);
+        if (!res.ok) return;
+        var data = await res.json();
+        if (!data.ok) return;
+        var rows = data.statuses || [];
+        var list = document.getElementById('user-models-body');
+        if (!list) return;
+        list.innerHTML = '';
+        rows.forEach(function(ms){
+          var badge = '<span class="status-chip">cold</span>';
+          if (ms.model_exists){
+            badge = '<span class="status-chip success">ready</span>';
+          } else if (ms.needs_train){
+            badge = '<span class="status-chip warn">needs train</span>';
+          }
+          var btnDisabled = (!ms.needs_train && !ms.model_exists) ? 'disabled' : '';
+          var li = document.createElement('li');
+          li.className = 'activity-item';
+          li.dataset.userModelRow = true;
+          li.dataset.text = ((ms.username || ms.user_id || '') + ' ' + (ms.model_hash || '')).toLowerCase();
+          li.innerHTML =
+            '<div>' +
+              '<strong>'+ (ms.username || ms.user_id) +'</strong>' +
+              '<div class="activity-copy">Logs '+ (ms.log_count || 0) +' · Trained rows '+ (ms.row_count || 0) +'</div>' +
+              '<div class="activity-time">'+ (ms.trained_at || 'Not trained') +'</div>' +
+            '</div>' +
+            '<div class="activity-meta">' +
+              badge +
+              '<form method="POST" action="'+ adminUserModelsTrainUrl +'" data-admin-destructive="true" data-confirm-action="train_user_model" data-confirm-message="Retrain model for this user?">' +
+                '<input type="hidden" name="user_id" value="'+ ms.user_id +'">' +
+                '<input type="hidden" name="csrf_token" value="{{ csrf_token }}">' +
+                '<button class="at-btn at-btn-primary" type="submit" '+ btnDisabled +'>Retrain</button>' +
+              '</form>' +
+            '</div>';
+          list.appendChild(li);
+        });
+      }catch(e){ console.error(e); }
+    }
+    function attachSearch(){
+      var search = document.getElementById('user-model-search');
+      if (!search) return;
+      var handler = function(){
+        var q = (search.value || '').toLowerCase();
+        var rows = document.querySelectorAll('#user-models-body [data-user-model-row]');
+        rows.forEach(function(r){
+          var txt = (r.dataset.text || r.textContent || '').toLowerCase();
+          r.style.display = (!q || txt.indexOf(q) !== -1) ? '' : 'none';
+        });
+      };
+      search.removeEventListener('input', handler);
+      search.addEventListener('input', handler);
+    }
+    document.addEventListener('DOMContentLoaded', function(){ attachSearch(); pollJobs(); pollUserModels(); });
+    setInterval(function(){ pollJobs(); pollUserModels(); attachSearch(); }, 2000);
+    document.addEventListener('visibilitychange', function() { if (!document.hidden) { pollJobs(); pollUserModels(); attachSearch(); } });
+    pollJobs();
+    pollUserModels();
+
+  </script>
+{% endblock %}

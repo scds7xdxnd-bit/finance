@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ml-suggester"
+version = "0.2.0"
+description = "Transformer + models for multi-currency journal lines"
+readme = "README.md"
+authors = [{ name = "You" }]
+requires-python = ">=3.10"
+dependencies = [
+  "pandas>=2.1",
+  "numpy>=1.26",
+  "python-dateutil>=2.9",
+  "openpyxl>=3.1",         # Excel reader
+  "pyarrow>=15.0",         # Parquet
+  "click>=8.1",
+  "tqdm>=4.66",
+  "scikit-learn>=1.3",
+  "joblib>=1.3",
+  # NOTE: optional XGBoost install: `python3.10 -m pip install xgboost`
+  # If you'd like it as a dep, uncomment the next line (may be tricky on some Macs):
+  "xgboost>=2.0",
+  "fastapi>=0.110",
+  "uvicorn[standard]>=0.24",
+  "pydantic>=2.6"
+]
+
+[project.scripts]
+ml-suggester = "ml_suggester.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["ml_suggester*"]

@@ -1,0 +1,50 @@
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Python caches
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Local runtime state
+instance/
+instance/backups/
+instance/uploads/
+instance/user_models/
+:memory:
+:memory:-shm
+:memory:-wal
+
+# Database artifacts
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Personal/local assets
+static/profile_pics/
+
+# Local data exports
+data/
+data3/
+
+# Notebook and misc outputs
+.ipynb_checkpoints/

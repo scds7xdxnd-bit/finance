@@ -1,0 +1,1025 @@
+{% extends "base.html" %}
+{% block title %}Money Schedule - Finance App{% endblock %}
+
+{% block styles %}
+  {{ super() }}
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --surface: #ffffff;
+      --surface-muted: #f7f8fa;
+      --muted: #f7f8fa;
+      --border: #e0e5ec;
+      --text-strong: #14202b;
+      --text-muted: #5b6470;
+      --accent: #0f7b5f;
+      --accent-strong: #0c5c48;
+      --accent-soft: #d8f1e7;
+      --positive: #0f7b5f;
+      --negative: #b3352f;
+    }
+
+    body {
+      background: var(--surface-muted);
+      font-family: "Inter","Apple SD Gothic Neo",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      color: var(--text-strong);
+    }
+    .profile-cover { display: none !important; }
+    .profile-main { background: transparent; box-shadow: none; padding: 0px; max-width: none; top: 0; }
+
+    .ms { max-width: 1280px; margin: 0 auto; padding: 0 32px; display: flex; flex-direction: column; gap: 24px; box-sizing: border-box; }
+    .ms-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 8px 24px rgba(15, 32, 46, 0.06); }
+    .ms form, .ms table { max-width: none; background: transparent; border-radius: 0; box-shadow: none; padding: 0; }
+    .ms input, .ms select, .ms textarea { border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; font-size: 0.95rem; color: var(--text-strong); background: #fff; width: 100%; box-sizing: border-box; }
+    .ms textarea { min-height: 90px; resize: vertical; }
+    .ms label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); display: flex; flex-direction: column; gap: 6px; }
+    .ms small { color: var(--text-muted); font-size: 0.78rem; }
+
+    .ms-head { display: flex; justify-content: space-between; flex-wrap: wrap; padding: 32px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 8px 24px rgba(15, 32, 46, 0.06); margin-top: 20px;}
+    .ms-head h1 { margin: 4px 0 8px; font-size: 30px; font-weight: 600; }
+    .ms-lede { margin: 0; color: var(--text-muted); max-width: 640px; line-height: 1.5; }
+    .ms-eyebrow { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); font-weight: 600; }
+    .ms-period-meta {
+      min-width: 220px;
+      border-left: 2px solid var(--border);
+      padding-left: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 4px;
+    }
+    .ms-period-meta span { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+    .ms-period-meta strong { font-size: 1.4rem; color: var(--accent); }
+
+    .ms-toolbar { padding: 24px 32px; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; align-items: center; }
+    .ms-range-form { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
+    .ms-toolbar-actions { display: flex; gap: 12px; justify-content: flex-end; }
+
+    .ms-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 999px; padding: 10px 22px; font-weight: 600; font-size: 0.95rem; cursor: pointer; border: 1px solid transparent; background: transparent; color: var(--text-strong); text-decoration: none; transition: background 0.2s, color 0.2s, border 0.2s; }
+    .ms-btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .ms-btn-primary:hover { background: var(--accent-strong); }
+    .ms-btn-secondary { background: var(--surface); border-color: var(--border); }
+    .ms-btn-secondary:hover { background: var(--accent-soft); }
+    .ms-btn-ghost { border-color: var(--border); color: var(--accent); }
+    .ms-btn-ghost:hover { background: var(--accent-soft); color: var(--accent-strong); }
+    .ms-btn-danger { border-color: var(--negative); color: var(--negative); }
+    .ms-btn-danger:hover { background: rgba(179, 53, 47, 0.08); color: var(--negative); }
+
+    .ms-overview { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; align-items: stretch; }
+    .ms-grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 24px; align-items: start; }
+    .ms-balance-card { display: flex; flex-wrap: wrap; gap: 32px; padding: 32px; align-items: stretch; }
+    .ms-balance-block { flex: 1 1 240px; display: flex; flex-direction: column; gap: 10px; }
+    .ms-balance-block .value { font-size: 1.9rem; font-weight: 600; }
+    .ms-balance-block .note { margin: 0; color: var(--text-muted); }
+    .ms-balance-card .divider { width: 1px; background: var(--border); }
+    .ms-delta { font-size: 0.9rem; font-weight: 600; }
+    .ms-delta.positive { color: var(--positive); }
+    .ms-delta.negative { color: var(--negative); }
+
+    .ms-metrics-card { padding: 28px 32px; }
+    .ms-metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
+    .ms-metric { border: 1px solid var(--border); border-radius: 12px; padding: 18px; background: var(--muted); }
+    .ms-metric .label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+    .ms-metric .value { display: block; margin-top: 6px; font-size: 1.2rem; font-weight: 600; }
+    .ms-metric .value.positive { color: var(--positive); }
+    .ms-metric .value.negative { color: var(--negative); }
+    .ms-chart-card { padding: 20px 24px; }
+    .ms-chart-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 12px; flex-wrap: wrap; }
+    .ms-chart-head h4 { margin: 0; font-size: 1rem; }
+    .ms-buffer-card { padding: 18px 22px; display: flex; justify-content: space-between; align-items: center; gap: 12px; border-left: 4px solid var(--accent); background: var(--muted); }
+    .ms-buffer-left { display: flex; align-items: center; gap: 10px; }
+    .ms-buffer-title { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; color: var(--text-muted); }
+    .ms-buffer-value { font-weight: 700; font-size: 1.2rem; color: var(--accent); }
+    .ms-buffer-right { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: flex-end; }
+    .ms-chip-warning { background: rgba(179, 53, 47, 0.12); color: var(--negative); border: 1px solid rgba(179, 53, 47, 0.3); padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 0.85rem; }
+    .ms-chip-ok { background: rgba(15, 123, 95, 0.12); color: var(--accent); border: 1px solid rgba(15, 123, 95, 0.25); padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 0.85rem; }
+
+    .ms-quick-add { padding: 24px 32px; display: flex; flex-direction: column; gap: 16px; }
+    .ms-quick-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    .ms-quick-add label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); display: flex; flex-direction: column; gap: 6px; }
+    .ms-quick-actions { display: flex; justify-content: flex-end; }
+
+    .ms-checklist { padding: 24px 32px; display: flex; flex-direction: column; gap: 12px; }
+    .ms-checklist h4 { margin: 0; }
+    .ms-checklist ul { margin: 0; padding-left: 18px; color: var(--text-strong); display: grid; gap: 8px; }
+    .ms-checklist li { list-style: none; display: flex; gap: 10px; align-items: flex-start; }
+    .ms-checklist input[type="checkbox"] { margin-top: 4px; accent-color: var(--accent); }
+
+    .ms-ledger { padding: 0; overflow: hidden; }
+    .ms-ledger-header { padding: 28px 32px; display: flex; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+    .ms-ledger-header h3 { margin: 0; font-size: 1.2rem; }
+    .ms-ledger-header p { margin: 4px 0 0; color: var(--text-muted); }
+    .ms-view-toggle { display: flex; border: 1px solid var(--border); border-radius: 999px; padding: 4px; background: #fff; }
+    .ms-view-toggle a { padding: 8px 18px; border-radius: 999px; text-decoration: none; font-weight: 600; color: var(--text-muted); }
+    .ms-view-toggle a.active { background: var(--accent); color: #fff; }
+    .ms-ledger-body { padding: 24px 32px 32px; }
+
+    .ms-table-wrapper { width: 100%; overflow-x: auto; overflow-y: auto; max-height: 60vh; padding-bottom: 8px; }
+    table.ms-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; min-width: 740px; background: var(--surface); }
+    table.ms-table thead th { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); border-bottom: 2px solid var(--border); padding: 12px 10px; background: #f3f5f7; text-align: left; }
+    table.ms-table th.num, table.ms-table td.num { text-align: right; }
+    table.ms-table tbody td { padding: 12px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; background: #fff; }
+    .ms-date-cell { display: flex; flex-direction: column; gap: 6px; }
+    .ms-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .ms-chip { border-radius: 999px; padding: 2px 10px; font-size: 0.75rem; background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+    .ms-chip-today { background: var(--accent); color: #fff; }
+    .ms-chip-init { background: #0c1a2f; color: #fff; }
+    .ms-chip-large { background: rgba(179, 53, 47, 0.1); color: var(--negative); }
+    .ms-chip-floor { background: rgba(249, 186, 0, 0.16); color: #8a5b00; }
+    .ms-chip-deficit { background: rgba(179, 53, 47, 0.18); color: var(--negative); font-weight: 700; }
+    .ms-deficit-flag { display: inline-flex; align-items: center; gap: 4px; font-size: 0.82rem; color: var(--negative); font-weight: 600; }
+
+    .ms-alert-card { padding: 20px 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; align-items: start; border-left: 4px solid var(--accent); }
+    .ms-alert-block { display: flex; flex-direction: column; gap: 6px; }
+    .ms-alert-title { font-weight: 700; display: flex; gap: 8px; align-items: center; font-size: 0.98rem; }
+    .ms-alert-muted { color: var(--text-muted); font-size: 0.9rem; }
+    .ms-alert-list { margin: 0; padding-left: 18px; color: var(--text-strong); }
+    .ms-alert-empty { color: var(--text-muted); }
+
+    .ms-input-group { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .ms-input-group span { background: var(--muted); padding: 0 10px; font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; border-right: 1px solid var(--border); }
+    .ms-input-group input { border: none; flex: 1; padding: 8px 10px; font-size: 0.95rem; }
+
+    .ms-pagination { margin-top: 16px; padding-top: 18px; display: flex; justify-content: space-between; align-items: center; gap: 12px; color: var(--text-muted); border-top: 1px solid var(--border); flex-wrap: wrap; }
+    .ms-page-btn { border-radius: 999px; padding: 8px 18px; border: 1px solid var(--border); font-weight: 600; color: var(--text-strong); text-decoration: none; }
+    .ms-page-btn.disabled { color: var(--text-muted); background: var(--muted); cursor: not-allowed; }
+
+    .ms-empty { padding: 36px; text-align: center; color: var(--text-muted); border: 2px dashed var(--border); border-radius: 12px; background: var(--muted); }
+
+    .ms-calendar-wrapper { display: flex; flex-direction: column; gap: 24px; }
+    .ms-calendar-month { border: 1px solid var(--border); border-radius: 16px; overflow: hidden; background: #fff; }
+    .ms-calendar-month-header { padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; background: var(--surface-muted); }
+    .ms-calendar-weekdays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); background: var(--surface-muted); border-bottom: 1px solid var(--border); }
+    .ms-weekday { padding: 12px; text-align: center; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600; }
+    .ms-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+    .ms-calendar-day { border: 1px solid var(--border); border-left: none; border-top: none; padding: 12px 10px 14px; min-height: 150px; display: flex; flex-direction: column; gap: 8px; background: #fff; }
+    .ms-calendar-day:nth-child(7n+1) { border-left: 1px solid var(--border); }
+    .ms-calendar-day:nth-child(-n+7) { border-top: 1px solid var(--border); }
+    .ms-calendar-day.other-month { background: #fafbfe; color: var(--text-muted); }
+    .ms-calendar-day.deficit { box-shadow: inset 0 0 0 2px rgba(179, 53, 47, 0.2); }
+    .ms-day-date { display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
+    .ms-day-info { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; }
+    .ms-day-info span { display: flex; justify-content: space-between; }
+    .ms-day-desc { font-size: 0.85rem; color: var(--text-muted); min-height: 32px; }
+    .ms-day-flow { display: flex; justify-content: space-between; font-weight: 600; font-size: 0.85rem; }
+    .ms-day-flow .ms-inflow { color: var(--positive); }
+    .ms-day-flow .ms-outflow { color: var(--negative); }
+
+    .ms-aux-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 24px; }
+    .ms-baseline-card, .ms-recurring-card { padding: 28px 32px; display: flex; flex-direction: column; gap: 18px; }
+    .ms-baseline-list { display: flex; flex-direction: column; gap: 12px; max-height: 320px; overflow-y: auto; padding-right: 8px; }
+    .ms-baseline-row { display: flex; gap: 16px; align-items: flex-start; border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; background: var(--surface); transition: border 0.15s, box-shadow 0.15s; }
+    .ms-baseline-row:hover { border-color: var(--accent); box-shadow: 0 4px 16px rgba(15, 32, 46, 0.05); }
+    .ms-baseline-row input[type="checkbox"] { width: auto; accent-color: var(--accent); margin-top: 6px; }
+    .ms-baseline-info { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+    .ms-baseline-name { display: flex; gap: 8px; align-items: baseline; }
+    .ms-baseline-name strong { font-size: 1rem; }
+    .ms-baseline-code { font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+    .ms-baseline-meta { font-size: 0.82rem; color: var(--text-muted); }
+    .ms-baseline-amount { text-align: right; min-width: 120px; display: flex; flex-direction: column; gap: 2px; }
+    .ms-baseline-amount span { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+    .ms-baseline-amount strong { font-size: 1rem; color: var(--accent); }
+
+    .ms-recurring-card h4 { margin: 0; font-size: 1.05rem; }
+    .ms-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+    .ms-form-wide { grid-column: 1 / -1; }
+    .ms-weekday-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+    .ms-weekday-pills label { flex-direction: row; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-size: 0.85rem; background: var(--muted); border-radius: 999px; padding: 4px 10px; cursor: pointer; }
+    .ms-weekday-pills input { width: auto; }
+
+    .ms-event-list { display: flex; flex-direction: column; gap: 14px; max-height: 360px; overflow-y: auto; padding-right: 8px; }
+    .ms-event-card { border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; background: var(--surface); display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 16px rgba(15, 32, 46, 0.04); }
+    .ms-event-card.inactive { opacity: 0.6; }
+    .ms-event-summary { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .ms-event-info { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+    .ms-event-title { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .ms-event-title strong { font-size: 1rem; }
+    .ms-event-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .ms-event-chip { border-radius: 999px; padding: 3px 10px; font-size: 0.75rem; background: var(--accent-soft); color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+    .ms-event-chip.negative { background: rgba(179, 53, 47, 0.1); color: var(--negative); }
+    .ms-event-line { display: flex; justify-content: space-between; gap: 12px; font-size: 0.85rem; color: var(--text-muted); flex-wrap: wrap; }
+    .ms-event-line strong { color: var(--text-strong); }
+    .ms-event-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .ms-event-actions form { display: inline; }
+    .ms-event-notes { font-size: 0.8rem; color: var(--text-muted); }
+    .ms-event-edit { display: none; border-top: 1px solid var(--border); padding-top: 12px; }
+    .ms-event-edit.open { display: block; }
+
+    @media (max-width: 768px) {
+      .ms { padding: 0 16px 48px; }
+      .ms-toolbar { padding: 20px; }
+      .ms-ledger-header, .ms-ledger-body { padding: 20px; }
+      .ms-balance-card { padding: 20px; }
+      .ms-metrics-card { padding: 22px; }
+      .ms-period-meta { border-left: none; padding-left: 0; }
+      .ms-calendar-weekdays { display: none; }
+      .ms-calendar-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .ms-calendar-day:nth-child(odd) { border-left: 1px solid var(--border); }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+{% set closing_variance = (latest_actual - latest_predicted) if (latest_actual is not none and latest_predicted is not none) else None %}
+{% set weekday_labels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] %}
+{% set buffer_floor = (request.args.get('floor') or '500000')|float %}
+{% set query_start = request.args.get('start', start_date.isoformat()) %}
+{% set query_end = request.args.get('end', end_date.isoformat()) %}
+{% set query_view = request.args.get('view', view_mode) %}
+{% set query_scenario = request.args.get('scenario_id') %}
+{% set query_floor = request.args.get('floor', buffer_floor) %}
+{% set risk = namespace(count=0, earliest=None, lowest=None) %}
+{% for r in rows %}
+  {% set closing_val = (r.predicted_closing or 0)|float %}
+  {% if r.predicted_closing is not none and closing_val < buffer_floor %}
+    {% set risk.count = risk.count + 1 %}
+    {% if risk.earliest is none or r.date < risk.earliest %}
+      {% set risk.earliest = r.date %}
+    {% endif %}
+    {% if risk.lowest is none or closing_val < risk.lowest %}
+      {% set risk.lowest = closing_val %}
+    {% endif %}
+  {% endif %}
+{% endfor %}
+<div class="ms">
+  <header class="ms-head">
+    <div>
+      <div class="ms-eyebrow">Daily cash oversight</div>
+      <h1>Money Schedule{% if scenario_mode %} · Scenario{% endif %}</h1>
+      {% if scenario_mode and scenario %}
+        <div class="ms-lede">Viewing scenario: <strong>{{ scenario.name }}</strong>{% if scenario.description %} — {{ scenario.description }}{% endif %}</div>
+      {% endif %}
+    </div>
+    <div class="ms-period-meta">
+      <span>Reporting date</span>
+      <strong>{{ today.strftime('%Y-%m-%d') }}</strong>
+      <small>View {{ start_date.strftime('%Y-%m-%d') }} → {{ end_date.strftime('%Y-%m-%d') }}</small>
+    </div>
+  </header>
+
+  <section class="ms-grid-2">
+    <section class="ms-card ms-alert-card">
+      <div class="ms-alert-block" style="border-right:1px solid var(--border); padding-right:18px; margin-right:18px;">
+        <div class="ms-alert-title"><i class="fa fa-bell"></i> Balance watch</div>
+        <div class="ms-buffer-title">Floor: ₩{{ "{:,.0f}".format(buffer_floor) }}</div>
+        {% if deficit_warning %}
+          <div><strong>⚠️ Forecast deficit on {{ deficit_warning.date.strftime('%Y-%m-%d') }}</strong> · ₩{{ "{:,.0f}".format(deficit_warning.predicted) }}</div>
+        {% elif risk.count > 0 %}
+          <div><strong>{{ risk.count }} day{% if risk.count != 1 %}s{% endif %} below floor</strong></div>
+          {% if risk.earliest %}<div>Earliest: {{ risk.earliest.strftime('%Y-%m-%d') }}</div>{% endif %}
+          {% if risk.lowest is not none %}<div>Lowest: ₩{{ "{:,.0f}".format(risk.lowest) }}</div>{% endif %}
+        {% else %}
+          <div class="ms-alert-empty">All projected closings stay above the floor.</div>
+        {% endif %}
+        <div class="ms-alert-muted">Enable push/email to get this alert automatically.</div>
+      </div>
+      <div class="ms-alert-block">
+        <div class="ms-alert-title"><i class="fa fa-list"></i> Upcoming large payments (7 days)</div>
+        {% if large_payments %}
+          <ol class="ms-alert-list">
+            {% for item in large_payments %}
+              <li><strong>{{ item.date.strftime('%Y-%m-%d') }}</strong> · ₩{{ "{:,.0f}".format(item.outflow) }} · {{ item.description or 'Scheduled outflow' }}</li>
+            {% endfor %}
+          </ol>
+        {% else %}
+          <div class="ms-alert-empty">No large payments on deck.</div>
+        {% endif %}
+      </div>
+    </section>
+  </section>
+  {% if not scenario_mode and not base_comparison %}
+  <section class="ms-overview">
+    <article class="ms-card ms-balance-card">
+      <div class="ms-balance-block">
+        <span class="label">Predicted closing</span>
+        <div class="value">{{ "₩{:,.2f}".format(latest_predicted) if latest_predicted is not none else "—" }}</div>
+        <p class="note">Projected closing balance at the end of the selected period.</p>
+      </div>
+      <div class="divider" aria-hidden="true"></div>
+      <div class="ms-balance-block">
+        <span class="label">Actual closing</span>
+        <div class="value">{{ "₩{:,.2f}".format(latest_actual) if latest_actual is not none else "—" }}</div>
+        <p class="note">Most recent reconciled cash position pulled from baseline accounts.</p>
+      </div>
+    </article>
+    <article class="ms-card ms-metrics-card">
+      <div class="ms-metric-grid">
+        <div class="ms-metric">
+          <span class="label">Net change</span>
+          <span class="value {{ 'positive' if (net_change or 0) >= 0 else 'negative' }}">₩{{ "{:,.2f}".format(net_change or 0) }}</span>
+        </div>
+        <div class="ms-metric">
+          <span class="label">Total inflow</span>
+          <span class="value positive">₩{{ "{:,.2f}".format(total_inflow or 0) }}</span>
+        </div>
+        <div class="ms-metric">
+          <span class="label">Total outflow</span>
+          <span class="value negative">₩{{ "{:,.2f}".format(total_outflow or 0) }}</span>
+        </div>
+        <div class="ms-metric">
+          <span class="label">Days covered</span>
+          <span class="value">{{ (end_date - start_date).days + 1 }}</span>
+        </div>
+      </div>
+    </article>
+    </section>
+    {% endif %}  
+    {% if scenario_mode and base_comparison %} 
+    <section class="ms-overview">
+      <article class="ms-card ms-metrics-card">
+        <div class="ms-metric-grid">
+          <div class="ms-metric">
+            <span class="label">Scenario closing</span>
+            <span class="value">{{ "₩{:,.2f}".format(base_comparison.scenario_closing) if base_comparison.scenario_closing is not none else "—" }}</span>
+          </div>
+          <div class="ms-metric">
+            <span class="label">Base closing</span>
+            <span class="value">{{ "₩{:,.2f}".format(base_comparison.base_closing) if base_comparison.base_closing is not none else "—" }}</span>
+          </div>
+          <div class="ms-metric">
+            <span class="label">Closing delta</span>
+            <span class="value {{ 'positive' if base_comparison.closing_delta is not none and base_comparison.closing_delta >= 0 else 'negative' if base_comparison.closing_delta is not none else '' }}">{{ "₩{:,.2f}".format(base_comparison.closing_delta) if base_comparison.closing_delta is not none else "—" }}</span>
+          </div>
+          <div class="ms-metric">
+            <span class="label">Net change delta</span>
+            <span class="value {{ 'positive' if base_comparison.net_change_delta is not none and base_comparison.net_change_delta >= 0 else 'negative' if base_comparison.net_change_delta is not none else '' }}">{{ "₩{:,.2f}".format(base_comparison.net_change_delta) if base_comparison.net_change_delta is not none else "—" }}</span>
+          </div>
+          <div class="ms-metric">
+            <span class="label">Scenario inflow</span>
+            <span class="value">₩{{ "{:,.2f}".format(total_inflow or 0) }}</span>
+          </div>
+          <div class="ms-metric">
+            <span class="label">Base inflow</span>
+            <span class="value">₩{{ "{:,.2f}".format(base_comparison.base_total_inflow or 0) }}</span>
+          </div>
+          <div class="ms-metric">
+            <span class="label">Scenario outflow</span>
+            <span class="value">₩{{ "{:,.2f}".format(total_outflow or 0) }}</span>
+          </div>
+          <div class="ms-metric">
+            <span class="label">Base outflow</span>
+            <span class="value">₩{{ "{:,.2f}".format(base_comparison.base_total_outflow or 0) }}</span>
+          </div>
+        </div>
+      </article>
+    {% endif %}
+  </section>
+  <section class="ms-grid-2">
+    <section class="ms-card ms-toolbar">
+      <form class="ms-range-form" method="get">
+        <label for="start-date">
+          Start date
+          <input id="start-date" type="date" name="start" value="{{ start_date.isoformat() }}">
+        </label>
+        <label for="end-date">
+          End date
+          <input id="end-date" type="date" name="end" value="{{ end_date.isoformat() }}">
+        </label>
+        <label for="floor">
+          Buffer floor (₩)
+          <input id="floor" type="number" name="floor" min="0" step="10000" value="{{ query_floor }}">
+        </label>
+        {% if scenario_mode and query_scenario %}
+          <input type="hidden" name="scenario_id" value="{{ query_scenario }}">
+        {% endif %}
+        <button class="ms-btn ms-btn-primary" type="submit"><i class="fa fa-rotate"></i> Update window</button>
+      </form>
+      <div class="ms-toolbar-actions">
+        <a class="ms-btn ms-btn-secondary" href="#baseline-accounts"><i class="fa fa-sliders"></i> Baseline accounts</a>
+        <a class="ms-btn ms-btn-secondary" href="#recurring-events"><i class="fa fa-repeat"></i> Recurring events</a>
+        {% if scenario_mode %}
+          <a class="ms-btn ms-btn-ghost" href="{{ url_for('money_schedule.index', start=query_start, end=query_end, view=query_view, floor=query_floor) }}"><i class="fa fa-arrow-left"></i> Back to base</a>
+          {% if scenario %}
+            <form method="post" action="{{ url_for('money_schedule.delete_scenario', scenario_id=scenario.id) }}" onsubmit="return confirm('Delete this scenario?');" style="display:flex; gap:8px; align-items:center;">
+              <input type="hidden" name="start" value="{{ query_start }}">
+              <input type="hidden" name="end" value="{{ query_end }}">
+              <input type="hidden" name="view" value="{{ query_view }}">
+              <input type="hidden" name="floor" value="{{ query_floor }}">
+              <button class="ms-btn ms-btn-danger" type="submit"><i class="fa fa-trash"></i> Delete scenario</button>
+            </form>
+          {% endif %}
+        {% endif %}
+        {% if scenarios %}
+          <form method="get" action="{{ url_for('money_schedule.index') }}" style="display:flex; gap:8px; align-items:center;">
+            <input type="hidden" name="start" value="{{ query_start }}">
+            <input type="hidden" name="end" value="{{ query_end }}">
+            <input type="hidden" name="view" value="{{ query_view }}">
+            <input type="hidden" name="floor" value="{{ query_floor }}">
+            <select name="scenario_id" style="padding:8px 10px; border-radius:8px; border:1px solid var(--border);">
+              <option value="">Base schedule</option>
+              {% for s in scenarios %}
+                <option value="{{ s.id }}" {% if query_scenario and query_scenario|int == s.id %}selected{% endif %}>{{ s.name }}</option>
+              {% endfor %}
+            </select>
+            <button class="ms-btn ms-btn-secondary" type="submit"><i class="fa fa-arrow-right"></i> Open</button>
+          </form>
+        {% endif %}
+      </div>
+    </section>
+  </section>
+
+  <section class="ms-card ms-ledger">
+    <div class="ms-ledger-header">
+      <div>
+        <h3>Schedule</h3>
+        <p>Formalized ledger with inline edits and a calendar perspective for quick anomaly detection.</p>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        {% if not scenario_mode %}
+          <button class="ms-btn ms-btn-primary" type="button" id="ms-quick-scenario"><i class="fa fa-copy"></i> Add scenario</button>
+        {% endif %}
+        <div class="ms-view-toggle">
+          <a class="{{ 'active' if view_mode == 'list' else '' }}" href="{{ url_for('money_schedule.index', start=query_start, end=query_end, view='list', scenario_id=query_scenario, floor=query_floor) }}">
+            <i class="fa fa-table"></i> List
+          </a>
+          <a class="{{ 'active' if view_mode == 'calendar' else '' }}" href="{{ url_for('money_schedule.index', start=query_start, end=query_end, view='calendar', scenario_id=query_scenario, floor=query_floor) }}">
+            <i class="fa fa-calendar"></i> Calendar
+        </a>
+      </div>
+    </div>
+    <div class="ms-ledger-body">
+      {% if view_mode == 'list' %}
+        {% if rows %}
+          <div class="ms-table-wrapper">
+            <table class="ms-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th class="num">Inflow</th>
+                  <th class="num">Outflow</th>
+                  <th class="num">Predicted Closing</th>
+                  <th class="num">Actual Closing</th>
+                  <th class="num">Variance</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in rows %}
+                  {% set deficit = row.predicted_closing is not none and (row.predicted_closing|float) < 0 %}
+                  {% set below_floor = row.predicted_closing is not none and (row.predicted_closing|float) < buffer_floor and not deficit %}
+                  <tr data-date="{{ row.date.isoformat() }}" data-action="{{ url_for('money_schedule.edit_scenario_row', scenario_id=scenario.id) if scenario_mode else url_for('money_schedule.edit') }}" data-schedule-form>
+                    <td>
+                      <div class="ms-date-cell">
+                        <strong>{{ row.date.strftime('%Y-%m-%d') }}</strong>
+                        <div class="ms-chips">
+                          {% if row.date == today %}
+                            <span class="ms-chip ms-chip-today">Today</span>
+                          {% endif %}
+                          {% if init_date and row.date == init_date %}
+                            <span class="ms-chip ms-chip-init">D₀</span>
+                          {% endif %}
+                          {% if large_payment_dates and row.date in large_payment_dates %}
+                            <span class="ms-chip ms-chip-large">Large</span>
+                          {% endif %}
+                          {% if row.is_auto_generated %}
+                            <span class="ms-chip">Auto</span>
+                          {% endif %}
+                          {% if deficit %}
+                            <span class="ms-chip ms-chip-deficit">Forecast deficit</span>
+                          {% elif below_floor %}
+                            <span class="ms-chip ms-chip-floor">Below floor</span>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </td>
+                    <td><input type="text" name="description" value="{{ row.description or '' }}" class="ms-input"></td>
+                    <td>
+                      <div class="ms-input-group"><span>₩</span><input type="number" min="0" step="0.01" name="inflow" value="{{ '{:.2f}'.format(row.inflow or 0) }}"></div>
+                    </td>
+                    <td>
+                      <div class="ms-input-group"><span>₩</span><input type="number" min="0" step="0.01" name="outflow" value="{{ '{:.2f}'.format(row.outflow or 0) }}"></div>
+                    </td>
+                    <td class="num">{{ "₩{:,.2f}".format(row.predicted_closing) if row.predicted_closing is not none else "—" }}</td>
+                    <td class="num">{{ "₩{:,.2f}".format(row.actual_closing) if row.actual_closing is not none else "—" }}</td>
+                    <td class="num">{{ "₩{:,.2f}".format(row.variance) if row.variance is not none else "—" }}</td>
+                    <td><button class="ms-btn ms-btn-ghost" type="button" data-ms-save>{{ 'Save scenario' if scenario_mode else 'Save' }}</button></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% if total_pages > 1 %}
+            <div class="ms-pagination">
+              {% if page > 1 %}
+                <a class="ms-page-btn" href="{{ url_for('money_schedule.index', start=query_start, end=query_end, page=page-1, view=query_view, scenario_id=query_scenario, floor=query_floor) }}"><i class="fa fa-chevron-left"></i> Previous</a>
+              {% else %}
+                <span class="ms-page-btn disabled"><i class="fa fa-chevron-left"></i> Previous</span>
+              {% endif %}
+              <span class="status">Page {{ page }} of {{ total_pages }}</span>
+              {% if page < total_pages %}
+                <a class="ms-page-btn" href="{{ url_for('money_schedule.index', start=query_start, end=query_end, page=page+1, view=query_view, scenario_id=query_scenario, floor=query_floor) }}">Next <i class="fa fa-chevron-right"></i></a>
+              {% else %}
+                <span class="ms-page-btn disabled">Next <i class="fa fa-chevron-right"></i></span>
+              {% endif %}
+            </div>
+          {% endif %}
+        {% else %}
+          <div class="ms-empty">No schedule rows in this window. Adjust the dates or add inflow/outflow items.</div>
+        {% endif %}
+      {% else %}
+        {% if calendar_months %}
+          <div class="ms-calendar-wrapper">
+            {% for month in calendar_months %}
+              <div class="ms-calendar-month">
+                <div class="ms-calendar-month-header">
+                  <h3><i class="fa fa-calendar-alt"></i> {{ month.label }}</h3>
+                  <span>A = Actual · P = Predicted</span>
+                </div>
+                <div class="ms-calendar-weekdays">
+                  {% for label in weekday_labels %}
+                    <div class="ms-weekday">{{ label }}</div>
+                  {% endfor %}
+                </div>
+                <div class="ms-calendar-grid">
+                  {% for week in month.weeks %}
+                    {% for day in week %}
+                      {% set row = row_map.get(day.date) %}
+                      {% set deficit = row and row.predicted_closing is not none and (row.predicted_closing|float) < 0 %}
+                      {% set below_floor = row and row.predicted_closing is not none and (row.predicted_closing|float) < buffer_floor and not deficit %}
+                      {% set show_actual = day.date <= today %}
+                      {% set show_predicted = day.date >= today %}
+                      <div class="ms-calendar-day {{ 'other-month' if not day.in_month }} {{ 'deficit' if deficit }}">
+                      <div class="ms-day-date">
+                        <span>{{ day.date.day }}</span>
+                        <div class="ms-chips">
+                          {% if day.date == today %}
+                            <span class="ms-chip ms-chip-today">Today</span>
+                          {% endif %}
+                          {% if init_date and day.date == init_date %}
+                            <span class="ms-chip ms-chip-init">D₀</span>
+                          {% endif %}
+                            {% if large_payment_dates and day.date in large_payment_dates %}
+                              <span class="ms-chip ms-chip-large">Large</span>
+                            {% endif %}
+                            {% if deficit %}
+                              <span class="ms-chip ms-chip-deficit">Forecast deficit</span>
+                            {% elif below_floor %}
+                              <span class="ms-chip ms-chip-floor">Below floor</span>
+                            {% endif %}
+                          </div>
+                      </div>
+                        <div class="ms-day-info">
+                          {% if show_actual %}
+                            <span>A <strong>{{ "₩{:,.0f}".format(row.actual_closing) if row and row.actual_closing is not none else "—" }}</strong></span>
+                          {% endif %}
+                          {% if show_predicted %}
+                            <span>P <strong>{{ "₩{:,.0f}".format(row.predicted_closing) if row and row.predicted_closing is not none else "—" }}</strong></span>
+                          {% endif %}
+                        </div>
+                        <div class="ms-day-desc">{{ row.description if row and row.description else '—' }}</div>
+                        <div class="ms-day-flow">
+                          <span class="ms-inflow">{{ "₩{:,.0f}".format(row.inflow) if row and row.inflow is not none else "₩0" }}</span>
+                          <span class="ms-outflow">{{ "₩{:,.0f}".format(row.outflow) if row and row.outflow is not none else "₩0" }}</span>
+                        </div>
+                      </div>
+                    {% endfor %}
+                  {% endfor %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="ms-empty">No calendar data available for this window.</div>
+        {% endif %}
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="ms-aux-grid">
+    <article class="ms-card ms-baseline-card" id="baseline-accounts">
+      <div>
+        <h3>Baseline accounts</h3>
+        <p class="ms-lede">Select which liquid accounts seed the starting balance for every projection.</p>
+      </div>
+      {% if accounts %}
+        <form method="post" action="{{ url_for('money_schedule.update_assets') }}">
+          <input type="hidden" name="start" value="{{ query_start }}">
+          <input type="hidden" name="end" value="{{ query_end }}">
+          <input type="hidden" name="floor" value="{{ query_floor }}">
+          <div class="ms-baseline-list">
+            {% for account in accounts %}
+              <label class="ms-baseline-row">
+                <input type="checkbox" name="account_ids" value="{{ account.id }}" {% if account.id in selected_ids %}checked{% endif %}>
+                <div class="ms-baseline-info">
+                  <div class="ms-baseline-name">
+                    <strong>{{ account.name }}</strong>
+                    <span class="ms-baseline-code">{{ account.code or 'No code' }}</span>
+                  </div>
+                  <div class="ms-baseline-meta">Currency {{ account.currency }} · Eligible balance source</div>
+                </div>
+                <div class="ms-baseline-amount">
+                  <span>Opening</span>
+                  <strong>₩{{ "{:,.2f}".format(account.balance or 0) }}</strong>
+                </div>
+              </label>
+            {% endfor %}
+          </div>
+          <button class="ms-btn ms-btn-primary" type="submit"><i class="fa fa-database"></i> Save baseline selection</button>
+        </form>
+      {% else %}
+        <div class="ms-empty">No asset accounts detected for this user. Establish asset folders/accounts in Accounting to seed the baseline.</div>
+      {% endif %}
+    </article>
+
+    <article class="ms-card ms-recurring-card" id="recurring-events">
+      <div>
+        <h3>Recurring events</h3>
+        <p class="ms-lede">Define standing inflows/outflows that auto-populate future days.</p>
+      </div>
+      <section>
+        <h4>Create new event</h4>
+        <form method="post" action="{{ url_for('money_schedule.create_event') }}">
+          <input type="hidden" name="start" value="{{ query_start }}">
+          <input type="hidden" name="end" value="{{ query_end }}">
+          <input type="hidden" name="view" value="{{ query_view }}">
+          <input type="hidden" name="floor" value="{{ query_floor }}">
+          <div class="ms-form-grid">
+            <label>
+              Description
+              <input type="text" name="description" required>
+            </label>
+            <label>
+              Direction
+              <select name="direction">
+                <option value="inflow">Inflow</option>
+                <option value="outflow">Outflow</option>
+              </select>
+            </label>
+            <label>
+              Amount
+              <input type="number" name="amount" min="0" step="0.01" required>
+            </label>
+            <label>
+              Start date
+              <input type="date" name="start_date" required value="{{ today.strftime('%Y-%m-%d') }}">
+            </label>
+            <label>
+              End date
+              <input type="date" name="end_date">
+            </label>
+            <label>
+              Frequency
+              <select name="frequency">
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly" selected>Monthly</option>
+                <option value="custom">Custom</option>
+              </select>
+            </label>
+            <label>
+              Interval
+              <input type="number" name="interval" min="1" value="1">
+            </label>
+            <label>
+              Day of month
+              <input type="number" name="month_day" min="1" max="31">
+            </label>
+            <label class="ms-form-wide">
+              Weekdays (weekly cadence)
+              <div class="ms-weekday-pills">
+                {% for label in weekday_labels %}
+                  <label><input type="checkbox" name="weekdays" value="{{ loop.index0 }}"> {{ label }}</label>
+                {% endfor %}
+              </div>
+            </label>
+            <label class="ms-form-wide">
+              Custom dates (YYYY-MM-DD, comma or newline separated)
+              <textarea name="custom_dates" placeholder="2025-01-15, 2025-02-01"></textarea>
+            </label>
+            <label class="ms-form-wide">
+              Notes
+              <textarea name="notes"></textarea>
+            </label>
+          </div>
+          <button class="ms-btn ms-btn-primary" type="submit"><i class="fa fa-plus"></i> Add recurring event</button>
+    </form>
+  </section>
+
+  <form id="ms-scenario-form" method="post" action="{{ url_for('money_schedule.create_scenario') }}" style="display:none;">
+    <input type="hidden" name="start" value="{{ query_start }}">
+    <input type="hidden" name="end" value="{{ query_end }}">
+    <input type="hidden" name="view" value="{{ query_view }}">
+    <input type="hidden" name="floor" value="{{ query_floor }}">
+    <input type="hidden" name="name" value="">
+    <input type="hidden" name="clone_rows" value="1">
+  </form>
+
+      <section>
+        <h4>Existing events</h4>
+        {% if recurring_events %}
+          <div class="ms-event-list">
+            {% for event in recurring_events %}
+              {% set weekday_values = event.weekday_list() %}
+              {% set day_name_list = [] %}
+              {% for idx in weekday_values %}
+                {% if 0 <= idx < weekday_labels|length %}
+                  {% set day_name_list = day_name_list + [weekday_labels[idx]] %}
+                {% else %}
+                  {% set day_name_list = day_name_list + ['Day ' ~ idx] %}
+                {% endif %}
+              {% endfor %}
+              {% set custom_tokens = [] %}
+              {% for entry in event.custom_dates or [] %}
+                {% if entry is string %}
+                  {% set custom_tokens = custom_tokens + [entry] %}
+                {% elif entry is mapping and entry.get('date') %}
+                  {% set custom_tokens = custom_tokens + [entry.get('date')] %}
+                {% endif %}
+              {% endfor %}
+              {% set cadence %}
+                {% if event.frequency == 'daily' %}
+                  Daily{% if event.interval > 1 %} · every {{ event.interval }} days{% endif %}
+                {% elif event.frequency == 'weekly' %}
+                  Weekly{% if event.interval > 1 %} · every {{ event.interval }} weeks{% endif %}{% if day_name_list %} on {{ day_name_list|join(', ') }}{% endif %}
+                {% elif event.frequency == 'monthly' %}
+                  Monthly{% if event.interval > 1 %} · every {{ event.interval }} months{% endif %}{% if event.month_day %} on day {{ event.month_day }}{% endif %}
+                {% else %}
+                  Custom dates
+                {% endif %}
+              {% endset %}
+              <div class="ms-event-card {{ '' if event.is_active else 'inactive' }}">
+                <div class="ms-event-summary">
+                  <div class="ms-event-info">
+                    <div class="ms-event-title">
+                      <strong>{{ event.description }}</strong>
+                      <div class="ms-event-chips">
+                        <span class="ms-event-chip"><i class="fa fa-circle"></i></span>
+                        <span class="ms-event-chip {{ 'negative' if event.direction == 'outflow' }}">
+                          <i class="fa {{ 'fa-arrow-down' if event.direction == 'outflow' else 'fa-arrow-up' }}"></i>
+                          {{ event.direction|capitalize }}
+                        </span>
+                      </div>
+                    </div>
+                    <div class="ms-event-line">
+                      <span><strong>₩{{ "{:,.2f}".format(event.amount or 0) }}</strong> · {{ cadence|trim }}</span>
+                      <span>{{ event.start_date.strftime('%Y-%m-%d') }} → {{ event.end_date.strftime('%Y-%m-%d') if event.end_date else 'Open-ended' }}</span>
+                    </div>
+                    {% if day_name_list or custom_tokens %}
+                      <div class="ms-event-line">
+                        {% if day_name_list %}<span>Days {{ day_name_list|join(', ') }}</span>{% endif %}
+                        {% if custom_tokens %}<span>Custom: {{ custom_tokens|join(', ') }}</span>{% endif %}
+                      </div>
+                    {% endif %}
+                    {% if event.notes %}
+                      <div class="ms-event-notes">{{ event.notes }}</div>
+                    {% endif %}
+                  </div>
+                  <div class="ms-event-actions">
+                    <form method="post" action="{{ url_for('money_schedule.toggle_event', event_id=event.id) }}">
+                      <input type="hidden" name="start" value="{{ query_start }}">
+                      <input type="hidden" name="end" value="{{ query_end }}">
+                      <input type="hidden" name="view" value="{{ query_view }}">
+                      <input type="hidden" name="floor" value="{{ query_floor }}">
+                      <button class="ms-btn ms-btn-secondary" type="submit" title="{{ 'Pause event' if event.is_active else 'Activate event' }}">
+                        <i class="fa {{ 'fa-pause' if event.is_active else 'fa-play' }}"></i>
+                      </button>
+                    </form>
+                    <button class="ms-btn ms-btn-ghost" type="button" data-ms-toggle-edit data-target="event-edit-{{ event.id }}" title="Edit event">
+                      <i class="fa fa-pen"></i>
+                    </button>
+                    <form method="post" action="{{ url_for('money_schedule.delete_event', event_id=event.id) }}" onsubmit="return confirm('Delete this recurring event?');">
+                      <input type="hidden" name="start" value="{{ query_start }}">
+                      <input type="hidden" name="end" value="{{ query_end }}">
+                      <input type="hidden" name="view" value="{{ query_view }}">
+                      <input type="hidden" name="floor" value="{{ query_floor }}">
+                      <button class="ms-btn ms-btn-danger" type="submit" title="Delete event"><i class="fa fa-trash"></i></button>
+                    </form>
+                  </div>
+                </div>
+                <div class="ms-event-edit" id="event-edit-{{ event.id }}">
+                  <form method="post" action="{{ url_for('money_schedule.edit_event', event_id=event.id) }}">
+                    <input type="hidden" name="start" value="{{ query_start }}">
+                    <input type="hidden" name="end" value="{{ query_end }}">
+                    <input type="hidden" name="view" value="{{ query_view }}">
+                    <input type="hidden" name="floor" value="{{ query_floor }}">
+                    <div class="ms-form-grid">
+                      <label>
+                        Description
+                        <input type="text" name="description" value="{{ event.description }}" required>
+                      </label>
+                      <label>
+                        Direction
+                        <select name="direction">
+                          <option value="inflow" {% if event.direction == 'inflow' %}selected{% endif %}>Inflow</option>
+                          <option value="outflow" {% if event.direction == 'outflow' %}selected{% endif %}>Outflow</option>
+                        </select>
+                      </label>
+                      <label>
+                        Amount
+                        <input type="number" name="amount" min="0" step="0.01" value="{{ '{:.2f}'.format(event.amount or 0) }}" required>
+                      </label>
+                      <label>
+                        Start date
+                        <input type="date" name="start_date" value="{{ event.start_date.strftime('%Y-%m-%d') }}" required>
+                      </label>
+                      <label>
+                        End date
+                        <input type="date" name="end_date" value="{{ event.end_date.strftime('%Y-%m-%d') if event.end_date else '' }}">
+                      </label>
+                      <label>
+                        Frequency
+                        <select name="frequency">
+                          <option value="daily" {% if event.frequency == 'daily' %}selected{% endif %}>Daily</option>
+                          <option value="weekly" {% if event.frequency == 'weekly' %}selected{% endif %}>Weekly</option>
+                          <option value="monthly" {% if event.frequency == 'monthly' %}selected{% endif %}>Monthly</option>
+                          <option value="custom" {% if event.frequency == 'custom' %}selected{% endif %}>Custom</option>
+                        </select>
+                      </label>
+                      <label>
+                        Interval
+                        <input type="number" name="interval" min="1" value="{{ event.interval or 1 }}">
+                      </label>
+                      <label>
+                        Day of month
+                        <input type="number" name="month_day" min="1" max="31" value="{{ event.month_day or '' }}">
+                      </label>
+                      <label class="ms-form-wide">
+                        Weekdays (weekly cadence)
+                        <div class="ms-weekday-pills">
+                          {% for label in weekday_labels %}
+                            <label><input type="checkbox" name="weekdays" value="{{ loop.index0 }}" {% if loop.index0 in weekday_values %}checked{% endif %}> {{ label }}</label>
+                          {% endfor %}
+                        </div>
+                      </label>
+                      <label class="ms-form-wide">
+                        Custom dates
+                        <textarea name="custom_dates">{{ custom_tokens | join(', ') }}</textarea>
+                      </label>
+                      <label class="ms-form-wide">
+                        Notes
+                        <textarea name="notes">{{ event.notes or '' }}</textarea>
+                      </label>
+                    </div>
+                    <button class="ms-btn ms-btn-primary" type="submit"><i class="fa fa-check"></i> Update event</button>
+                  </form>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="ms-empty">No recurring events yet. Use the form above to add inflow/outflow templates.</div>
+        {% endif %}
+      </section>
+    </article>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  {% if scenario_mode and base_series and scenario_series %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" integrity="sha384-XOLf1uzlVSdvN8bDtqsaMTunOuO7ecdrXlP6SB+Fv3y/3p2HAvT1wYqTArDb7slA" crossorigin="anonymous"></script>
+  {% endif %}
+  <script>
+    (function() {
+      document.querySelectorAll('[data-ms-toggle-edit]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var targetId = btn.getAttribute('data-target');
+          var target = document.getElementById(targetId);
+          if (!target) return;
+          var isOpen = target.classList.toggle('open');
+          btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        });
+      });
+    })();
+    (function() {
+      var rows = document.querySelectorAll('[data-schedule-form]');
+      if (!rows.length) return;
+      rows.forEach(function(row) {
+        var saveBtn = row.querySelector('[data-ms-save]');
+        if (!saveBtn) return;
+        var originalText = saveBtn.textContent.trim();
+        saveBtn.addEventListener('click', function() {
+          if (saveBtn.dataset.msSaving === '1') {
+            return;
+          }
+          var date = row.dataset.date || '';
+          var descInput = row.querySelector('input[name="description"]');
+          var inflowInput = row.querySelector('input[name="inflow"]');
+          var outflowInput = row.querySelector('input[name="outflow"]');
+          var action = row.dataset.action;
+          if (!date || !action) {
+            return;
+          }
+          var params = new URLSearchParams();
+          params.set('date', date);
+          params.set('description', descInput ? descInput.value : '');
+          params.set('inflow', inflowInput ? inflowInput.value || '0' : '0');
+          params.set('outflow', outflowInput ? outflowInput.value || '0' : '0');
+
+          saveBtn.dataset.msSaving = '1';
+          saveBtn.textContent = 'Saving…';
+          saveBtn.disabled = true;
+
+          fetch(action, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+              'X-Requested-With': 'fetch'
+            },
+            body: params.toString()
+          })
+            .then(function(response) {
+              if (!response.ok) throw new Error('Request failed');
+              return response.json().catch(function() { return {}; });
+            })
+            .then(function() {
+              saveBtn.textContent = 'Saved';
+              setTimeout(function() {
+                saveBtn.textContent = originalText;
+              }, 1800);
+            })
+            .catch(function() {
+              saveBtn.textContent = 'Retry';
+            })
+            .finally(function() {
+              saveBtn.disabled = false;
+              saveBtn.dataset.msSaving = '0';
+            });
+        });
+      });
+    })();
+    (function() {
+      var quickBtn = document.getElementById('ms-quick-scenario');
+      var form = document.getElementById('ms-scenario-form');
+      if (!quickBtn || !form) return;
+      quickBtn.addEventListener('click', function() {
+        var name = window.prompt('Name this scenario:', 'New scenario');
+        if (!name) return;
+        var copy = window.confirm('Copy current schedule rows (including recurring events)? Click Cancel to start with an empty schedule.');
+        form.querySelector('input[name="name"]').value = name;
+        form.querySelector('input[name="clone_rows"]').value = copy ? '1' : '0';
+        form.submit();
+      });
+    })();
+    (function() {
+      var canvas = document.getElementById('ms-compare-chart');
+      if (!canvas || typeof Chart === 'undefined') return;
+
+      var baseSeries = {{ base_series|tojson }};
+      var scenarioSeries = {{ scenario_series|tojson }};
+      var floorLine = Number("{{ query_floor }}" || 0);
+
+      var allDates = Array.from(new Set(baseSeries.concat(scenarioSeries).map(function(p) { return p.date; }))).sort();
+      var baseMap = {};
+      baseSeries.forEach(function(p) { baseMap[p.date] = p.predicted; });
+      var scenarioMap = {};
+      scenarioSeries.forEach(function(p) { scenarioMap[p.date] = p.predicted; });
+
+      var baseData = allDates.map(function(d) { return baseMap[d] !== null && baseMap[d] !== undefined ? baseMap[d] : null; });
+      var scenarioData = allDates.map(function(d) { return scenarioMap[d] !== null && scenarioMap[d] !== undefined ? scenarioMap[d] : null; });
+      var datasets = [
+        {
+          label: 'Base',
+          data: baseData,
+          borderColor: '#0f7b5f',
+          backgroundColor: 'rgba(15, 123, 95, 0.1)',
+          tension: 0.2,
+          pointRadius: 2,
+        },
+        {
+          label: 'Scenario',
+          data: scenarioData,
+          borderColor: '#b3352f',
+          backgroundColor: 'rgba(179, 53, 47, 0.12)',
+          tension: 0.2,
+          pointRadius: 2,
+        }
+      ];
+
+      if (floorLine > 0) {
+        datasets.push({
+          label: 'Floor',
+          data: allDates.map(function() { return floorLine; }),
+          borderColor: '#b3352f',
+          borderDash: [6, 4],
+          pointRadius: 0,
+          borderWidth: 1.5,
+          fill: false,
+        });
+      }
+
+      new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels: allDates,
+          datasets: datasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, position: 'top' },
+            tooltip: { mode: 'index', intersect: false }
+          },
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            y: { ticks: { callback: function(value) { return '₩' + value.toLocaleString(); } } },
+            x: { ticks: { maxRotation: 0, autoSkipPadding: 12 } }
+          }
+        }
+      });
+    })();
+  </script>
+{% endblock %}

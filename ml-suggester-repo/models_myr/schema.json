@@ -1,0 +1,15 @@
+{
+  "feature_columns": [
+    "Amount",
+    "Relative_Amount",
+    "Num_Debit_Lines",
+    "Num_Credit_Lines",
+    "year",
+    "month",
+    "dow",
+    "is_month_end",
+    "Currency",
+    "Line_Type",
+    "Description"
+  ]
+}

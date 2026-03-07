@@ -1,0 +1,117 @@
+<style>
+  .app-nav {
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(18px);
+    border-bottom: 1px solid #e0e5ec;
+    box-shadow: 0 8px 24px rgba(15,32,46,0.04);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .app-nav__inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  .app-nav__brand {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .app-nav__title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #0f7b5f;
+    margin: 0;
+  }
+  .app-nav__subtitle {
+    font-size: 0.75rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #5b6470;
+  }
+  .app-nav__links {
+    list-style: none;
+    display: flex;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    flex: 1;
+    flex-wrap: wrap;
+  }
+  .app-nav__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.92rem;
+    color: #14202b;
+    transition: all 0.2s ease;
+  }
+  .app-nav__link:hover {
+    background: #d8f1e7;
+    color: #0c5c48;
+  }
+  .app-nav__link.active {
+    border-color: #0f7b5f;
+    color: #0f7b5f;
+    background: rgba(15,123,95,0.08);
+  }
+  .app-nav__spacer { flex: 1; }
+  .app-nav__logout {
+    border: 1px solid #b3352f;
+    color: #b3352f;
+    background: #fff;
+  }
+  .app-nav__logout:hover {
+    background: rgba(179,53,47,0.08);
+  }
+  @media (max-width: 768px) {
+    .app-nav__inner {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 16px;
+    }
+    .app-nav__links {
+      width: 100%;
+    }
+    .app-nav__link {
+      flex: 1 1 auto;
+      justify-content: center;
+    }
+    .app-nav__spacer {
+      display: none;
+    }
+  }
+</style>
+<nav class="app-nav">
+  <div class="app-nav__inner">
+    <div class="app-nav__brand">
+      <div class="app-nav__title">Finance App</div>
+      <div class="app-nav__subtitle">Workspace</div>
+    </div>
+    <ul class="app-nav__links">
+      <li><a href="{{ url_for('user_bp.profile') }}" class="app-nav__link {% if request.endpoint == 'user_bp.profile' %}active{% endif %}"><i class="fa fa-user"></i> Profile</a></li>
+      {% if user and user.is_admin %}
+        <li><a href="{{ url_for('admin_bp.admin_users') }}" class="app-nav__link {% if request.endpoint == 'admin_bp.admin_users' %}active{% endif %}"><i class="fa fa-users"></i> Users</a></li>
+        <li><a href="{{ url_for('admin_bp.admin_suggestions') }}" class="app-nav__link {% if request.endpoint == 'admin_bp.admin_suggestions' %}active{% endif %}"><i class="fa fa-robot"></i> Suggestions</a></li>
+        <li><a href="{{ url_for('admin_bp.admin_tools') }}" class="app-nav__link {% if request.endpoint == 'admin_bp.admin_tools' %}active{% endif %}"><i class="fa fa-toolbox"></i> Tools</a></li>
+      {% else %}
+        <li><a href="{{ url_for('transactions_bp.transactions') }}" class="app-nav__link {% if request.endpoint == 'transactions_bp.transactions' %}active{% endif %}"><i class="fa fa-plus"></i> Transactions</a></li>
+        <li><a href="{{ url_for('accounting_bp.accounting') }}" class="app-nav__link {% if request.endpoint == 'accounting_bp.accounting' %}active{% endif %}"><i class="fa fa-scale-balanced"></i> Accounting</a></li>
+        <li><a href="{{ url_for('money_schedule.index') }}" class="app-nav__link {% if request.endpoint == 'money_schedule.index' %}active{% endif %}"><i class="fa fa-calendar-alt"></i> Money Schedule</a></li>
+        <li><a href="{{ url_for('core_bp.documents') }}" class="app-nav__link {% if request.endpoint == 'core_bp.documents' %}active{% endif %}"><i class="fa fa-file-alt"></i> Documents</a></li>
+      {% endif %}
+    </ul>
+    <div class="app-nav__spacer"></div>
+    <a class="app-nav__link app-nav__logout" href="{{ url_for('auth_bp.logout') }}"><i class="fa fa-sign-out-alt"></i> Logout</a>
+  </div>
+</nav>

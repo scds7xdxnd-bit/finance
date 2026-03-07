@@ -1,0 +1,874 @@
+{% extends 'base.html' %}
+
+{% block title %}User Profile - Finance App{% endblock %}
+
+{% block styles %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --surface: #ffffff;
+            --surface-muted: #f7f8fa;
+            --muted: #f7f8fa;
+            --border: #e0e5ec;
+            --text-strong: #14202b;
+            --text-muted: #5b6470;
+            --accent: #0f7b5f;
+            --accent-strong: #0c5c48;
+            --accent-soft: #d8f1e7;
+            --positive: #0f7b5f;
+            --negative: #b3352f;
+        }
+        body {
+            background: var(--surface-muted);
+            font-family: "Inter","Apple SD Gothic Neo",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+            color: var(--text-strong);
+            margin: 0;
+        }
+        /* align with minimalist layouts */
+        .profile-cover { display: none !important; }
+        .profile-main { background: transparent; box-shadow: none; padding: 0; max-width: none; top: 0; }
+
+        .profile-shell {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 32px 64px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            box-sizing: border-box;
+        }
+        .profile-hero {
+            display: grid;
+            grid-template-columns: minmax(0, 7fr) minmax(0, 3fr);
+            gap: 24px;
+            align-items: stretch;
+            margin-top: 20px;
+        }
+        .hero-card {
+            padding: 28px 32px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: 0 6px 18px rgba(15, 32, 46, 0.05);
+            display: flex;
+            flex-direction: column;
+            height: fit-content;
+            gap: 18px;
+        }
+        .hero-main {
+            display: flex;
+            gap: 28px;
+            flex-wrap: wrap;
+            align-items: flex-start;
+        }
+        .avatar-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 12px 16px;
+            min-width: 220px;
+        }
+        .avatar-frame {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            border: 4px solid var(--accent-soft);
+            padding: 6px;
+            background: linear-gradient(135deg, #fff, #f3faf5);
+            box-shadow: 0 6px 20px rgba(15, 32, 46, 0.08);
+        }
+        .avatar-frame img,
+        .avatar-frame .avatar-fallback {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .avatar-fallback {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: var(--accent);
+            background: #ebf6f1;
+        }
+        .profile-hero-content {
+            flex: 2 1 360px;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+        .hero-notes {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 6px 18px rgba(15, 32, 46, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .profile-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 24px;
+        }
+        .profile-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: 0 6px 18px rgba(15, 32, 46, 0.05);
+            padding: 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .card-title {
+            margin: 0;
+            font-size: 1.1rem;
+        }
+        .text-muted {
+            color: var(--text-muted);
+            margin: 0;
+            font-size: 0.95rem;
+        }
+        .notes-box {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+            min-height: 140px;
+            max-height: 240px;
+            overflow: auto;
+            background: #fbfcfd;
+            line-height: 1.6;
+            color: var(--text-strong);
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 16px;
+            margin-bottom: 12px;
+        }
+        .stat {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+            background: #fbfcfd;
+        }
+        .stat span {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .stat strong {
+            display: block;
+            margin-top: 6px;
+            font-size: 1.2rem;
+        }
+        .hero-eyebrow {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .profile-hero h1 {
+            margin: 0;
+            font-size: 32px;
+            font-weight: 600;
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .user-id {
+            font-size: 0.5em;
+            letter-spacing: 0em;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .profile-lede {
+            margin: 0;
+            color: var(--text-muted);
+            line-height: 1.5;
+            max-width: 640px;
+        }
+        .hero-meta {
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px 22px;
+            background: #fbfcfd;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 18px;
+        }
+        .meta-card {
+            border: none;
+            border-radius: 0;
+            padding: 0;
+            background: transparent;
+        }
+        .meta-card span {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+        .meta-card strong {
+            display: block;
+            margin-top: 6px;
+            font-size: 1.1rem;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+        }
+        .profile-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .ms-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border-radius: 999px;
+            padding: 10px 22px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            border: 1px solid transparent;
+            background: transparent;
+            color: var(--text-strong);
+            text-decoration: none;
+            transition: background 0.2s, color 0.2s, border 0.2s;
+        }
+        .ms-btn-primary {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+        .ms-btn-primary:hover {
+            background: var(--accent-strong);
+        }
+        .ms-btn-outline {
+            border-color: var(--border);
+            color: var(--accent);
+        }
+        .ms-btn-outline:hover {
+            background: var(--accent-soft);
+            color: var(--accent-strong);
+        }
+        .empty-state {
+            border: 1px dashed var(--border);
+            border-radius: 12px;
+            padding: 32px;
+            text-align: center;
+            color: var(--text-muted);
+        }
+        .admin-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 24px;
+        }
+        .activity-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .activity-item {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            background: var(--muted);
+        }
+        .activity-time {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        .activity-copy {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+        .status-chip {
+            border: 1px solid var(--border);
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.8rem;
+        }
+        .status-chip.live {
+            color: var(--positive);
+            border-color: var(--positive);
+            background: rgba(15, 123, 95, 0.08);
+        }
+        .posts-card {
+            grid-column: 1 / -1;
+        }
+        .posts-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .post-feed {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            margin-top: 12px;
+        }
+        .post-card {
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: #fff;
+            padding: 20px 24px 20px 40px;
+            box-shadow: 0 6px 16px rgba(15, 32, 46, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            position: relative;
+        }
+        .post-card::before {
+            content: "";
+            width: 4px;
+            position: absolute;
+            left: 16px;
+            top: 16px;
+            bottom: 16px;
+            border-radius: 999px;
+            background: linear-gradient(180deg, var(--accent) 0%, var(--accent-soft) 100%);
+        }
+        .post-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+        .post-author {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .post-author img {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--accent-soft);
+        }
+        .post-author strong {
+            display: block;
+            font-size: 1rem;
+        }
+        .post-subtitle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        .post-timestamp {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        .post-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .icon-btn {
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: #fff;
+            padding: 7px 10px;
+            color: var(--text-strong);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s, color 0.2s;
+        }
+        .icon-btn.danger {
+            border-color: var(--negative);
+            color: var(--negative);
+        }
+        .icon-btn:hover {
+            background: var(--accent-soft);
+            color: var(--accent-strong);
+        }
+        .icon-btn.danger:hover {
+            background: rgba(179, 53, 47, 0.08);
+        }
+        .post-content {
+            line-height: 1.6;
+            color: var(--text-strong);
+        }
+        .post-footer {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 32, 46, 0.35);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .modal-inner {
+            background: #fff;
+            border-radius: 16px;
+            padding: 32px;
+            width: min(420px, 92vw);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            box-shadow: 0 20px 60px rgba(15,32,46,0.15);
+        }
+        .modal-inner form {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .modal-inner label {
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        .modal-inner textarea,
+        .modal-inner input[type="file"] {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 0.95rem;
+            font-family: inherit;
+        }
+        .modal-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .modal-actions button {
+            border: none;
+            border-radius: 999px;
+            background: var(--accent);
+            color: #fff;
+            padding: 10px 20px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+        }
+        .modal-actions button.secondary {
+            background: #fff;
+            color: var(--accent);
+            border: 1px solid var(--border);
+        }
+        @media (max-width: 960px) {
+            .profile-hero {
+                grid-template-columns: 1fr;
+            }
+            .hero-main {
+                flex-direction: column;
+            }
+        }
+        @media (max-width: 768px) {
+            .profile-shell { padding: 0 16px 48px; }
+            .profile-hero { padding: 24px; }
+            .profile-card { padding: 22px; }
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="profile-shell">
+        <header class="profile-hero">
+            <div class="hero-card">
+                <div class="hero-main">
+                    <div class="avatar-panel">
+                        <div class="avatar-frame">
+                            {% if profile.profile_pic %}
+                                <img src="/{{ profile.profile_pic }}" alt="Profile Picture">
+                            {% else %}
+                                <div class="avatar-fallback">No Image</div>
+                            {% endif %}
+                        </div>
+                        <button type="button" class="ms-btn ms-btn-outline" onclick="openPicModal()">
+                            <i class="fa fa-upload"></i> Change Picture
+                        </button>
+                    </div>
+                    <div class="profile-hero-content">
+                        <div>
+                            <div class="hero-eyebrow">{% if user.is_admin %}Admin workspace{% else %}Personal profile{% endif %}</div>
+                            <h1>{{ user.username }} <span class="user-id">#{{ "%06d" % user.id }}</span></h1>
+                        </div>
+                        <div class="hero-meta">
+                            {% if user.is_admin and admin_data %}
+                                <div class="meta-card">
+                                    <span>Active users</span>
+                                    <strong>{{ admin_data.hero_stats.users }}</strong>
+                                </div>
+                                <div class="meta-card">
+                                    <span>Non-admins</span>
+                                    <strong>{{ admin_data.hero_stats.non_admins }}</strong>
+                                </div>
+                                <div class="meta-card">
+                                    <span>Total transactions</span>
+                                    <strong>{{ admin_data.hero_stats.transactions }}</strong>
+                                </div>
+                                <div class="meta-card">
+                                    <span>Review flags</span>
+                                    <strong>{{ admin_data.hero_stats.flags }}</strong>
+                                </div>
+                            {% else %}
+                                <div class="meta-card">
+                                    <span>Ledger entries</span>
+                                    <strong>{{ ledger_count }}</strong>
+                                </div>
+                                <div class="meta-card">
+                                    <span>Last entry</span>
+                                    <strong>{{ latest_entry_display }}</strong>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="profile-actions">
+                            {% if user.is_admin %}
+                            {% else %}
+                                <button type="button" class="ms-btn ms-btn-outline" onclick="window.location.href='{{ url_for('user_bp.change_credentials') }}'">
+                                    <i class="fa fa-key"></i> Manage credentials
+                                </button>
+                                <button type="button" class="ms-btn ms-btn-outline" onclick="openPostModal()">
+                                    <i class="fa fa-paper-plane"></i> Create post
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="hero-card hero-notes">
+                {% if user.is_admin and admin_data %}
+                    <div class="card-title">Quick actions</div>
+                    <div class="profile-actions">
+                        <a href="{{ url_for('admin_bp.admin_users') }}" class="ms-btn ms-btn-outline"><i class="fa fa-users"></i> Users</a>
+                        <a href="{{ url_for('admin_bp.admin_suggestions') }}" class="ms-btn ms-btn-outline"><i class="fa fa-robot"></i> Suggestions</a>
+                        <a href="{{ url_for('admin_bp.admin_tools') }}" class="ms-btn ms-btn-outline"><i class="fa fa-toolbox"></i> Tools</a>
+                    </div>
+                {% else %}
+                    <div class="card-title">Private Notes</div>
+                    <div class="notes-box">{{ profile.notes or 'No notes yet.' }}</div>
+                    <div class="profile-actions">
+                        <button type="button" class="ms-btn ms-btn-outline" onclick="openNotesModal()">
+                            <i class="fa fa-edit"></i> Edit notes
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+        </header>
+
+        {% if user.is_admin and admin_data %}
+            <section class="admin-grid">
+                {% if financial_pulse %}
+                <article class="profile-card">
+                    <div class="posts-header">
+                        <div>
+                            <div class="hero-eyebrow">Financial pulse</div>
+                            <h2 class="card-title" style="margin-top:4px;">Health summary</h2>
+                        </div>
+                        {% set verdict = financial_pulse.verdict %}
+                        {% set chip_class = 'status-chip' %}
+                        {% if verdict == 'healthy' %}{% set chip_class = 'status-chip success' %}{% elif verdict in ['low_cash','debt_heavy'] %}{% set chip_class = 'status-chip warn' %}{% endif %}
+                        <span class="{{ chip_class }}">{{ verdict.replace('_',' ') }}</span>
+                    </div>
+                    <p class="text-muted">{{ financial_pulse.summary }}</p>
+                    <div class="stats-grid">
+                        <div class="stat">
+                            <span>Cash on hand</span>
+                            <strong>{{ '{:,.0f}'.format(financial_pulse.metrics.cash_on_hand) }}</strong>
+                        </div>
+                        <div class="stat">
+                            <span>Debt total</span>
+                            <strong>{{ '{:,.0f}'.format(financial_pulse.metrics.debt_total) }}</strong>
+                        </div>
+                        <div class="stat">
+                            <span>Net position</span>
+                            <strong>{{ '{:,.0f}'.format(financial_pulse.metrics.net_position) }}</strong>
+                        </div>
+                        <div class="stat">
+                            <span>Cash runway (months)</span>
+                            <strong>{{ '%.1f'|format(financial_pulse.metrics.cash_months) }}</strong>
+                        </div>
+                        <div class="stat">
+                            <span>Debt ratio</span>
+                            <strong>{{ '%.2f'|format(financial_pulse.metrics.debt_ratio) }}</strong>
+                        </div>
+                    </div>
+                    <ul class="activity-list">
+                        {% for rec in financial_pulse.recommendations %}
+                            <li class="activity-item">
+                                <div class="activity-copy">{{ rec }}</div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                    <div class="activity-time">As of {{ financial_pulse.ym }}</div>
+                </article>
+                {% endif %}
+                <article class="profile-card">
+                    <div class="posts-header">
+                        <div>
+                            <div class="hero-eyebrow">Sign-in activity</div>
+                            <h2 class="card-title" style="margin-top:4px;">Recent logins</h2>
+                        </div>
+                        <a href="{{ url_for('admin_bp.admin_users') }}" class="ms-btn ms-btn-outline"><i class="fa fa-arrow-right"></i></a>
+                    </div>
+                    {% if admin_data.recent_logins %}
+                        <ul class="activity-list">
+                            {% for entry in admin_data.recent_logins %}
+                                <li class="activity-item">
+                                    <div>
+                                        <strong>{{ entry.username }}</strong>
+                                        <div class="activity-time" data-utc="{{ entry.login }}">Login</div>
+                                    </div>
+                                    {% if entry.logout %}
+                                        <span class="status-chip">signed out</span>
+                                    {% else %}
+                                        <span class="status-chip live">active</span>
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <div class="empty-state">
+                            <div>No recent logins recorded.</div>
+                        </div>
+                    {% endif %}
+                </article>
+                <article class="profile-card">
+                    <div class="posts-header">
+                        <div>
+                            <div class="hero-eyebrow">Model insights</div>
+                            <h2 class="card-title" style="margin-top:4px;">Recent suggestions</h2>
+                        </div>
+                        <a href="{{ url_for('admin_bp.admin_suggestions') }}" class="ms-btn ms-btn-outline"><i class="fa fa-arrow-right"></i></a>
+                    </div>
+                    {% if admin_data.flagged_items %}
+                        <ul class="activity-list">
+                            {% for entry in admin_data.flagged_items %}
+                                <li class="activity-item">
+                                    <div>
+                                        <strong>{{ entry.username }}</strong>
+                                        <div class="activity-copy">{{ entry.suggested }} → {{ entry.actual }}</div>
+                                    </div>
+                                    <div class="activity-time" data-utc="{{ entry.timestamp }}"></div>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <div class="empty-state">
+                            <div>No outstanding suggestion feedback.</div>
+                        </div>
+                    {% endif %}
+                </article>
+            </section>
+        {% else %}
+            <section class="profile-grid">
+                {% if financial_pulse %}
+                <article class="profile-card">
+                    <div class="posts-header">
+                        <div>
+                            <div class="hero-eyebrow">Financial pulse</div>
+                            <h2 class="card-title" style="margin-top:4px;">Health summary</h2>
+                        </div>
+                        {% set verdict = financial_pulse.verdict %}
+                        {% set chip_class = 'status-chip' %}
+                        {% if verdict == 'healthy' %}{% set chip_class = 'status-chip success' %}{% elif verdict in ['low_cash','debt_heavy'] %}{% set chip_class = 'status-chip warn' %}{% endif %}
+                        <span class="{{ chip_class }}">{{ verdict.replace('_',' ') }}</span>
+                    </div>
+                    <p class="text-muted">{{ financial_pulse.summary }}</p>
+                    <div class="stats-grid">
+                        <div class="stat">
+                            <span>Cash on hand</span>
+                            <strong>{{ '{:,.0f}'.format(financial_pulse.metrics.cash_on_hand) }}</strong>
+                        </div>
+                        <div class="stat">
+                            <span>Debt total</span>
+                            <strong>{{ '{:,.0f}'.format(financial_pulse.metrics.debt_total) }}</strong>
+                        </div>
+                        <div class="stat">
+                            <span>Net position</span>
+                            <strong>{{ '{:,.0f}'.format(financial_pulse.metrics.net_position) }}</strong>
+                        </div>
+                        <div class="stat">
+                            <span>Cash runway (months)</span>
+                            <strong>{{ '%.1f'|format(financial_pulse.metrics.cash_months) }}</strong>
+                        </div>
+                        <div class="stat">
+                            <span>Debt ratio</span>
+                            <strong>{{ '%.2f'|format(financial_pulse.metrics.debt_ratio) }}</strong>
+                        </div>
+                    </div>
+                    <ul class="activity-list">
+                        {% for rec in financial_pulse.recommendations %}
+                            <li class="activity-item">
+                                <div class="activity-copy">{{ rec }}</div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                    <div class="activity-time">As of {{ financial_pulse.ym }}</div>
+                </article>
+                {% endif %}
+                <article class="profile-card posts-card">
+                    <div class="posts-header">
+                        <div>
+                            <div class="hero-eyebrow">Posts</div>
+                            <h2 class="card-title" style="margin-top:4px; font-size: 1.3em;">Recent updates</h2>
+                        </div>
+                        <button type="button" class="ms-btn ms-btn-outline" onclick="openPostModal()">
+                            <i class="fa fa-plus"></i> New post
+                        </button>
+                    </div>
+                    {% if posts %}
+                        <div class="post-feed">
+                            {% for post in posts %}
+                                <article class="post-card">
+                                    <div class="post-header">
+                                        <div class="post-author">
+                                            <img src="/{{ profile.profile_pic if profile.profile_pic else 'static/profile_pics/default.png' }}" alt="Profile">
+                                            <div>
+                                                <strong>{{ user.username }}</strong>
+                                                <div class="post-subtitle">Shared from personal ledger</div>
+                                            </div>
+                                        </div>
+                                        <div class="post-actions">
+                                            <button type="button"
+                                                    class="icon-btn edit-post-btn"
+                                                    title="Edit Post"
+                                                    data-action="{{ url_for('user_bp.edit_post', post_id=post.id) }}"
+                                                    data-content="{{ post.content|e }}">
+                                                <i class="fa fa-edit"></i>
+                                            </button>
+                                            <form class="delete-form" method="POST" action="{{ url_for('user_bp.delete_post', post_id=post.id) }}" style="margin:0;">
+                                                <button type="submit" class="icon-btn danger" title="Delete Post" onclick="return confirm('Delete this post?');"><i class="fa fa-trash"></i></button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                    <div class="post-content">{{ post.content }}</div>
+                                    <div class="post-footer">Documented update • <span class="post-timestamp" data-utc="{{ post.timestamp.isoformat() }}"></span></div>
+                                </article>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <i class="fa fa-seedling" style="font-size:1.2rem; margin-bottom:8px;"></i>
+                            <div>No posts yet. Share your first update to keep a running log of insights.</div>
+                        </div>
+                    {% endif %}
+                </article>
+            </section>
+        {% endif %}
+    </div>
+
+    {% if not user.is_admin %}
+    <div id="notesModal" class="modal">
+        <div class="modal-inner">
+            <form method="POST">
+                <label for="notes">Edit Notes</label>
+                <textarea id="notes" name="notes" rows="4">{{ profile.notes or '' }}</textarea>
+                <div class="modal-actions">
+                    <button type="submit"><i class="fa fa-save"></i> Save notes</button>
+                    <button type="button" class="secondary" onclick="closeNotesModal()"><i class="fa fa-times"></i> Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <div id="picModal" class="modal">
+        <div class="modal-inner">
+            <form method="POST" enctype="multipart/form-data">
+                <label for="profile_pic">Change Profile Picture</label>
+                <input id="profile_pic" type="file" name="profile_pic" accept="image/*">
+                <div class="modal-actions">
+                    <button type="submit"><i class="fa fa-upload"></i> Upload</button>
+                    <button type="button" class="secondary" onclick="closePicModal()"><i class="fa fa-times"></i> Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="postModal" class="modal">
+        <div class="modal-inner">
+            <form method="POST" action="{{ url_for('user_bp.add_post') }}">
+                <label for="content">New Post</label>
+                <textarea id="content" name="content" rows="3"></textarea>
+                <div class="modal-actions">
+                    <button type="submit"><i class="fa fa-paper-plane"></i> Post</button>
+                    <button type="button" class="secondary" onclick="closePostModal()"><i class="fa fa-times"></i> Cancel</button>
+                </div>
+                {% with messages = get_flashed_messages() %}
+                    {% if messages %}
+                        <ul style="margin:0; padding-left:16px; color:var(--negative);">
+                        {% for message in messages %}
+                            <li>{{ message }}</li>
+                        {% endfor %}
+                        </ul>
+                    {% endif %}
+                {% endwith %}
+            </form>
+        </div>
+    </div>
+    <div id="editPostModal" class="modal">
+        <div class="modal-inner">
+            <form method="POST" id="editPostForm">
+                <label for="edit_post_content">Edit Post</label>
+                <textarea id="edit_post_content" name="content" rows="3"></textarea>
+                <div class="modal-actions">
+                    <button type="submit"><i class="fa fa-save"></i> Save changes</button>
+                    <button type="button" class="secondary" onclick="closeEditPostModal()"><i class="fa fa-times"></i> Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('[data-utc]').forEach(function(el) {
+                var utc = el.getAttribute('data-utc');
+                if (utc) {
+                    var date = new Date(utc);
+                    el.textContent = date.toLocaleString();
+                }
+            });
+           document.querySelectorAll('.edit-post-btn').forEach(function(btn) {
+               btn.addEventListener('click', function() {
+                   openEditPostModal(this.dataset.action, this.dataset.content || '');
+               });
+           });
+        });
+
+        function openNotesModal() { document.getElementById('notesModal').style.display = 'flex'; }
+        function closeNotesModal() { document.getElementById('notesModal').style.display = 'none'; }
+        function openPicModal() { document.getElementById('picModal').style.display = 'flex'; }
+        function closePicModal() { document.getElementById('picModal').style.display = 'none'; }
+        function openPostModal() { document.getElementById('postModal').style.display = 'flex'; }
+        function closePostModal() { document.getElementById('postModal').style.display = 'none'; }
+        function openEditPostModal(actionUrl, content) {
+            var modal = document.getElementById('editPostModal');
+            var form = document.getElementById('editPostForm');
+            var textarea = document.getElementById('edit_post_content');
+            form.action = actionUrl;
+            textarea.value = content || '';
+            modal.style.display = 'flex';
+        }
+        function closeEditPostModal() { document.getElementById('editPostModal').style.display = 'none'; }
+    </script>
+{% endblock %}

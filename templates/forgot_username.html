@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Forgot Username - Finance App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --surface: #ffffff;
+      --surface-muted: #f7f8fa;
+      --muted: #f7f8fa;
+      --border: #e0e5ec;
+      --text-strong: #14202b;
+      --text-muted: #5b6470;
+      --accent: #0f7b5f;
+      --accent-strong: #0c5c48;
+      --accent-soft: #d8f1e7;
+    }
+    body {
+      margin: 0;
+      background: var(--surface-muted);
+      font-family: "Inter","Apple SD Gothic Neo",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+      color: var(--text-strong);
+    }
+    a { color: var(--accent); text-decoration: none; font-weight: 600; }
+    a:hover { text-decoration: underline; }
+    .auth-shell {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 32px 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      box-sizing: border-box;
+    }
+    .auth-header {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 18px;
+      padding: 32px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(15, 32, 46, 0.06);
+      margin-top: 20px;
+    }
+    .auth-eyebrow {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .auth-header h1 {
+      margin: 6px 0 8px;
+      font-size: 30px;
+      font-weight: 600;
+    }
+    .auth-lede {
+      margin: 0;
+      color: var(--text-muted);
+      max-width: 560px;
+      line-height: 1.5;
+    }
+    .auth-meta {
+      min-width: 220px;
+      border-left: 2px solid var(--border);
+      padding-left: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 4px;
+    }
+    .auth-meta span {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+    }
+    .auth-meta strong { font-size: 1.1rem; color: var(--accent-strong); }
+    .auth-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(13, 30, 45, 0.04);
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-group label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .form-group input {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      background: #fff;
+      color: var(--text-strong);
+      font-size: 0.95rem;
+      outline: none;
+      transition: border 0.2s, box-shadow 0.2s;
+    }
+    .form-group input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(15, 123, 95, 0.15);
+    }
+    .primary-btn {
+      border: none;
+      border-radius: 999px;
+      background: var(--accent);
+      color: #fff;
+      padding: 12px 22px;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.2s ease;
+      width: 100%;
+    }
+    .primary-btn:hover { background: var(--accent-strong); }
+    .support-links {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+    .flash-list {
+      list-style: none;
+      margin: 0;
+      padding: 12px 16px;
+      border-radius: 10px;
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+      font-weight: 600;
+    }
+    @media (max-width: 768px) {
+      .auth-shell { padding: 0 16px 64px; }
+      .auth-header { flex-direction: column; }
+      .auth-meta { border-left: none; border-top: 2px solid var(--border); padding-left: 0; padding-top: 16px; }
+    }
+  </style>
+</head>
+<body>
+  {% include 'menu.html' %}
+  <main class="auth-shell">
+    <header class="auth-header">
+      <div>
+        <div class="auth-eyebrow">Account recovery</div>
+        <h1>Forgot your username?</h1>
+        <p class="auth-lede">Tell us the email connected to your workspace and we will surface the matching username instantly.</p>
+      </div>
+      <div class="auth-meta">
+        <span>Average response</span>
+        <strong>Less than 1 min</strong>
+        <small style="color:var(--text-muted);">Automatic lookup via secure directory</small>
+      </div>
+    </header>
+
+    <section class="auth-card">
+      <form method="POST">
+        <div class="form-group">
+          <label for="email">Recovery email</label>
+          <input id="email" type="email" name="email" required>
+        </div>
+        <button type="submit" class="primary-btn">
+          <i class="fa fa-search"></i>
+          Retrieve username
+        </button>
+        <div class="support-links">
+          <a href="{{ url_for('auth_bp.login') }}">Back to the login screen</a>
+        </div>
+      </form>
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <ul class="flash-list">
+            {% for message in messages %}
+              <li>{{ message }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      {% endwith %}
+    </section>
+  </main>
+  {% include 'partials/footer.html' %}
+</body>
+</html>

@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ml-journal-suggester"
+version = "0.1.0"
+description = "Multi-line accounting journal suggestion pipeline"
+authors = [{ name = "Your Team" }]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.23",
+  "pandas>=1.5",
+  "scikit-learn>=1.1",
+  "torch>=2.0",
+  "pyarrow>=11.0",
+  "joblib>=1.2",
+  "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+minilm = ["sentence-transformers>=2.2"]
+ilp = ["ortools>=9.6"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

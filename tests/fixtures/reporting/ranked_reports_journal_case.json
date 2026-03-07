@@ -1,0 +1,106 @@
+{
+  "ym": "2024-01",
+  "initialized_on": "2024-01-01",
+  "categories": [
+    {"key": "cash_folder", "name": "Cash", "tb_group": "asset"},
+    {"key": "savings_folder", "name": "Savings", "tb_group": "asset"},
+    {"key": "ar_folder", "name": "Accounts Receivable", "tb_group": "asset"},
+    {"key": "loan_folder", "name": "Short Term Debt", "tb_group": "liability"},
+    {"key": "income_folder", "name": "Sales", "tb_group": "income"},
+    {"key": "expense_folder", "name": "Operating", "tb_group": "expense"}
+  ],
+  "accounts": [
+    {"key": "cash", "name": "Main Cash", "category": "cash_folder", "currency": "KRW"},
+    {"key": "savings", "name": "High Yield Savings", "category": "savings_folder", "currency": "KRW"},
+    {"key": "ar", "name": "Trade Receivable", "category": "ar_folder", "currency": "KRW"},
+    {"key": "loan", "name": "Bridge Loan", "category": "loan_folder", "currency": "KRW"},
+    {"key": "revenue", "name": "Product Revenue", "category": "income_folder", "currency": "KRW"},
+    {"key": "expense", "name": "Office Expense", "category": "expense_folder", "currency": "KRW"}
+  ],
+  "opening_balances": [
+    {"account": "cash", "amount": 1000.0},
+    {"account": "savings", "amount": 500.0},
+    {"account": "ar", "amount": 200.0}
+  ],
+  "journal_entries": [
+    {
+      "date": "2024-01-10",
+      "description": "Sale in cash",
+      "lines": [
+        {"account": "cash", "dc": "D", "amount": 700.0},
+        {"account": "revenue", "dc": "C", "amount": 700.0}
+      ]
+    },
+    {
+      "date": "2024-01-12",
+      "description": "Operating expense paid",
+      "lines": [
+        {"account": "expense", "dc": "D", "amount": 200.0},
+        {"account": "cash", "dc": "C", "amount": 200.0}
+      ]
+    },
+    {
+      "date": "2024-01-15",
+      "description": "Sale deposited to savings",
+      "lines": [
+        {"account": "savings", "dc": "D", "amount": 300.0},
+        {"account": "revenue", "dc": "C", "amount": 300.0}
+      ]
+    },
+    {
+      "date": "2024-01-18",
+      "description": "Sale on credit",
+      "lines": [
+        {"account": "ar", "dc": "D", "amount": 150.0},
+        {"account": "revenue", "dc": "C", "amount": 150.0}
+      ]
+    },
+    {
+      "date": "2024-01-20",
+      "description": "Loan received",
+      "lines": [
+        {"account": "cash", "dc": "D", "amount": 1000.0},
+        {"account": "loan", "dc": "C", "amount": 1000.0}
+      ]
+    },
+    {
+      "date": "2024-01-25",
+      "description": "Receivable collection",
+      "lines": [
+        {"account": "cash", "dc": "D", "amount": 120.0},
+        {"account": "ar", "dc": "C", "amount": 120.0}
+      ]
+    }
+  ],
+  "expected": {
+    "tb_monthly": {
+      "asset_bd": 1700.0,
+      "asset_balance": 3650.0,
+      "asset_period_debit": 2270.0,
+      "asset_period_credit": 320.0,
+      "liability_balance": 1000.0,
+      "income_balance": 1150.0,
+      "expense_balance": 200.0,
+      "grand_period_debit": 2470.0,
+      "grand_period_credit": 2470.0
+    },
+    "statements": {
+      "income": {
+        "revenue": 1150.0,
+        "expense": 200.0,
+        "net_income": 950.0
+      },
+      "balance": {
+        "assets": 3650.0,
+        "liabilities": 1000.0,
+        "equity": 2650.0,
+        "le_sum": 3650.0
+      },
+      "cashflow": {
+        "opening": 1500.0,
+        "closing": 3420.0,
+        "change": 1920.0
+      }
+    }
+  }
+}

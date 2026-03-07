@@ -1,0 +1,27 @@
+{"tx_id":"T1","date":"2025-08-01","description":"Cafe + tip","side":"DR","account":"Expenses:Meals","amount":9000}
+{"tx_id":"T1","date":"2025-08-01","description":"Cafe + tip","side":"DR","account":"Expenses:Tips","amount":1000}
+{"tx_id":"T1","date":"2025-08-01","description":"Cafe + tip","side":"CR","account":"Assets:Cash","amount":10000}
+{"tx_id":"T2","date":"2025-08-02","description":"Groceries + VAT","side":"DR","account":"Expenses:Groceries","amount":45000}
+{"tx_id":"T2","date":"2025-08-02","description":"Groceries + VAT","side":"DR","account":"Assets:VATRecoverable","amount":4500}
+{"tx_id":"T2","date":"2025-08-02","description":"Groceries + VAT","side":"CR","account":"Assets:Cash","amount":49500}
+{"tx_id":"T3","date":"2025-08-15","description":"Monthly payroll","side":"DR","account":"Expenses:Salaries","amount":200000}
+{"tx_id":"T3","date":"2025-08-15","description":"Monthly payroll","side":"DR","account":"Expenses:PayrollTaxes","amount":25000}
+{"tx_id":"T3","date":"2025-08-15","description":"Monthly payroll","side":"CR","account":"Liabilities:PayrollPayable","amount":225000}
+{"tx_id":"T4","date":"2025-08-05","description":"Office rent","side":"DR","account":"Expenses:Rent","amount":80000}
+{"tx_id":"T4","date":"2025-08-05","description":"Office rent","side":"CR","account":"Assets:Cash","amount":80000}
+{"tx_id":"T5","date":"2025-08-09","description":"Utilities bill","side":"DR","account":"Expenses:Utilities","amount":30000}
+{"tx_id":"T5","date":"2025-08-09","description":"Utilities bill","side":"DR","account":"Expenses:Taxes:UtilitiesVAT","amount":3000}
+{"tx_id":"T5","date":"2025-08-09","description":"Utilities bill","side":"CR","account":"Liabilities:UtilitiesPayable","amount":33000}
+{"tx_id":"T6","date":"2025-08-11","description":"Inventory purchase","side":"DR","account":"Assets:Inventory","amount":120000}
+{"tx_id":"T6","date":"2025-08-11","description":"Inventory purchase","side":"CR","account":"Liabilities:AccountsPayable","amount":120000}
+{"tx_id":"T7","date":"2025-08-18","description":"Consulting revenue","side":"DR","account":"Assets:Bank","amount":95000}
+{"tx_id":"T7","date":"2025-08-18","description":"Consulting revenue","side":"CR","account":"Income:Consulting","amount":95000}
+{"tx_id":"T8","date":"2025-08-20","description":"Tuition with scholarship","side":"DR","account":"Expenses:Education","amount":100000}
+{"tx_id":"T8","date":"2025-08-20","description":"Tuition with scholarship","side":"CR","account":"Assets:Bank","amount":80000}
+{"tx_id":"T8","date":"2025-08-20","description":"Tuition with scholarship","side":"CR","account":"Income:Scholarship","amount":20000}
+{"tx_id":"T9","date":"2025-08-21","description":"Equipment financed","side":"DR","account":"Assets:Equipment","amount":300000}
+{"tx_id":"T9","date":"2025-08-21","description":"Equipment financed","side":"CR","account":"Assets:Cash","amount":50000}
+{"tx_id":"T9","date":"2025-08-21","description":"Equipment financed","side":"CR","account":"Liabilities:EquipmentLoan","amount":250000}
+{"tx_id":"T10","date":"2025-08-25","description":"Travel with split","side":"DR","account":"Expenses:Travel:Airfare","amount":40000}
+{"tx_id":"T10","date":"2025-08-25","description":"Travel with split","side":"DR","account":"Expenses:Travel:Lodging","amount":35000}
+{"tx_id":"T10","date":"2025-08-25","description":"Travel with split","side":"CR","account":"Assets:CorporateCard","amount":75000}

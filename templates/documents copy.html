@@ -1,0 +1,1933 @@
+{% extends 'base.html' %}
+
+{% block title %}Financial Documents - Finance App{% endblock %}
+
+{% block styles %}
+    {{ super() }}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+      :root {
+        --surface: #ffffff;
+        --surface-muted: #f7f8fa;
+        --muted: #f7f8fa;
+        --border: #e0e5ec;
+        --text-strong: #14202b;
+        --text-muted: #5b6470;
+        --accent: #0f7b5f;
+        --accent-strong: #0c5c48;
+        --accent-soft: #d8f1e7;
+        --positive: #0f7b5f;
+        --negative: #b3352f;
+      }
+      body {
+        background: var(--surface-muted);
+        font-family: "Inter","Apple SD Gothic Neo",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+        color: var(--text-strong);
+      }
+      /* align with base wrapper */
+      .profile-cover { display: none !important; }
+      .profile-main { background: transparent; box-shadow: none; padding: 0; max-width: none; top: 0; }
+      .docs-shell {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 0 32px 64px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        box-sizing: border-box;
+      }
+      .docs-header {
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        padding: 32px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: 0 8px 24px rgba(15, 32, 46, 0.06);
+        margin-top: 20px;
+      }
+      .docs-header h1 {
+        margin: 4px 0 8px;
+        font-size: 30px;
+        font-weight: 600;
+      }
+      .docs-lede {
+        margin: 0;
+        color: var(--text-muted);
+        max-width: 640px;
+        line-height: 1.5;
+      }
+      .docs-eyebrow {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--accent);
+        font-weight: 600;
+      }
+      .header-meta {
+        min-width: 220px;
+        border-left: 2px solid var(--border);
+        padding-left: 24px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 4px;
+      }
+      .header-meta span { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+      .header-meta strong { font-size: 1.4rem; color: var(--accent); }
+      .docs-grid {
+        margin-top: 0px;
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        gap: 32px;
+      }
+      .docs-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: 0 6px 18px rgba(13, 30, 45, 0.04);
+      }
+      .docs-sidebar {
+        padding: 28px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      .sidebar-title {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+      .form-group { display: flex; flex-direction: column; gap: 6px; }
+      .form-group label { font-size: 0.85rem; font-weight: 600; color: var(--text-strong); }
+      .form-group select {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 0.95rem;
+        background: #fdfdfd;
+      }
+      .form-group select[multiple] { min-height: 140px; }
+      .form-hint { font-size: 0.78rem; color: var(--text-muted); }
+      .primary-btn {
+        border: none;
+        border-radius: 999px;
+        background: var(--accent);
+        color: #fff;
+        padding: 12px 22px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        justify-content: center;
+        width: 100%;
+      }
+      #doc-msg { color: var(--text-muted); font-size: 0.85rem; min-height: 18px; text-align: center; }
+      .docs-main { display: flex; flex-direction: column; gap: 24px; }
+      .docs-tabs { display:flex; gap:12px; border-bottom:1px solid var(--border); margin-bottom:12px; }
+      .docs-tab { padding:10px 16px; border:1px solid var(--border); border-bottom:none; border-radius:12px 12px 0 0; background:var(--surface-muted); cursor:pointer; font-weight:600; color:var(--text-muted); }
+      .docs-tab.active { background:var(--surface); color:var(--text-strong); border-color:var(--border); }
+      .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit,minmax(200px,1fr));
+        gap: 16px;
+      }
+      .info-card { padding: 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+      .info-card h4 { margin: 0 0 6px 0; font-size: 1rem; }
+      .info-card p { margin: 0; color: var(--text-muted); font-size: 0.9rem; }
+      .statement-card { padding: 28px; }
+      .statement-header { display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; align-items:center; margin-bottom:18px; }
+      .statement-header h3 { margin:0; font-size:1.2rem; }
+      .statement-toggle { display:flex; border:1px solid var(--border); border-radius:999px; padding:3px; background:#fff; }
+      .statement-toggle button { border:none; background:transparent; padding:8px 16px; border-radius:999px; font-size:0.85rem; color:var(--text-muted); cursor:pointer; }
+      .statement-toggle button.active { background:var(--accent); color:#fff; }
+      .metric-row { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:14px; }
+      .metric { flex:1 1 140px; border:1px solid var(--border); border-radius:10px; padding:12px; background:#fbfcfd; }
+      .metric-label { font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; }
+      .metric-value { margin-top:4px; font-size:1.1rem; font-weight:600; color:var(--text-strong); }
+      table.currency-table { width:100%; border-collapse:collapse; font-size:0.9rem; }
+      table.currency-table th, table.currency-table td { border:1px solid var(--border); padding:8px 10px; text-align:right; }
+      table.currency-table th { background:#f3f5f7; text-transform:uppercase; font-size:0.75rem; letter-spacing:0.04em; }
+      table.currency-table th:first-child, table.currency-table td:first-child { text-align:left; width:120px; }
+      .placeholder-text { font-size:0.85rem; color:var(--text-muted); }
+      .cash-folder-note { font-size:0.78rem; color:var(--text-muted); }
+      .statement-table-wrapper { width:100%; display:flex; flex-direction:column; gap:16px; }
+      .statement-table-wrapper .line-item { cursor:pointer; }
+      table.statement-table { width:100%; border-collapse:collapse; font-size:0.92rem; }
+      table.statement-table th, table.statement-table td { padding:10px 12px; border-bottom:1px solid var(--border); }
+      table.statement-table th { text-transform:uppercase; letter-spacing:0.06em; font-size:0.78rem; color:var(--text-muted); text-align:left; }
+      table.statement-table td.amount { text-align:right; font-feature-settings:"tnum"; }
+      tr.section-row td { padding-top:18px; font-size:0.78rem; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-muted); font-weight:600; border-bottom:none; }
+      tr.line-item td.label { padding-left:18px; }
+      tr.line-item.account td.label { padding-left:32px; font-size:0.85rem; color:var(--text-muted); }
+      tr.subtotal-row td { font-weight:700; color:var(--accent); border-top:1px solid var(--border); }
+      tr.net-row td { font-weight:700; font-size:1rem; color:var(--accent-strong); border-top:2px solid var(--border); }
+      .delta-pos { color: var(--positive); }
+      .delta-neg { color: var(--negative); }
+      .compare-badge { display:inline-flex; gap:6px; align-items:center; padding:6px 10px; border-radius:999px; background:var(--accent-soft); color:var(--accent-strong); font-size:0.85rem; }
+      .income-summary-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:14px; }
+      .income-summary-card { padding:18px; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:0 4px 12px rgba(13,30,45,0.04); display:flex; flex-direction:column; gap:4px; }
+      .income-summary-card .metric-label { font-size:0.75rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); }
+      .income-summary-card .metric-value { font-size:1.4rem; font-weight:600; color:var(--text-strong); }
+      .income-summary-card.net { background:var(--accent-soft); border-color:var(--accent-soft); }
+      .income-summary-card.net .metric-value { color:var(--accent-strong); }
+      .income-summary-note { font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.06em; }
+      .income-rate-note { font-size:0.78rem; color:var(--text-muted); }
+      .currency-summary { margin-top:4px; font-size:0.85rem; color:var(--text-muted); }
+      .docs-loading { display:none; align-items:center; gap:8px; padding:12px 14px; border:1px dashed var(--border); border-radius:12px; background:var(--surface); color:var(--text-muted); }
+      .docs-loading.active { display:flex; }
+      .docs-fade-in { animation: fadeIn 0.16s ease-out; }
+      .docs-modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.32); display:none; align-items:center; justify-content:center; z-index:999; }
+      .docs-modal-backdrop.active { display:flex; }
+      .docs-modal { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px 22px; width:min(520px, 92vw); box-shadow:0 14px 40px rgba(10,20,30,0.18); display:flex; flex-direction:column; gap:12px; }
+      .docs-modal header { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+      .docs-modal h4 { margin:0; font-size:1.1rem; }
+      .docs-modal .meta { color:var(--text-muted); font-size:0.9rem; }
+      .docs-modal table { width:100%; border-collapse:collapse; font-size:0.92rem; }
+      .docs-modal th, .docs-modal td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--border); }
+      .docs-modal th.num, .docs-modal td.num { text-align:right; }
+      .docs-modal .account-note { font-size:0.85rem; color:var(--text-muted); }
+      .docs-modal .close-btn { background:transparent; border:none; font-size:1.2rem; cursor:pointer; color:var(--text-muted); }
+      .info-dot { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border:1px solid var(--text-muted); border-radius:50%; font-size:10px; color:var(--text-muted); background:var(--surface); }
+      @keyframes fadeIn { from { opacity:0; transform: translateY(4px); } to { opacity:1; transform: translateY(0); } }
+      @media (max-width: 980px) { .docs-grid { grid-template-columns: 1fr; } .docs-header { flex-direction: column; align-items: flex-start; text-align: left; } .header-meta { text-align:left; } }
+      @media (max-width: 768px) { .docs-shell { padding: 0 16px 48px; } }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="docs-shell">
+      <header class="docs-header">
+        <div>
+          <div class="docs-eyebrow">Financial statements</div>
+          <h1>Documents & Reporting</h1>
+        </div>
+        <div class="header-meta">
+          <span>Latest closing</span>
+          <strong id="hero-latest">Select a month</strong>
+          <small style="color:var(--text-muted);">Automated PDF-ready output</small>
+        </div>
+      </header>
+
+      <div class="docs-grid">
+        <aside class="docs-card docs-sidebar">
+          <div class="sidebar-title">Statement controls</div>
+          <div class="form-group">
+            <label for="doc_type">Statement type</label>
+            <select id="doc_type">
+              <option value="income">Income Statement</option>
+              <option value="balance">Balance Sheet</option>
+              <option value="cashflow">Cashflow Statement</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="doc_month">Month</label>
+            <select id="doc_month"></select>
+          </div>
+          <div class="form-group" style="display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" id="doc_compare_toggle" style="width:auto; margin:0;">
+            <label for="doc_compare_toggle" style="margin:0;">Compare with another month</label>
+          </div>
+          <div class="form-group" id="doc_compare_group" style="display:none;">
+            <label for="doc_month_compare">Compare month</label>
+            <select id="doc_month_compare"></select>
+            <div class="form-hint">Shows deltas vs selected month.</div>
+          </div>
+          <div class="form-group">
+            <label for="doc_ccy">Currency</label>
+            <select id="doc_ccy">
+              <option value="">All</option>
+              <option value="KRW">KRW</option>
+              <option value="MYR">MYR</option>
+              <option value="CNY">CNY</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="cash_folders">Cash folders (optional)</label>
+            <select id="cash_folders" multiple></select>
+            <div class="form-hint">Hold Cmd/Ctrl to include multiple asset folders in cashflow calculations.</div>
+          </div>
+          
+          <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; margin-top:8px;">
+            <button id="btn-doc-pdf" class="primary-btn"><i class="fa fa-file-pdf"></i>Download PDF</button>
+            <button id="btn-doc-csv" class="primary-btn" style="background:#0c5c48;"><i class="fa fa-file-csv"></i>Export CSV</button>
+            <button id="btn-doc-xlsx" class="primary-btn" style="background:#0a4a39;"><i class="fa fa-file-excel"></i>Export XLSX</button>
+          </div>
+          <div id="doc-msg"></div>
+        </aside>
+
+        <section class="docs-main">
+          <div class="docs-tabs">
+            <button type="button" class="docs-tab active" data-tab="statements">Statements</button>
+            <button type="button" class="docs-tab" data-tab="analytics">Analytics</button>
+          </div>
+          <div id="panel-statements">
+          <div id="docs-loading" class="docs-loading" role="status" aria-live="polite"><i class="fa fa-spinner fa-spin"></i> Loading statement data…</div>
+          <div id="statement-summary" class="docs-card statement-card" style="display:none;">
+            <div class="statement-header">
+              <div>
+                <h3>Statement overview</h3>
+                <small id="summary-period"></small>
+                <div id="summary-compare" class="compare-badge" style="display:none; margin-top:6px;"></div>
+              </div>
+              <div class="statement-toggle">
+                <button type="button" data-kind="income" class="active">Income</button>
+                <button type="button" data-kind="balance">Balance</button>
+            <button type="button" data-kind="cashflow">Cashflow</button>
+          </div>
+          <small id="summary-meta" style="color:var(--text-muted);"></small>
+        </div>
+        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+          <label style="display:flex; align-items:center; gap:8px; font-size:0.9rem; color:var(--text-muted);">
+            <input type="checkbox" id="toggle-accounts" style="width:auto; margin:0;">
+            Show account details
+          </label>
+        </div>
+        <div id="statement-grid"></div>
+        <canvas id="doc-chart" height="90" style="display:none; margin: 4px 0 4px 0; width:100%; max-height:160px;"></canvas>
+        <canvas id="balance-donut" height="90" style="display:none; margin: 4px 0 4px 0; width:100%; max-height:160px;"></canvas>
+          </div>
+          </div>
+          <div id="panel-analytics" style="display:none;">
+            <div class="docs-card statement-card">
+              <div class="statement-header">
+                <div>
+                  <h3>Analytics</h3>
+                  <small>Key ratios and trends</small>
+                </div>
+              </div>
+              <div class="info-grid">
+                <div class="info-card">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h4 style="margin:0;">Profitability</h4>
+                    <span class="info-dot" title="Net margin, ROA, ROE show how effectively earnings are generated. Higher is better; ROA/ROE below peers may indicate inefficiency." aria-label="Profitability info">i</span>
+                  </div>
+                  <p><strong id="ratio-margin">—</strong> Net margin</p>
+                  <p><strong id="ratio-roa">—</strong> ROA</p>
+                  <p><strong id="ratio-roe">—</strong> ROE</p>
+                </div>
+                <div class="info-card">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h4 style="margin:0;">Liquidity & Leverage</h4>
+                    <span class="info-dot" title="Current/quick ratios reflect solvency (>1.5 is comfortable). Debt-to-equity shows leverage; >2.0 can be risky without stable cashflow." aria-label="Liquidity and leverage info">i</span>
+                  </div>
+                  <p><strong id="ratio-curr">—</strong> Current ratio</p>
+                  <p><strong id="ratio-quick">—</strong> Quick ratio</p>
+                  <p><strong id="ratio-de">—</strong> Debt-to-equity</p>
+                </div>
+                <div class="info-card">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h4 style="margin:0;">Cash runway</h4>
+                    <span class="info-dot" title="Net cash and runway based on your selected currency. Runway = net cash ÷ avg monthly outflow. Higher is safer; <3 months is a warning." aria-label="Cash runway info">i</span>
+                  </div>
+                  <p><strong id="runway-net">—</strong> Closing cash (period)</p>
+                  <p><strong id="runway-outflow">—</strong> Avg monthly outflow</p>
+                  <p><strong id="runway-months">—</strong> Months of runway</p>
+                </div>
+                <div class="info-card">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h4 style="margin:0;">Expense accounts (top 3)</h4>
+                    <span class="info-dot" title="Highlights specific accounts driving expenses and their recent changes." aria-label="Expense accounts info">i</span>
+                  </div>
+                  <p style="margin:0 0 6px 0; color:var(--text-muted);">Top accounts and change vs prior month.</p>
+                  <div id="expense-accounts-list" style="display:flex; flex-direction:column; gap:6px; font-size:0.95rem; color:var(--text-muted);"></div>
+                </div>
+               <div class="info-card">
+                 <div style="display:flex; justify-content:space-between; align-items:center;">
+                   <h4 style="margin:0;">Sensitivity</h4>
+                    <span class="info-dot" title="Simulate revenue/expense changes to see net and ratio impact. Useful for scenario planning. Watch how much you moved each slider." aria-label="Sensitivity info">i</span>
+                 </div>
+                 <p style="margin:0 0 6px 0; color:var(--text-muted);">Adjust revenue/expense to simulate net and ratios.</p>
+                 <label style="display:flex; flex-direction:column; gap:4px;">Revenue Δ%<input id="sens-rev" type="range" min="-30" max="30" step="1" value="0"></label>
+                 <label style="display:flex; flex-direction:column; gap:4px;">Expense Δ%<input id="sens-exp" type="range" min="-30" max="30" step="1" value="0"></label>
+                 <p style="margin:4px 0 0 0;">Simulated net: <strong id="sens-net">—</strong></p>
+                 <p style="margin:2px 0 0 0; color:var(--text-muted);">Net Δ: <strong id="sens-net-delta">—</strong></p>
+                 <p style="margin:2px 0 0 0; color:var(--text-muted);">Simulated ratios: <strong id="sens-ratios">—</strong></p>
+                 <p style="margin:2px 0 0 0; color:var(--text-muted);">Rev Δ applied: <strong id="sens-rev-label">0%</strong> · Exp Δ applied: <strong id="sens-exp-label">0%</strong></p>
+               </div>
+               <div class="info-card">
+                 <div style="display:flex; justify-content:space-between; align-items:center;">
+                   <h4 style="margin:0;">Benchmarks</h4>
+                    <span class="info-dot" title="Set your targets; we flag if margin, liquidity, or leverage slip past thresholds." aria-label="Benchmarks info">i</span>
+                 </div>
+                 <p style="margin:0 0 6px 0; color:var(--text-muted);">Set targets; we’ll flag if breached.</p>
+                 <label style="display:flex; flex-direction:column; gap:4px;">Min margin %<input id="bm-margin" type="number" step="0.1" value="10"></label>
+                 <label style="display:flex; flex-direction:column; gap:4px;">Min current ratio<input id="bm-curr" type="number" step="0.1" value="1.5"></label>
+                 <label style="display:flex; flex-direction:column; gap:4px;">Max debt/equity<input id="bm-de" type="number" step="0.1" value="2.0"></label>
+                 <div id="bm-flags" style="font-size:0.9rem; color:var(--text-muted); margin-top:6px;"></div>
+               </div>
+              </div>
+              <div id="fx-note" class="currency-summary" style="margin-top:10px; color:var(--text-muted);"></div>
+              <canvas id="analytics-trend" height="110" style="display:none; margin-top:10px; width:100%; max-height:130px;"></canvas>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+    <div id="docs-modal-backdrop" class="docs-modal-backdrop" role="dialog" aria-modal="true" aria-hidden="true">
+      <div class="docs-modal" role="document">
+        <header>
+          <div>
+            <h4 id="docs-modal-title">Details</h4>
+            <div id="docs-modal-meta" class="meta"></div>
+          </div>
+          <button class="close-btn" type="button" aria-label="Close" id="docs-modal-close">&times;</button>
+        </header>
+        <div id="docs-modal-body"></div>
+      </div>
+    </div>
+
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    <script>
+    (function(){
+      const STORAGE_KEY = 'docs_prefs_v1';
+      const initIso = {{ (tb_initialized_on.isoformat() if tb_initialized_on else '')|tojson }};
+      const monthSel = document.getElementById('doc_month');
+      const docTypeSel = document.getElementById('doc_type');
+      const compareToggle = document.getElementById('doc_compare_toggle');
+      const compareGroup = document.getElementById('doc_compare_group');
+      const compareMonthSel = document.getElementById('doc_month_compare');
+      const docMsg = document.getElementById('doc-msg');
+      const summaryCard = document.getElementById('statement-summary');
+      const summaryPeriod = document.getElementById('summary-period');
+      const summaryMeta = document.getElementById('summary-meta');
+      const summaryCompare = document.getElementById('summary-compare');
+      const summaryGrid = document.getElementById('statement-grid');
+      const heroLatest = document.getElementById('hero-latest');
+      const cashFolderSel = document.getElementById('cash_folders');
+      const statementCurrencySel = document.getElementById('doc_ccy');
+      const toggleButtons = document.querySelectorAll('.statement-toggle button');
+      const loadingBanner = document.getElementById('docs-loading');
+      const modalBackdrop = document.getElementById('docs-modal-backdrop');
+      const modalTitle = document.getElementById('docs-modal-title');
+      const modalMeta = document.getElementById('docs-modal-meta');
+      const modalBody = document.getElementById('docs-modal-body');
+      const modalClose = document.getElementById('docs-modal-close');
+      const chartCanvas = document.getElementById('doc-chart');
+      const balanceDonut = document.getElementById('balance-donut');
+      const toggleAccounts = document.getElementById('toggle-accounts');
+      const analyticsTrend = document.getElementById('analytics-trend');
+      const expenseTrendList = document.getElementById('expense-trend-list');
+      const expenseAccountsList = document.getElementById('expense-accounts-list');
+      const sensRev = document.getElementById('sens-rev');
+      const sensExp = document.getElementById('sens-exp');
+      const sensNet = document.getElementById('sens-net');
+      const bmMargin = document.getElementById('bm-margin');
+      const bmCurr = document.getElementById('bm-curr');
+      const bmDe = document.getElementById('bm-de');
+      const bmFlags = document.getElementById('bm-flags');
+      const sensRatios = document.getElementById('sens-ratios');
+      const fxNote = document.getElementById('fx-note');
+      const sensRevLabel = document.getElementById('sens-rev-label');
+      const sensExpLabel = document.getElementById('sens-exp-label');
+      const tabs = document.querySelectorAll('.docs-tab');
+      const panelStatements = document.getElementById('panel-statements');
+      const panelAnalytics = document.getElementById('panel-analytics');
+      const ratioMargin = document.getElementById('ratio-margin');
+      const ratioRoa = document.getElementById('ratio-roa');
+      const ratioRoe = document.getElementById('ratio-roe');
+      const ratioCurr = document.getElementById('ratio-curr');
+      const ratioQuick = document.getElementById('ratio-quick');
+      const ratioDe = document.getElementById('ratio-de');
+      const noticeBox = document.createElement('div');
+      noticeBox.style.fontSize = '0.9rem';
+      noticeBox.style.color = 'var(--negative)';
+      noticeBox.style.marginTop = '6px';
+      noticeBox.style.display = 'none';
+      docMsg?.insertAdjacentElement('afterend', noticeBox);
+      let chartInstance = null;
+      let donutInstance = null;
+      let analyticsChart = null;
+      let sensitivityBound = false;
+      const defaultPrefs = { month: '', currency: '', statement: 'income', cashFolders: [], compareEnabled: false, compareMonth: '', tab: 'statements' };
+      const loadPrefs = () => {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? { ...defaultPrefs, ...JSON.parse(raw) } : { ...defaultPrefs };
+        } catch (err) {
+          console.warn('Unable to load statement preferences', err);
+          return { ...defaultPrefs };
+        }
+      };
+      let prefs = loadPrefs();
+      const savePrefs = next => {
+        prefs = { ...prefs, ...next };
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+        } catch (err) {
+          console.warn('Unable to save statement preferences', err);
+        }
+      };
+      let activeStatement = prefs.statement || 'income';
+      let lastPayload = null;
+      const rowMeta = new WeakMap();
+
+      const formatMonthLabel = iso => {
+        if (!iso) return 'Select a month';
+        const dt = new Date(iso);
+        if (isNaN(dt.getTime())) return iso;
+        return dt.toLocaleString(undefined, { month: 'long', year: 'numeric' });
+      };
+
+      const getSelectedCashFolders = () => {
+        if (!cashFolderSel) return [];
+        return Array.from(cashFolderSel.selectedOptions || [])
+          .map(opt => opt.value)
+          .filter(Boolean);
+      };
+      const getSelectedStatementCurrency = () => (statementCurrencySel?.value || '').toUpperCase();
+
+      const setLoading = isLoading => {
+        if (!loadingBanner) return;
+        loadingBanner.classList.toggle('active', !!isLoading);
+      };
+
+      const setNotice = msg => {
+        if (!noticeBox) return;
+        if (msg) {
+          noticeBox.textContent = msg;
+          noticeBox.style.display = 'block';
+        } else {
+          noticeBox.textContent = '';
+          noticeBox.style.display = 'none';
+        }
+      };
+
+      const parseNumber = val => {
+        if (typeof val === 'number') return val;
+        if (!val) return 0;
+        const cleaned = String(val).replace(/[^0-9.-]/g, '');
+        const num = parseFloat(cleaned);
+        return isNaN(num) ? 0 : num;
+      };
+      const format2 = val => {
+        const num = parseNumber(val);
+        if (!isFinite(num)) return '—';
+        return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      };
+      const pickTotalDisplay = (baseTotals, currencyTotalsMap, selectedCurrency, rawKey, fmtKey) => {
+        if (selectedCurrency && currencyTotalsMap && currencyTotalsMap[selectedCurrency]) {
+          const entry = currencyTotalsMap[selectedCurrency];
+          if (entry && entry[fmtKey] !== undefined) return entry[fmtKey];
+          if (entry && entry[rawKey] !== undefined) return `${selectedCurrency} ${format2(entry[rawKey])}`;
+        }
+        if (baseTotals && (baseTotals[fmtKey] !== undefined || baseTotals[rawKey] !== undefined)) {
+          return baseTotals[fmtKey] !== undefined ? baseTotals[fmtKey] : format2(baseTotals[rawKey]);
+        }
+        return '—';
+      };
+
+      const resetSensitivityUI = () => {
+        sensNet && (sensNet.textContent = '—');
+        const sensDelta = document.getElementById('sens-net-delta');
+        if (sensDelta) sensDelta.textContent = '—';
+        if (sensRatios) sensRatios.textContent = '—';
+      };
+
+
+      const buildDataUrl = () => {
+        const params = new URLSearchParams();
+        params.set('ym', monthSel.value);
+        params.set('include_trend', '1');
+        params.set('trend_months', '6');
+        const selCcy = getSelectedStatementCurrency();
+        if (selCcy) params.set('ccy', selCcy);
+        const selectedFolders = getSelectedCashFolders();
+        if (selectedFolders.length) {
+          params.set('cash_folders', selectedFolders.join(','));
+        }
+        if (compareToggle?.checked && compareMonthSel?.value) {
+          params.set('ym_compare', compareMonthSel.value);
+        }
+        return `/accounting/statement/data?${params.toString()}`;
+      };
+
+      const resolveCurrencyColumns = availableCurrencies => {
+        const selectedCurrency = getSelectedStatementCurrency();
+        let useBaseColumn = true;
+        let colsToRender = [];
+        if (selectedCurrency && availableCurrencies.includes(selectedCurrency)) {
+          useBaseColumn = false;
+          colsToRender = [selectedCurrency];
+        } else if (availableCurrencies.length) {
+          useBaseColumn = false;
+          colsToRender = availableCurrencies;
+        }
+        if (!colsToRender.length) {
+          useBaseColumn = true;
+          colsToRender = ['__BASE__'];
+        }
+        return { colsToRender, useBaseColumn };
+      };
+
+      const createStatementTable = (title, colsToRender) => {
+        const table = document.createElement('table');
+        table.className = 'statement-table';
+        const thead = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        const headLabel = document.createElement('th');
+        headLabel.textContent = title;
+        headRow.appendChild(headLabel);
+        colsToRender.forEach(col => {
+          const th = document.createElement('th');
+          const label = col === '__BASE__' ? 'Amount' : (col === 'CURRENT' ? 'This' : (col === 'COMPARE' ? 'Compare' : (col === 'DELTA' ? 'Δ' : (col === 'DELTA_PCT' ? 'Δ %' : col))));
+          th.textContent = label;
+          th.style.textAlign = 'right';
+          headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+        const tbody = document.createElement('tbody');
+        table.appendChild(tbody);
+        return { table, tbody };
+      };
+
+      const renderIncomeStatement = data => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'statement-table-wrapper';
+
+        const selectedCurrency = getSelectedStatementCurrency();
+        const availableCurrencies = Array.isArray(data?.currency_columns) ? data.currency_columns : [];
+        const currencyTotalsMap = {};
+        (data?.currency_totals || []).forEach(entry => { currencyTotalsMap[entry.currency] = entry; });
+        const summaryGrid = document.createElement('div');
+        summaryGrid.className = 'income-summary-grid';
+        const summaryCards = [
+          { label: 'Total Income', value: pickTotalDisplay(data?.totals, currencyTotalsMap, selectedCurrency, 'revenue', 'revenue_fmt') },
+          { label: 'Total Expenses', value: pickTotalDisplay(data?.totals, currencyTotalsMap, selectedCurrency, 'expense', 'expense_fmt') },
+          { label: 'Net Income', value: pickTotalDisplay(data?.totals, currencyTotalsMap, selectedCurrency, 'net_income', 'net_income_fmt'), tone: 'net' },
+        ];
+        summaryCards.forEach(metric => {
+          const card = document.createElement('div');
+          card.className = `income-summary-card${metric.tone ? ` ${metric.tone}` : ''}`;
+          const cardLabel = document.createElement('div');
+          cardLabel.className = 'metric-label';
+          cardLabel.textContent = metric.label;
+          const cardValue = document.createElement('div');
+          cardValue.className = 'metric-value';
+          cardValue.textContent = metric.value;
+          card.appendChild(cardLabel);
+          card.appendChild(cardValue);
+          summaryGrid.appendChild(card);
+        });
+        wrapper.appendChild(summaryGrid);
+
+        const compareMode = !!data?.compare_period;
+        const compareLabel = data?.compare_label || (data?.compare_period?.end ? formatMonthLabel(data.compare_period.end) : '');
+        let colsToRender = [];
+        let useBaseColumn = true;
+        if (compareMode) {
+          colsToRender = ['CURRENT', 'COMPARE', 'DELTA', 'DELTA_PCT'];
+          useBaseColumn = false;
+        } else {
+          ({ colsToRender, useBaseColumn } = resolveCurrencyColumns(availableCurrencies));
+        }
+        const { table, tbody } = createStatementTable('Income Statement', colsToRender);
+
+        const scopeNote = document.createElement('div');
+        scopeNote.className = 'income-summary-note';
+        if (compareMode && compareLabel) {
+          scopeNote.textContent = `Compared to ${compareLabel}`;
+        } else if (useBaseColumn) {
+          scopeNote.textContent = 'Consolidated totals across all currencies';
+        } else if (colsToRender.length === 1) {
+          scopeNote.textContent = `Currency focus: ${colsToRender[0]}`;
+        } else {
+          scopeNote.textContent = `Currencies shown: ${colsToRender.join(', ')}`;
+        }
+        wrapper.appendChild(scopeNote);
+        const conversion = data?.conversion || {};
+        const ratePairs = Object.entries(conversion.rates || {});
+        if (ratePairs.length) {
+          const rateNote = document.createElement('div');
+          rateNote.className = 'income-rate-note';
+          const rateDate = conversion.rate_date ? new Date(conversion.rate_date).toLocaleDateString() : 'latest';
+          rateNote.textContent = `Rates (${rateDate}): ${ratePairs.map(([ccy, rate]) => `${ccy}→KRW ${Number(rate).toLocaleString()}`).join(', ')}`;
+          wrapper.appendChild(rateNote);
+        }
+
+        const resolveAmount = (row, column) => {
+          if (compareMode) {
+            if (column === 'CURRENT') return row.amt_fmt || '—';
+            if (column === 'COMPARE') return row.compare_amt_fmt || '—';
+            if (column === 'DELTA') return row.delta_amt_fmt || '—';
+            if (column === 'DELTA_PCT') return row.delta_pct_fmt || '—';
+            return '—';
+          }
+          if (column === '__BASE__') {
+            return row.amt_fmt || '—';
+          }
+          const cell = row.currencies?.[column];
+          return cell?.fmt ?? `${column} 0`;
+        };
+
+        const resolveTotal = (field, column, fallback) => {
+          if (compareMode) {
+            if (column === 'CURRENT') return fallback || '—';
+            if (column === 'COMPARE') return (data?.compare_totals?.[field]) || '—';
+            if (column === 'DELTA') return (data?.delta_totals?.[field]) || '—';
+            if (column === 'DELTA_PCT') return (data?.delta_totals_pct?.[field]) || '—';
+            return '—';
+          }
+          if (column === '__BASE__') return fallback || '—';
+          const target = currencyTotalsMap[column];
+          return target?.[field] || `${column} 0`;
+        };
+
+        const rows = Array.isArray(data?.rows) ? data.rows : [];
+        const revenueRows = rows.filter(r => (r.cat || '').toLowerCase() === 'revenue');
+        const expenseRows = rows.filter(r => (r.cat || '').toLowerCase() === 'expense');
+        const showAccountRows = !!toggleAccounts?.checked && (
+          (!compareMode && !useBaseColumn && colsToRender.length === 1) ||
+          (compareMode && !!selectedCurrency)
+        );
+
+        const addSection = (title, rowItems, totalLabel, totalValue, totalField) => {
+          const sectionRow = document.createElement('tr');
+          sectionRow.className = 'section-row';
+          const labelTd = document.createElement('td');
+          labelTd.textContent = title;
+          sectionRow.appendChild(labelTd);
+          colsToRender.forEach(() => {
+            sectionRow.appendChild(document.createElement('td'));
+          });
+          tbody.appendChild(sectionRow);
+          rowItems.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.className = 'line-item';
+            tr.dataset.kind = 'income';
+            tr.dataset.label = item.name || item.cat || '';
+            tr.dataset.section = title;
+            const itemLabel = document.createElement('td');
+            itemLabel.className = 'label';
+            itemLabel.textContent = item.name || item.cat;
+            tr.appendChild(itemLabel);
+            colsToRender.forEach(column => {
+              const td = document.createElement('td');
+              td.className = 'amount';
+              td.textContent = resolveAmount(item, column);
+              if (column === 'DELTA' || column === 'DELTA_PCT') {
+                const num = parseNumber(resolveAmount(item, column));
+                if (num > 0) td.classList.add('delta-pos');
+                if (num < 0) td.classList.add('delta-neg');
+              }
+              tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+
+            if (showAccountRows) {
+              const column = compareMode ? selectedCurrency : colsToRender[0];
+              const accounts = item.account_details?.[column] || [];
+              accounts.forEach(acc => {
+                const accRow = document.createElement('tr');
+                accRow.className = 'line-item account';
+                const accLabel = document.createElement('td');
+                accLabel.className = 'label';
+                accLabel.textContent = `• ${acc.name || 'Account'}`;
+                accRow.appendChild(accLabel);
+                colsToRender.forEach(col => {
+                  const accAmt = document.createElement('td');
+                  accAmt.className = 'amount';
+                  accAmt.textContent = compareMode ? (col === 'CURRENT' ? (acc.fmt || '') : '—') : (col === column ? acc.fmt || '' : '—');
+                  accRow.appendChild(accAmt);
+                });
+                tbody.appendChild(accRow);
+              });
+            }
+            rowMeta.set(tr, {
+              columns: colsToRender.slice(),
+              values: colsToRender.map(col => resolveAmount(item, col)),
+              accounts: showAccountRows ? (item.account_details?.[compareMode ? selectedCurrency : colsToRender[0]] || []) : [],
+            });
+          });
+          if (totalLabel) {
+            const totalRow = document.createElement('tr');
+            totalRow.className = 'subtotal-row';
+            const label = document.createElement('td');
+            label.textContent = totalLabel;
+            totalRow.appendChild(label);
+            colsToRender.forEach(column => {
+              const td = document.createElement('td');
+              td.className = 'amount';
+              td.textContent = useBaseColumn ? (totalValue || '—') : resolveTotal(totalField, column, totalValue);
+              totalRow.appendChild(td);
+            });
+            tbody.appendChild(totalRow);
+          }
+        };
+
+        addSection('Income', revenueRows, 'Total Income', data?.totals?.revenue_fmt, 'revenue_fmt');
+        addSection('Expenses', expenseRows, 'Total Expenses', data?.totals?.expense_fmt, 'expense_fmt');
+
+        const netRow = document.createElement('tr');
+        netRow.className = 'net-row';
+        const netLabel = document.createElement('td');
+        netLabel.textContent = 'Net Income';
+        netRow.appendChild(netLabel);
+        colsToRender.forEach(column => {
+          const td = document.createElement('td');
+          td.className = 'amount';
+          if (compareMode) {
+            if (column === 'CURRENT') td.textContent = data?.totals?.net_income_fmt || '—';
+            else if (column === 'COMPARE') td.textContent = data?.compare_totals?.net_income_fmt || '—';
+            else if (column === 'DELTA') td.textContent = data?.delta_totals?.net_income_fmt || '—';
+            else if (column === 'DELTA_PCT') td.textContent = data?.delta_totals_pct?.net_income_fmt || '—';
+            else td.textContent = '—';
+          } else if (column === '__BASE__') {
+            td.textContent = data?.totals?.net_income_fmt || '—';
+          } else {
+            const total = currencyTotalsMap[column];
+            td.textContent = total?.net_income_fmt || `${column} 0`;
+          }
+          netRow.appendChild(td);
+        });
+        tbody.appendChild(netRow);
+
+        wrapper.appendChild(table);
+
+        const summary = document.createElement('div');
+        summary.className = 'currency-summary';
+        if (compareMode && compareLabel) {
+          summary.textContent = `Showing change vs ${compareLabel}.`;
+        } else if (!availableCurrencies.length) {
+          summary.textContent = 'Consolidated ledger totals shown.';
+        } else if (useBaseColumn) {
+          summary.textContent = 'Select a currency above to drill into account-level detail.';
+        } else if (colsToRender.length === 1) {
+          summary.textContent = `Account detail rows shown for ${colsToRender[0]} denominated accounts.`;
+        } else {
+          summary.textContent = 'Account breakdown available when a single currency is selected.';
+        }
+        wrapper.appendChild(summary);
+        return wrapper;
+      };
+
+      const renderBalanceSheet = data => {
+        if (!data) return null;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'statement-table-wrapper';
+        const selectedCurrency = getSelectedStatementCurrency();
+        const availableCurrencies = Array.isArray(data?.currency_columns) ? data.currency_columns : [];
+        const currencyTotalsMap = {};
+        (data?.currency_totals || []).forEach(entry => { currencyTotalsMap[entry.currency] = entry; });
+        const summaryGrid = document.createElement('div');
+        summaryGrid.className = 'income-summary-grid';
+        const summaryCards = [
+          { label: 'Total Assets', value: pickTotalDisplay(data?.totals, currencyTotalsMap, selectedCurrency, 'assets', 'assets_fmt') },
+          { label: 'Total Liabilities', value: pickTotalDisplay(data?.totals, currencyTotalsMap, selectedCurrency, 'liabilities', 'liabilities_fmt') },
+          { label: 'Total Equity', value: pickTotalDisplay(data?.totals, currencyTotalsMap, selectedCurrency, 'equity', 'equity_fmt'), tone: 'net' },
+        ];
+        summaryCards.forEach(metric => {
+          const card = document.createElement('div');
+          card.className = `income-summary-card${metric.tone ? ` ${metric.tone}` : ''}`;
+          const cardLabel = document.createElement('div');
+          cardLabel.className = 'metric-label';
+          cardLabel.textContent = metric.label;
+          const cardValue = document.createElement('div');
+          cardValue.className = 'metric-value';
+          cardValue.textContent = metric.value;
+          card.appendChild(cardLabel);
+          card.appendChild(cardValue);
+          summaryGrid.appendChild(card);
+        });
+        wrapper.appendChild(summaryGrid);
+
+        const compareMode = !!data?.compare_period;
+        const compareLabel = data?.compare_label || (data?.compare_period?.end ? formatMonthLabel(data.compare_period.end) : '');
+        let colsToRender = [];
+        let useBaseColumn = true;
+        if (compareMode) {
+          colsToRender = ['CURRENT', 'COMPARE', 'DELTA', 'DELTA_PCT'];
+          useBaseColumn = false;
+        } else {
+          ({ colsToRender, useBaseColumn } = resolveCurrencyColumns(availableCurrencies));
+        }
+        const { table, tbody } = createStatementTable('Balance Sheet', colsToRender);
+
+        const resolveAmount = (row, column) => {
+          if (compareMode) {
+            if (column === 'CURRENT') return row.amt_fmt || '—';
+            if (column === 'COMPARE') return row.compare_amt_fmt || '—';
+            if (column === 'DELTA') return row.delta_amt_fmt || '—';
+            if (column === 'DELTA_PCT') return row.delta_pct_fmt || '—';
+            return '—';
+          }
+          if (column === '__BASE__') {
+            return row.amt_fmt || '—';
+          }
+          const cell = row.currencies?.[column];
+          return cell?.fmt ?? `${column} 0`;
+        };
+        const sectionFieldMap = { asset: 'assets_fmt', liability: 'liabilities_fmt', equity: 'equity_fmt' };
+        const resolveSectionTotal = (key, column) => {
+          if (compareMode) {
+            const field = sectionFieldMap[key];
+            if (!field) return '—';
+            if (column === 'CURRENT') return data?.totals?.[field] || '—';
+            if (column === 'COMPARE') return data?.compare_totals?.[field] || '—';
+            if (column === 'DELTA') return data?.delta_totals?.[field] || '—';
+            if (column === 'DELTA_PCT') return data?.delta_totals_pct?.[field] || '—';
+            return '—';
+          }
+          if (column === '__BASE__') {
+            const field = sectionFieldMap[key];
+            return field ? (data?.totals?.[field] || '—') : '—';
+          }
+          const entry = currencyTotalsMap[column];
+          if (!entry) return `${column} 0`;
+          if (key === 'asset') return entry.assets_fmt || `${column} 0`;
+          if (key === 'liability') return entry.liabilities_fmt || `${column} 0`;
+          if (key === 'equity') return entry.equity_fmt || `${column} 0`;
+          return `${column} 0`;
+        };
+
+        const sections = Array.isArray(data?.sections) ? data.sections : [];
+        const showAccounts = !!toggleAccounts?.checked && (
+          (!compareMode && !useBaseColumn && colsToRender.length === 1) ||
+          (compareMode && !!selectedCurrency)
+        );
+        sections.forEach(section => {
+          const sectionRow = document.createElement('tr');
+          sectionRow.className = 'section-row';
+          const labelTd = document.createElement('td');
+          labelTd.textContent = section.title || 'Section';
+          sectionRow.appendChild(labelTd);
+          colsToRender.forEach(() => sectionRow.appendChild(document.createElement('td')));
+          tbody.appendChild(sectionRow);
+          (section.rows || []).forEach(item => {
+            const tr = document.createElement('tr');
+            tr.className = 'line-item';
+            tr.dataset.kind = 'balance';
+            tr.dataset.label = item.name || '';
+            tr.dataset.section = section.title || section.key || '';
+            const itemLabel = document.createElement('td');
+            itemLabel.className = 'label';
+            itemLabel.textContent = item.name || '';
+            tr.appendChild(itemLabel);
+            colsToRender.forEach(column => {
+              const td = document.createElement('td');
+              td.className = 'amount';
+              td.textContent = resolveAmount(item, column);
+              if (column === 'DELTA' || column === 'DELTA_PCT') {
+                const num = parseNumber(resolveAmount(item, column));
+                if (num > 0) td.classList.add('delta-pos');
+                if (num < 0) td.classList.add('delta-neg');
+              }
+              tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+
+            if (showAccounts) {
+              const column = compareMode ? selectedCurrency : colsToRender[0];
+              const accounts = item.account_details?.[column] || [];
+              accounts.forEach(acc => {
+                const accRow = document.createElement('tr');
+                accRow.className = 'line-item account';
+                const accLabel = document.createElement('td');
+                accLabel.className = 'label';
+                accLabel.textContent = `• ${acc.name || 'Account'}`;
+                accRow.appendChild(accLabel);
+                colsToRender.forEach(col => {
+                  const accAmt = document.createElement('td');
+                  accAmt.className = 'amount';
+                  accAmt.textContent = compareMode ? (col === 'CURRENT' ? (acc.fmt || '') : '—') : (col === column ? acc.fmt || '' : '—');
+                  accRow.appendChild(accAmt);
+                });
+                tbody.appendChild(accRow);
+              });
+            }
+            rowMeta.set(tr, {
+              columns: colsToRender.slice(),
+              values: colsToRender.map(col => resolveAmount(item, col)),
+              accounts: showAccounts ? (item.account_details?.[compareMode ? selectedCurrency : colsToRender[0]] || []) : [],
+            });
+          });
+          const totalRow = document.createElement('tr');
+          totalRow.className = 'subtotal-row';
+          const totalLabel = document.createElement('td');
+          totalLabel.textContent = section.total_label || `Total ${section.title}`;
+          totalRow.appendChild(totalLabel);
+          colsToRender.forEach(column => {
+            const td = document.createElement('td');
+            td.className = 'amount';
+            td.textContent = resolveSectionTotal(section.key, column);
+            totalRow.appendChild(td);
+          });
+          tbody.appendChild(totalRow);
+        });
+
+        const netRow = document.createElement('tr');
+        netRow.className = 'net-row';
+        const netLabel = document.createElement('td');
+        netLabel.textContent = 'Total Liabilities and Equity';
+        netRow.appendChild(netLabel);
+        colsToRender.forEach(column => {
+          const td = document.createElement('td');
+          td.className = 'amount';
+          if (compareMode) {
+            if (column === 'CURRENT') td.textContent = data?.totals?.le_sum_fmt || '—';
+            else if (column === 'COMPARE') td.textContent = data?.compare_totals?.le_sum_fmt || '—';
+            else if (column === 'DELTA') td.textContent = data?.delta_totals?.le_sum_fmt || '—';
+            else if (column === 'DELTA_PCT') td.textContent = data?.delta_totals_pct?.le_sum_fmt || '—';
+            else td.textContent = '—';
+          } else if (column === '__BASE__') {
+            td.textContent = data?.totals?.le_sum_fmt || '—';
+          } else {
+            const entry = currencyTotalsMap[column];
+            td.textContent = entry?.le_sum_fmt || `${column} 0`;
+          }
+          netRow.appendChild(td);
+        });
+        tbody.appendChild(netRow);
+
+        wrapper.appendChild(table);
+
+        const summary = document.createElement('div');
+        summary.className = 'currency-summary';
+        if (compareMode && compareLabel) {
+          summary.textContent = `Showing change vs ${compareLabel}.`;
+        } else if (!availableCurrencies.length) {
+          summary.textContent = 'Consolidated ledger totals shown.';
+        } else if (useBaseColumn) {
+          summary.textContent = 'Select a currency above to view ledger-level balances.';
+        } else if (colsToRender.length === 1) {
+          summary.textContent = `Account detail rows shown for ${colsToRender[0]} denominated accounts.`;
+        } else {
+          summary.textContent = 'Account breakdown available when a single currency is selected.';
+        }
+        wrapper.appendChild(summary);
+        return wrapper;
+      };
+
+      const renderCashflowStatement = data => {
+        if (!data) return null;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'statement-table-wrapper';
+        const totals = data?.totals || {};
+        const selectedCurrency = getSelectedStatementCurrency();
+        const availableCurrencies = Array.isArray(data?.currency_columns) ? data.currency_columns : [];
+        const currencyTotalsMap = {};
+        (data?.currency_totals || []).forEach(entry => { currencyTotalsMap[entry.currency] = entry; });
+        const compareMode = !!data?.compare_period;
+        const compareLabel = data?.compare_label || (data?.compare_period?.end ? formatMonthLabel(data.compare_period.end) : '');
+
+        const summaryGrid = document.createElement('div');
+        summaryGrid.className = 'income-summary-grid';
+        const summaryCards = [
+          { label: 'Opening Cash', value: pickTotalDisplay(totals, currencyTotalsMap, selectedCurrency, 'opening', 'opening_fmt'), compare: data?.compare_totals?.opening_fmt, delta: data?.delta_totals?.opening_fmt },
+          { label: 'Closing Cash', value: pickTotalDisplay(totals, currencyTotalsMap, selectedCurrency, 'closing', 'closing_fmt'), compare: data?.compare_totals?.closing_fmt, delta: data?.delta_totals?.closing_fmt },
+          { label: 'Net Cash Flow', value: pickTotalDisplay(totals, currencyTotalsMap, selectedCurrency, 'change', 'change_fmt') || pickTotalDisplay(totals, currencyTotalsMap, selectedCurrency, 'net', 'net_fmt'), compare: data?.compare_totals?.change_fmt, delta: data?.delta_totals?.change_fmt, tone: 'net' },
+        ];
+        summaryCards.forEach(metric => {
+          const card = document.createElement('div');
+          card.className = `income-summary-card${metric.tone ? ` ${metric.tone}` : ''}`;
+          const cardLabel = document.createElement('div');
+          cardLabel.className = 'metric-label';
+          cardLabel.textContent = metric.label;
+          const cardValue = document.createElement('div');
+          cardValue.className = 'metric-value';
+          cardValue.textContent = metric.value;
+          if (compareMode && metric.compare) {
+            const compareLine = document.createElement('div');
+            compareLine.className = 'currency-summary';
+            compareLine.textContent = `vs ${metric.compare} (Δ ${metric.delta || '—'})`;
+            card.appendChild(compareLine);
+          }
+          card.appendChild(cardLabel);
+          card.appendChild(cardValue);
+          summaryGrid.appendChild(card);
+        });
+        wrapper.appendChild(summaryGrid);
+
+        let colsToRender = [];
+        let useBaseColumn = true;
+        if (compareMode) {
+          colsToRender = ['CURRENT', 'COMPARE', 'DELTA', 'DELTA_PCT'];
+          useBaseColumn = false;
+        } else {
+          ({ colsToRender, useBaseColumn } = resolveCurrencyColumns(availableCurrencies));
+        }
+        const sectionFieldMap = {
+          operating: 'operating_fmt',
+          investing: 'investing_fmt',
+          financing: 'financing_fmt',
+          net: 'net_fmt',
+          opening: 'opening_fmt',
+          closing: 'closing_fmt',
+        };
+        const resolveSectionTotal = (key, column) => {
+          const field = sectionFieldMap[key];
+          if (compareMode) {
+            if (!field) return '—';
+            if (column === 'CURRENT') return (totals && field) ? (totals[field] || '—') : '—';
+            if (column === 'COMPARE') return (data?.compare_totals && field) ? (data.compare_totals[field] || '—') : '—';
+            if (column === 'DELTA') return (data?.delta_totals && field) ? (data.delta_totals[field] || '—') : '—';
+            if (column === 'DELTA_PCT') return (data?.delta_totals_pct && field) ? (data.delta_totals_pct[field] || '—') : '—';
+            return '—';
+          }
+          if (column === '__BASE__') {
+            return (totals && field) ? (totals[field] || '—') : '—';
+          }
+          const entry = currencyTotalsMap[column];
+          if (!entry || !field) return `${column} 0`;
+          return entry[field] || `${column} 0`;
+        };
+        const resolveAmount = (row, column) => {
+          if (compareMode) {
+            if (column === 'CURRENT') return (row.amounts || {})['__BASE__'] || '—';
+            if (column === 'COMPARE') return row.compare_amt_fmt || '—';
+            if (column === 'DELTA') return row.delta_amt_fmt || '—';
+            if (column === 'DELTA_PCT') return row.delta_pct_fmt || '—';
+            return '—';
+          }
+          const map = row.amounts || {};
+          if (column === '__BASE__') return map['__BASE__'] || '—';
+          return map[column] || `${column} 0`;
+        };
+
+        const { table, tbody } = createStatementTable('Cash Flow Statement', colsToRender);
+        const sections = Array.isArray(data?.sections) ? data.sections : [];
+        sections.forEach(section => {
+          const sectionRow = document.createElement('tr');
+          sectionRow.className = 'section-row';
+          const labelTd = document.createElement('td');
+          labelTd.textContent = section.title || 'Section';
+          sectionRow.appendChild(labelTd);
+          colsToRender.forEach(() => sectionRow.appendChild(document.createElement('td')));
+          tbody.appendChild(sectionRow);
+          (section.rows || []).forEach(item => {
+            const tr = document.createElement('tr');
+            tr.className = 'line-item';
+            tr.dataset.kind = 'cashflow';
+            tr.dataset.label = item.name || '';
+            tr.dataset.section = section.title || section.key || '';
+            const itemLabel = document.createElement('td');
+            itemLabel.className = 'label';
+            itemLabel.textContent = item.name || '';
+            tr.appendChild(itemLabel);
+            colsToRender.forEach(column => {
+              const td = document.createElement('td');
+              td.className = 'amount';
+              td.textContent = resolveAmount(item, column);
+              if (!toggleAccounts?.checked) {
+                td.classList.add('hide-accounts');
+              }
+              if (column === 'DELTA' || column === 'DELTA_PCT') {
+                const num = parseNumber(resolveAmount(item, column));
+                if (num > 0) td.classList.add('delta-pos');
+                if (num < 0) td.classList.add('delta-neg');
+              }
+              tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+            rowMeta.set(tr, {
+              columns: colsToRender.slice(),
+              values: colsToRender.map(col => resolveAmount(item, col)),
+              accounts: [],
+            });
+          });
+          const totalRow = document.createElement('tr');
+          totalRow.className = 'subtotal-row';
+          const totalLabel = document.createElement('td');
+          totalLabel.textContent = section.total_label || `Total ${section.title}`;
+          totalRow.appendChild(totalLabel);
+          colsToRender.forEach(column => {
+            const td = document.createElement('td');
+            td.className = 'amount';
+            td.textContent = resolveSectionTotal(section.key, column);
+            totalRow.appendChild(td);
+          });
+          tbody.appendChild(totalRow);
+        });
+
+        const netRow = document.createElement('tr');
+        netRow.className = 'net-row';
+        const netLabel = document.createElement('td');
+        netLabel.textContent = 'Net Cash Flow';
+        netRow.appendChild(netLabel);
+        colsToRender.forEach(column => {
+          const td = document.createElement('td');
+          td.className = 'amount';
+          td.textContent = resolveSectionTotal('net', column);
+          netRow.appendChild(td);
+        });
+        tbody.appendChild(netRow);
+
+        ['opening', 'closing'].forEach(key => {
+          const row = document.createElement('tr');
+          row.className = 'subtotal-row';
+          const label = document.createElement('td');
+          label.textContent = key === 'opening' ? 'Opening Cash' : 'Closing Cash';
+          row.appendChild(label);
+          colsToRender.forEach(column => {
+            const td = document.createElement('td');
+            td.className = 'amount';
+            td.textContent = resolveSectionTotal(key, column);
+            row.appendChild(td);
+          });
+          tbody.appendChild(row);
+        });
+
+        wrapper.appendChild(table);
+
+        if (Array.isArray(data.applied_folders) && data.applied_folders.length) {
+          const note = document.createElement('div');
+          note.className = 'cash-folder-note';
+          note.textContent = `Cash folders: ${data.applied_folders.map(it => it.name || ('Folder ' + it.id)).join(', ')}`;
+          wrapper.appendChild(note);
+        }
+        if (compareMode && compareLabel) {
+          const note = document.createElement('div');
+          note.className = 'currency-summary';
+          note.textContent = `Compared to ${compareLabel}.`;
+          wrapper.appendChild(note);
+        }
+        return wrapper;
+      };
+
+      const renderPanel = (kind, data) => {
+        if (kind === 'income') {
+          return renderIncomeStatement(data);
+        }
+        if (kind === 'balance') {
+          return renderBalanceSheet(data);
+        }
+        if (kind === 'cashflow') {
+          return renderCashflowStatement(data);
+        }
+        return null;
+      };
+
+      const closeModal = () => {
+        if (!modalBackdrop) return;
+        modalBackdrop.classList.remove('active');
+        modalBackdrop.setAttribute('aria-hidden', 'true');
+      };
+
+      const openModal = ({ title, section, columns, values, accounts }) => {
+        if (!modalBackdrop || !modalBody || !modalTitle || !modalMeta) return;
+        modalTitle.textContent = title || 'Details';
+        modalMeta.textContent = section ? section : '';
+        const table = document.createElement('table');
+        const thead = document.createElement('thead');
+        const hr = document.createElement('tr');
+        ['Column', 'Value'].forEach((label, idx) => {
+          const th = document.createElement('th');
+          th.textContent = label;
+          if (idx === 1) th.className = 'num';
+          hr.appendChild(th);
+        });
+        thead.appendChild(hr);
+        table.appendChild(thead);
+        const tbody = document.createElement('tbody');
+        columns.forEach((col, idx) => {
+          const tr = document.createElement('tr');
+          const labelTd = document.createElement('td');
+          labelTd.textContent = col === '__BASE__' ? 'Amount' : col;
+          const valTd = document.createElement('td');
+          valTd.className = 'num';
+          valTd.textContent = values[idx] || '—';
+          tr.appendChild(labelTd);
+          tr.appendChild(valTd);
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        modalBody.innerHTML = '';
+        modalBody.appendChild(table);
+
+        if (Array.isArray(accounts) && accounts.length) {
+          const note = document.createElement('div');
+          note.className = 'account-note';
+          note.textContent = 'Account breakdown';
+          modalBody.appendChild(note);
+          const accTable = document.createElement('table');
+          const ath = document.createElement('thead');
+          const ahr = document.createElement('tr');
+          ['Account', 'Amount'].forEach((label, idx) => {
+            const th = document.createElement('th');
+            th.textContent = label;
+            if (idx === 1) th.className = 'num';
+            ahr.appendChild(th);
+          });
+          ath.appendChild(ahr);
+          accTable.appendChild(ath);
+          const atb = document.createElement('tbody');
+          accounts.forEach(acc => {
+            const tr = document.createElement('tr');
+            const nameTd = document.createElement('td');
+            nameTd.textContent = acc.name || 'Account';
+            const amtTd = document.createElement('td');
+            amtTd.className = 'num';
+            amtTd.textContent = acc.fmt || '';
+            tr.appendChild(nameTd);
+            tr.appendChild(amtTd);
+            atb.appendChild(tr);
+          });
+          accTable.appendChild(atb);
+          modalBody.appendChild(accTable);
+        }
+
+        modalBackdrop.classList.add('active');
+        modalBackdrop.setAttribute('aria-hidden', 'false');
+      };
+
+      const renderQuickChart = () => {
+        if (!chartCanvas) return;
+        if (chartInstance) {
+          chartInstance.destroy();
+          chartInstance = null;
+        }
+        if (!lastPayload || activeStatement !== 'cashflow') {
+          chartCanvas.style.display = 'none';
+          return;
+        }
+        chartCanvas.style.display = 'block';
+        const selectedCurrency = getSelectedStatementCurrency();
+        let totals = lastPayload.statements?.cashflow?.totals || {};
+        if (selectedCurrency) {
+          const map = {};
+          (lastPayload.statements?.cashflow?.currency_totals || []).forEach(entry => { map[entry.currency] = entry; });
+          const entry = map[selectedCurrency];
+          if (entry) {
+            totals = {
+              operating: parseNumber(entry.operating),
+              investing: parseNumber(entry.investing),
+              financing: parseNumber(entry.financing),
+              net: parseNumber(entry.net || entry.change),
+            };
+          } else {
+            // If no per-currency data, fall back to base totals
+            totals = lastPayload.statements?.cashflow?.totals || {};
+          }
+        }
+        const labels = [];
+        const values = [];
+        const pushVal = (label, key) => {
+          if (totals[key] === undefined || totals[key] === null) return;
+          const val = parseNumber(totals[key]);
+          labels.push(label);
+          values.push(val);
+        };
+        pushVal('Operating', 'operating');
+        pushVal('Investing', 'investing');
+        pushVal('Financing', 'financing');
+        pushVal('Net', 'net');
+        if (!values.length) {
+          chartCanvas.style.display = 'none';
+          return;
+        }
+        const colors = ['#0f7b5f', '#146d8f', '#b3352f', '#0c5c48'];
+        chartInstance = new Chart(chartCanvas, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [{
+              label: 'Cashflow by activity',
+              data: values,
+              backgroundColor: colors.slice(0, values.length),
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { ticks: { callback: val => format2(val) } },
+            },
+          },
+        });
+      };
+
+      const renderTrendChart = payload => {
+        if (!chartCanvas) return;
+        const trend = payload?.trend?.months || [];
+        if (!trend.length || activeStatement !== 'income') {
+          return;
+        }
+        if (chartInstance) {
+          chartInstance.destroy();
+          chartInstance = null;
+        }
+        chartCanvas.style.display = 'block';
+        const labels = trend.map(it => it.label || it.ym);
+        const revenue = trend.map(it => parseNumber(it.revenue_ccy || it.revenue));
+        const expense = trend.map(it => parseNumber(it.expense_ccy || it.expense));
+        const net = trend.map(it => parseNumber(it.net_ccy || it.net));
+        chartInstance = new Chart(chartCanvas, {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [
+              { label: 'Revenue', data: revenue, borderColor: '#0f7b5f', backgroundColor: 'rgba(15,123,95,0.1)', tension: 0.2, pointRadius: 2 },
+              { label: 'Expense', data: expense, borderColor: '#b3352f', backgroundColor: 'rgba(179,53,47,0.12)', tension: 0.2, pointRadius: 2 },
+              { label: 'Net', data: net, borderColor: '#146d8f', backgroundColor: 'rgba(20,109,143,0.12)', tension: 0.2, pointRadius: 2 },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: true, position: 'top' } },
+            scales: {
+              y: { ticks: { callback: val => format2(val) } },
+              x: { ticks: { maxRotation: 0, autoSkipPadding: 8 } },
+            },
+          },
+        });
+      };
+
+      const renderAnalytics = () => {
+        // Ratios
+      const incomeTotals = lastPayload?.statements?.income?.totals || {};
+      const balanceTotals = lastPayload?.statements?.balance?.totals || {};
+      const cashTotals = lastPayload?.statements?.cashflow?.totals || {};
+      const selectedCurrency = getSelectedStatementCurrency();
+        const currencyCashTotals = (() => {
+          if (!selectedCurrency) return null;
+          const map = {};
+          (lastPayload?.statements?.cashflow?.currency_totals || []).forEach(entry => { map[entry.currency] = entry; });
+          return map[selectedCurrency] || null;
+        })();
+        const currencyIncomeTotals = (() => {
+          if (!selectedCurrency) return null;
+          const map = {};
+          (lastPayload?.statements?.income?.currency_totals || []).forEach(entry => { map[entry.currency] = entry; });
+          return map[selectedCurrency] || null;
+        })();
+        const currencyLabel = selectedCurrency || 'KRW';
+        const setText = (el, val, formatter = v => v) => { if (el) el.textContent = val === null || val === undefined ? '—' : formatter(val); };
+        const revenue = parseNumber(currencyIncomeTotals?.revenue ?? incomeTotals.revenue);
+        const expense = parseNumber(currencyIncomeTotals?.expense ?? incomeTotals.expense);
+        const net = revenue - expense;
+        const assets = parseNumber(balanceTotals.assets);
+        const liabilities = parseNumber(balanceTotals.liabilities);
+        const equity = parseNumber(balanceTotals.equity);
+        setText(ratioMargin, revenue ? (net / revenue * 100).toFixed(1) + '%' : '—');
+        setText(ratioRoa, assets ? (net / assets * 100).toFixed(1) + '%' : '—');
+        setText(ratioRoe, equity ? (net / equity * 100).toFixed(1) + '%' : '—');
+        const currVal = liabilities === 0 ? Infinity : (assets / liabilities);
+        const quickVal = liabilities === 0 ? Infinity : (assets / liabilities);
+        const deVal = liabilities === 0 ? 0 : (equity ? (liabilities / equity) : null);
+        setText(ratioCurr, currVal === Infinity ? '∞ (no current liabilities)' : currVal?.toFixed(2));
+        setText(ratioQuick, quickVal === Infinity ? '∞ (no current liabilities)' : quickVal?.toFixed(2));
+        setText(ratioDe, deVal === 0 ? '0 (no debt)' : (deVal !== null ? deVal.toFixed(2) : '—'));
+
+        // Runway: use selected currency net cash and average monthly outflow (expenses)
+        const avgMonthlyOutflow = (lastPayload?.trend?.months || []).reduce((acc, entry) => acc + Math.max(0, parseNumber(entry.expense_ccy ?? entry.expense)), 0) / Math.max(1, (lastPayload?.trend?.months || []).length);
+        const closingCash = parseNumber((currencyCashTotals && (currencyCashTotals.closing ?? currencyCashTotals.change)) ?? cashTotals.closing ?? cashTotals.change);
+        const runwayMonths = avgMonthlyOutflow > 0 ? (closingCash / avgMonthlyOutflow) : null;
+        const closingDisplay = selectedCurrency
+          ? (currencyCashTotals?.closing_fmt || currencyCashTotals?.change_fmt || cashTotals.closing_fmt || cashTotals.change_fmt || '—')
+          : (Number.isFinite(closingCash) ? `${currencyLabel} ${format2(closingCash)}` : (cashTotals.closing_fmt || cashTotals.change_fmt || '—'));
+        setText(document.getElementById('runway-net'), closingDisplay, v => v);
+        setText(document.getElementById('runway-outflow'), isNaN(avgMonthlyOutflow) ? '—' : `${currencyLabel} ${format2(avgMonthlyOutflow)}`, v => v);
+        setText(document.getElementById('runway-months'), runwayMonths, v => isNaN(v) ? '—' : v.toFixed(1) + ' mo');
+
+        // Trend chart reuse for analytics panel
+        if (analyticsChart) { analyticsChart.destroy(); analyticsChart = null; }
+        const trend = lastPayload?.trend?.months || [];
+        if (analyticsTrend) {
+          if (!trend.length) { analyticsTrend.style.display = 'none'; }
+          else {
+            analyticsTrend.style.display = 'block';
+            const labels = trend.map(it => it.label || it.ym);
+            const netSeries = trend.map(it => parseNumber(it.net_ccy || it.net));
+            analyticsChart = new Chart(analyticsTrend, {
+              type: 'bar',
+              data: {
+                labels,
+                datasets: [{ label: 'Net Income', data: netSeries, backgroundColor: '#0f7b5f' }],
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: true, position: 'top' } },
+                scales: { y: { ticks: { callback: val => format2(val) } } },
+              },
+            });
+          }
+        }
+
+        // Expense trend top 3 (textual)
+        const expTrend = lastPayload?.expense_trend || {};
+        const accTrend = lastPayload?.expense_account_trend || {};
+        if (expenseTrendList) {
+          const entries = Object.entries(expTrend);
+          if (!entries.length) {
+            expenseTrendList.textContent = 'No expense trend data.';
+          } else {
+            expenseTrendList.innerHTML = '';
+            entries.forEach(([name, series]) => {
+              const latest = series[series.length - 1];
+              const prev = series[series.length - 2];
+              const latestVal = parseNumber(latest?.value);
+              const prevVal = prev ? parseNumber(prev.value) : null;
+              const delta = prevVal !== null ? latestVal - prevVal : null;
+              const item = document.createElement('div');
+              item.style.display = 'flex';
+              item.style.justifyContent = 'space-between';
+              item.style.alignItems = 'center';
+              const label = document.createElement('span');
+              label.textContent = name;
+              const val = document.createElement('span');
+              val.textContent = `${latest.label || ''}: ${format2(latestVal)}` + (delta !== null ? ` (${delta >= 0 ? '+' : ''}${format2(delta)})` : '');
+              val.style.color = delta !== null && delta > 0 ? 'var(--negative)' : delta !== null && delta < 0 ? 'var(--positive)' : 'var(--text-strong)';
+              item.appendChild(label);
+              item.appendChild(val);
+              expenseTrendList.appendChild(item);
+            });
+          }
+        }
+        if (expenseAccountsList) {
+          const entries = Object.entries(accTrend);
+          if (!entries.length) {
+            expenseAccountsList.textContent = 'No account-level trend data.';
+          } else {
+            expenseAccountsList.innerHTML = '';
+            entries.forEach(([name, series]) => {
+              const latest = series[series.length - 1];
+              const prev = series[series.length - 2];
+              const latestVal = parseNumber(latest?.value);
+              const prevVal = prev ? parseNumber(prev.value) : null;
+              const delta = prevVal !== null ? latestVal - prevVal : null;
+              const item = document.createElement('div');
+              item.style.display = 'flex';
+              item.style.justifyContent = 'space-between';
+              item.style.alignItems = 'center';
+              const label = document.createElement('span');
+              label.textContent = name;
+              const val = document.createElement('span');
+              val.textContent = `${latest.label || ''}: ${format2(latestVal)}` + (delta !== null ? ` (${delta >= 0 ? '+' : ''}${format2(delta)})` : '');
+              val.style.color = delta !== null && delta > 0 ? 'var(--negative)' : delta !== null && delta < 0 ? 'var(--positive)' : 'var(--text-strong)';
+              item.appendChild(label);
+              item.appendChild(val);
+              expenseAccountsList.appendChild(item);
+            });
+          }
+        }
+
+        // Sensitivity slider adjustments
+        const applySensitivity = () => {
+          const revDelta = parseFloat(sensRev?.value || '0') / 100;
+          const expDelta = parseFloat(sensExp?.value || '0') / 100;
+          if (sensRevLabel) sensRevLabel.textContent = `${(revDelta * 100).toFixed(0)}%`;
+          if (sensExpLabel) sensExpLabel.textContent = `${(expDelta * 100).toFixed(0)}%`;
+          const adjRev = revenue * (1 + revDelta);
+          const adjExp = expense * (1 + expDelta);
+          const adjNet = adjRev - adjExp;
+          if (sensNet) sensNet.textContent = isNaN(adjNet) ? '—' : format2(adjNet);
+          const deltaVal = adjNet - net;
+          const sensDelta = document.getElementById('sens-net-delta');
+          if (sensDelta) sensDelta.textContent = isNaN(deltaVal) ? '—' : `${deltaVal >= 0 ? '+' : ''}${format2(deltaVal)}`;
+          const adjMargin = adjRev ? (adjNet / adjRev * 100) : null;
+          // Assume net change rolls into retained earnings: adjust assets & equity by net delta for sensitivity
+          const adjustedAssets = assets + deltaVal;
+          const adjustedEquity = equity + deltaVal;
+          const adjCurr = liabilities === 0 ? Infinity : (adjustedAssets / liabilities);
+          const adjDE = liabilities === 0 ? 0 : (adjustedEquity ? (liabilities / adjustedEquity) : null);
+          if (sensRatios) {
+            const parts = [];
+            if (adjMargin !== null) parts.push(`Margin ${(adjMargin).toFixed(1)}%`);
+            if (adjCurr !== null) parts.push(`Current ${adjCurr === Infinity ? '∞ (no current liabilities)' : (adjCurr).toFixed(2)}`);
+            if (adjDE !== null) parts.push(`D/E ${adjDE === 0 ? '0 (no debt)' : (adjDE).toFixed(2)}`);
+            sensRatios.textContent = parts.length ? parts.join(' · ') : '—';
+          }
+          const flagTexts = [];
+          const marginThresh = parseFloat(bmMargin?.value || '0');
+          const currThresh = parseFloat(bmCurr?.value || '0');
+          const deThresh = parseFloat(bmDe?.value || '0');
+          if (adjMargin !== null) flagTexts.push(`Margin: ${(adjMargin).toFixed(1)}% ${adjMargin < marginThresh ? '⚠️' : '✓'}`);
+          if (adjCurr !== null) flagTexts.push(`Current: ${adjCurr === Infinity ? '∞ (no current liabilities)' : (adjCurr).toFixed(2)} ${adjCurr !== Infinity && adjCurr < currThresh ? '⚠️' : '✓'}`);
+          if (adjDE !== null) flagTexts.push(`D/E: ${adjDE === 0 ? '0 (no debt)' : (adjDE).toFixed(2)} ${adjDE > deThresh ? '⚠️' : '✓'}`);
+          if (bmFlags) bmFlags.textContent = flagTexts.join(' · ');
+        };
+        if (!sensitivityBound) {
+          sensRev?.addEventListener('input', applySensitivity);
+          sensExp?.addEventListener('input', applySensitivity);
+          bmMargin?.addEventListener('input', applySensitivity);
+          bmCurr?.addEventListener('input', applySensitivity);
+          bmDe?.addEventListener('input', applySensitivity);
+          sensitivityBound = true;
+        }
+        applySensitivity();
+
+        // FX impact note
+        if (fxNote) {
+          const fx = lastPayload?.fx_impact;
+          if (fx && fx.currency) {
+            fxNote.textContent = `FX impact: base net ${fx.base_net?.toLocaleString?.() ?? fx.base_net} vs ${fx.currency} net ${fx.ccy_net?.toLocaleString?.() ?? fx.ccy_net} (diff ${fx.difference?.toLocaleString?.() ?? fx.difference}).`;
+          } else {
+            fxNote.textContent = '';
+          }
+        }
+      };
+
+      const renderBalanceDonut = () => {
+        if (!balanceDonut) return;
+        if (donutInstance) { donutInstance.destroy(); donutInstance = null; }
+        if (!lastPayload || activeStatement !== 'balance') {
+          balanceDonut.style.display = 'none';
+          return;
+        }
+        const selectedCurrency = getSelectedStatementCurrency();
+        let totals = lastPayload.statements?.balance?.totals || {};
+        if (selectedCurrency) {
+          const map = {};
+          (lastPayload.statements?.balance?.currency_totals || []).forEach(entry => { map[entry.currency] = entry; });
+          const entry = map[selectedCurrency];
+          if (entry) {
+            totals = {
+              assets: parseNumber(entry.assets),
+              liabilities: parseNumber(entry.liabilities),
+              equity: parseNumber(entry.equity),
+            };
+          }
+        }
+        const data = [parseNumber(totals.assets), parseNumber(totals.liabilities), parseNumber(totals.equity)];
+        if (!data.some(v => Math.abs(v) > 0)) {
+          balanceDonut.style.display = 'none';
+          return;
+        }
+        balanceDonut.style.display = 'block';
+        donutInstance = new Chart(balanceDonut, {
+          type: 'doughnut',
+          data: {
+            labels: ['Assets', 'Liabilities', 'Equity'],
+            datasets: [{
+              data,
+              backgroundColor: ['#0f7b5f', '#b3352f', '#146d8f'],
+            }],
+          },
+          options: {
+            responsive: true,
+            cutout: '60%',
+            plugins: { legend: { display: true, position: 'bottom' } },
+          },
+        });
+      };
+
+      const updateToggleState = () => {
+        toggleButtons.forEach(btn => {
+          const kind = btn.getAttribute('data-kind');
+          btn.classList.toggle('active', kind === activeStatement);
+        });
+      };
+
+      const renderActivePanel = () => {
+        if (!summaryGrid || !lastPayload) return;
+        summaryGrid.innerHTML = '';
+        const frag = renderPanel(activeStatement, lastPayload.statements[activeStatement]);
+        if (frag) {
+          frag.classList?.add?.('docs-fade-in');
+          summaryGrid.appendChild(frag);
+        } else {
+          const placeholder = document.createElement('div');
+          placeholder.className = 'placeholder-text';
+          placeholder.textContent = 'No data available for this statement.';
+          summaryGrid.appendChild(placeholder);
+        }
+        updateToggleState();
+        renderQuickChart();
+        renderTrendChart(lastPayload);
+        renderBalanceDonut();
+      };
+
+      const setActiveStatement = kind => {
+        if (!kind) return;
+        activeStatement = kind;
+        if (docTypeSel) docTypeSel.value = kind;
+        savePrefs({ statement: kind });
+        renderActivePanel();
+      };
+
+      const renderStatements = payload => {
+        lastPayload = payload;
+        renderActivePanel();
+        renderQuickChart();
+        renderTrendChart(payload);
+        renderBalanceDonut();
+        renderAnalytics();
+        const notices = [];
+        const selCcy = getSelectedStatementCurrency();
+        const active = activeStatement;
+        const statementNode = payload?.statements?.[active];
+        const cols = Array.isArray(statementNode?.currency_columns) ? statementNode.currency_columns : [];
+        if (selCcy && !cols.includes(selCcy)) {
+          notices.push(`Showing base figures; no ${selCcy} data found for the ${active} statement.`);
+        }
+        if (compareToggle?.checked && compareMonthSel?.value && !payload?.compare_period) {
+          notices.push('Compare month returned no data; showing single-period view.');
+        }
+        if (!payload?.trend?.months?.length) {
+          notices.push('No trend history available; analytics are limited.');
+        }
+        if (toggleAccounts?.checked && selCcy && Array.isArray(statementNode?.rows)) {
+          const hasAcctDetail = statementNode.rows.some(r => {
+            const accounts = r.account_details?.[selCcy] || r.account_details?.[cols[0]];
+            return Array.isArray(accounts) && accounts.length;
+          });
+          if (!hasAcctDetail) {
+            notices.push('Account-level details are unavailable for this currency.');
+          }
+        }
+        setNotice(notices.join(' '));
+      };
+
+      toggleButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const kind = btn.getAttribute('data-kind');
+          if (!kind || kind === activeStatement) return;
+          setActiveStatement(kind);
+        });
+      });
+
+      const updateCashFolderOptions = payload => {
+        if (!cashFolderSel) return;
+        const options = payload.cash_folder_options || [];
+        const appliedIds = ((payload.statements?.cashflow?.applied_folder_ids) || []).map(id => String(id));
+        const selectedSet = new Set(appliedIds);
+        const prefFolders = Array.isArray(prefs.cashFolders) ? prefs.cashFolders.map(String) : [];
+        const prefSet = new Set(prefFolders);
+        if (!selectedSet.size) {
+          options.forEach(opt => {
+            if (opt.is_default) selectedSet.add(String(opt.id));
+          });
+        }
+        cashFolderSel.innerHTML = '';
+        if (!options.length) {
+          const placeholder = document.createElement('option');
+          placeholder.textContent = 'No asset folders available';
+          placeholder.disabled = true;
+          cashFolderSel.appendChild(placeholder);
+          return;
+        }
+        options.forEach(opt => {
+          const optionEl = document.createElement('option');
+          optionEl.value = opt.id;
+          optionEl.textContent = opt.name || `Folder ${opt.id}`;
+          if ((prefSet.size && prefSet.has(String(opt.id))) || (!prefSet.size && selectedSet.has(String(opt.id)))) optionEl.selected = true;
+          cashFolderSel.appendChild(optionEl);
+        });
+      };
+
+      const loadStatementData = async () => {
+        if (!monthSel || !monthSel.value) {
+          if (summaryCard) summaryCard.style.display = 'none';
+          return;
+        }
+        docMsg.textContent = 'Loading statement data…';
+        setLoading(true);
+        try {
+          const resp = await fetch(buildDataUrl());
+          const payload = await resp.json();
+          if (!resp.ok || !payload.ok) throw new Error(payload.error || 'Unable to load data');
+          summaryCard.style.display = 'block';
+          summaryPeriod.textContent = `${payload.period.start} → ${payload.period.end}`;
+          summaryMeta.textContent = `Generated ${new Date(payload.generated_at).toLocaleString()}`;
+          if (summaryCompare) {
+            if (payload.compare_period) {
+              summaryCompare.style.display = 'inline-flex';
+              summaryCompare.textContent = `Compared to ${payload.compare_period.end}`;
+            } else {
+              summaryCompare.style.display = 'none';
+              summaryCompare.textContent = '';
+            }
+          }
+          heroLatest.textContent = formatMonthLabel(payload.period.end);
+          docMsg.textContent = 'Statement data updated.';
+          updateCashFolderOptions(payload);
+          renderStatements(payload);
+          savePrefs({ month: monthSel.value, cashFolders: getSelectedCashFolders() });
+        } catch (err) {
+          summaryCard.style.display = 'none';
+          heroLatest.textContent = 'Select a month';
+          docMsg.textContent = err?.message || 'Failed to load statements.';
+          setNotice('');
+        }
+        setLoading(false);
+      };
+
+      const fillMonths = () => {
+        if (!monthSel) return;
+        const pad = n => (n<10?('0'+n):(''+n));
+        const now = new Date(); now.setDate(1);
+        let start = null;
+        if (initIso){ const dt = new Date(initIso); if (!isNaN(dt.getTime())) { dt.setDate(1); start = dt; } }
+        if (!start || start > now) { start = new Date(now.getFullYear(), now.getMonth()-11, 1); }
+        const opts = ['<option value="">Select month…</option>'];
+        for (let d=new Date(start.getTime()); d<=now; d.setMonth(d.getMonth()+1)){
+          const ym = `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+          const label = d.toLocaleString(undefined, {month:'long', year:'numeric'});
+          opts.push(`<option value="${ym}">${label}</option>`);
+        }
+        const applyOptions = (sel, prefVal, fallbackLast=true) => {
+          if (!sel) return;
+          sel.innerHTML = opts.join('');
+          sel.disabled = false;
+          if (prefVal) {
+            const match = Array.from(sel.options).findIndex(opt => opt.value === prefVal);
+            if (match >= 0) sel.selectedIndex = match;
+          }
+          if (!sel.value && fallbackLast && sel.options.length > 1) {
+            sel.selectedIndex = sel.options.length - 1;
+          }
+        };
+        applyOptions(monthSel, prefs.month, true);
+        applyOptions(compareMonthSel, prefs.compareMonth, false);
+        if (monthSel.options.length > 1) {
+          loadStatementData();
+        }
+      };
+
+      document.addEventListener('DOMContentLoaded', () => {
+        if (docTypeSel) docTypeSel.value = activeStatement;
+        if (statementCurrencySel && prefs.currency) statementCurrencySel.value = prefs.currency;
+        if (compareToggle) {
+          compareToggle.checked = !!prefs.compareEnabled;
+        }
+        fillMonths();
+        const applyTabPref = () => {
+          const targetTab = prefs.tab || 'statements';
+          tabs.forEach(tab => {
+            const active = tab.dataset.tab === targetTab;
+            tab.classList.toggle('active', active);
+          });
+          if (targetTab === 'analytics') {
+            panelStatements.style.display = 'none';
+            panelAnalytics.style.display = 'block';
+            if (lastPayload) renderAnalytics();
+          } else {
+            panelStatements.style.display = 'block';
+            panelAnalytics.style.display = 'none';
+          }
+        };
+        applyTabPref();
+        tabs.forEach(tab => {
+          tab.addEventListener('click', () => {
+            const target = tab.dataset.tab;
+            tabs.forEach(t => t.classList.toggle('active', t === tab));
+            if (target === 'analytics') {
+              panelStatements.style.display = 'none';
+              panelAnalytics.style.display = 'block';
+              if (lastPayload) renderAnalytics();
+            } else {
+              panelStatements.style.display = 'block';
+              panelAnalytics.style.display = 'none';
+              if (lastPayload) {
+                renderActivePanel();
+              }
+            }
+            savePrefs({ tab: target });
+          });
+        });
+        summaryGrid?.addEventListener('click', evt => {
+          const row = evt.target?.closest?.('tr.line-item');
+          if (!row || !rowMeta.has(row)) return;
+          const meta = rowMeta.get(row) || {};
+          openModal({
+            title: row.dataset.label || row.firstChild?.textContent || 'Detail',
+            section: row.dataset.section || '',
+            columns: meta.columns || [],
+            values: meta.values || [],
+            accounts: meta.accounts || [],
+          });
+        });
+        modalBackdrop?.addEventListener('click', evt => {
+          if (evt.target === modalBackdrop) closeModal();
+        });
+        modalClose?.addEventListener('click', closeModal);
+        monthSel?.addEventListener('change', () => {
+          if (monthSel.value) {
+            savePrefs({ month: monthSel.value });
+            loadStatementData();
+          } else {
+            summaryCard.style.display = 'none';
+            heroLatest.textContent = 'Select a month';
+          }
+        });
+       const applyCompareVisibility = () => {
+         if (!compareGroup) return;
+         const enabled = !!compareToggle?.checked;
+         compareGroup.style.display = enabled ? 'block' : 'none';
+         if (compareMonthSel) compareMonthSel.disabled = !enabled;
+       };
+       applyCompareVisibility();
+        compareToggle?.addEventListener('change', () => {
+          const enabled = !!compareToggle.checked;
+          applyCompareVisibility();
+          savePrefs({ compareEnabled: enabled });
+          if (enabled && !compareMonthSel.value && compareMonthSel.options.length > 1) {
+            compareMonthSel.selectedIndex = Math.max(1, compareMonthSel.options.length - 2);
+          }
+          if (monthSel?.value) loadStatementData();
+        });
+        compareMonthSel?.addEventListener('change', () => {
+          savePrefs({ compareMonth: compareMonthSel.value || '' });
+          if (monthSel?.value) loadStatementData();
+        });
+        toggleAccounts?.addEventListener('change', () => {
+          renderActivePanel();
+          renderQuickChart();
+          renderTrendChart(lastPayload);
+          renderBalanceDonut();
+          renderAnalytics();
+        });
+        docTypeSel?.addEventListener('change', () => {
+          const kind = docTypeSel.value || 'income';
+          setActiveStatement(kind);
+        });
+        cashFolderSel?.addEventListener('change', () => {
+         savePrefs({ cashFolders: getSelectedCashFolders() });
+         if (monthSel?.value) loadStatementData();
+       });
+        statementCurrencySel?.addEventListener('change', () => {
+          savePrefs({ currency: statementCurrencySel.value || '' });
+          resetSensitivityUI();
+          if (lastPayload) {
+            renderAnalytics();
+          }
+          if (monthSel?.value) {
+            loadStatementData();
+          }
+        });
+      });
+
+      document.getElementById('btn-doc-pdf')?.addEventListener('click', () => {
+        const kind = document.getElementById('doc_type').value || 'income';
+        const ym = monthSel ? (monthSel.value || '') : '';
+        if (!ym){ alert('Select a month first.'); return; }
+        const org = 'Taeyang Finance';
+        const ccy = (document.getElementById('doc_ccy')?.value || '');
+        const selectedFolders = getSelectedCashFolders();
+        const folderParam = selectedFolders.length ? `&cash_folders=${encodeURIComponent(selectedFolders.join(','))}` : '';
+        const url = `/accounting/statement/pdf?kind=${encodeURIComponent(kind)}&ym=${encodeURIComponent(ym)}&org=${encodeURIComponent(org)}${ccy?('&ccy='+encodeURIComponent(ccy)):''}${folderParam}`;
+        window.open(url, '_blank');
+      });
+      const buildExportUrl = (fmt) => {
+        const kind = document.getElementById('doc_type').value || 'income';
+        const ym = monthSel ? (monthSel.value || '') : '';
+        if (!ym) return null;
+        const ccy = (document.getElementById('doc_ccy')?.value || '');
+        const selectedFolders = getSelectedCashFolders();
+        const folderParam = selectedFolders.length ? `&cash_folders=${encodeURIComponent(selectedFolders.join(','))}` : '';
+        const compareParam = (compareToggle?.checked && compareMonthSel?.value) ? `&ym_compare=${encodeURIComponent(compareMonthSel.value)}` : '';
+        return `/accounting/statement/export?format=${encodeURIComponent(fmt)}&kind=${encodeURIComponent(kind)}&ym=${encodeURIComponent(ym)}${ccy?('&ccy='+encodeURIComponent(ccy)):''}${folderParam}${compareParam}`;
+      };
+      document.getElementById('btn-doc-csv')?.addEventListener('click', () => {
+        const url = buildExportUrl('csv');
+        if (!url){ alert('Select a month first.'); return; }
+        window.open(url, '_blank');
+      });
+    document.getElementById('btn-doc-xlsx')?.addEventListener('click', () => {
+        const url = buildExportUrl('xlsx');
+        if (!url){ alert('Select a month first.'); return; }
+        window.open(url, '_blank');
+      });
+    })();
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+{% endblock %}

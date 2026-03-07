@@ -1,0 +1,29 @@
+{# Phase 0: frontend endpoint registry aligned with project/docs/endpoint_inventory.md. #}
+<script>
+  window.FINANCE_ENDPOINTS = window.FINANCE_ENDPOINTS || Object.freeze({
+    admin: Object.freeze({
+      jobsStatus: "{{ url_for('admin_bp.admin_jobs_status') }}",
+      userModelsStatus: "{{ url_for('admin_bp.admin_api_user_models_status') }}",
+      userModelsTrain: "{{ url_for('admin_bp.admin_train_user_model') }}"
+    }),
+    accounting: Object.freeze({
+      statements: Object.freeze({
+        data: "{{ url_for('accounting_bp.statement_data') }}",
+        export: "{{ url_for('accounting_bp.statement_export') }}",
+        pdf: "{{ url_for('accounting_bp.statement_pdf') }}"
+      })
+    }),
+    ml: Object.freeze({
+      suggestions: "{{ url_for('core_bp.ml_suggestions') }}",
+      suggestionLog: "{{ url_for('core_bp.ml_suggestion_log') }}",
+      suggestDebit: "{{ url_for('core_bp.suggest_debit') }}",
+      suggestCredit: "{{ url_for('core_bp.suggest_credit') }}"
+    }),
+    transactions: Object.freeze({
+      list: "{{ url_for('transactions_bp.transactions') }}",
+      add: "{{ url_for('transactions_bp.add_transaction') }}",
+      uploadCsv: "{{ url_for('transactions_bp.upload_csv') }}",
+      journalFeedback: "{{ url_for('journal_bp.journal_feedback') }}"
+    })
+  });
+</script>
