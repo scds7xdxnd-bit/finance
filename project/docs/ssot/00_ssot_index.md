@@ -1,5 +1,5 @@
 # Finance App SSOT Index
-_Last updated: 2026-03-07_
+_Last updated: 2026-03-08_
 
 ## 00.1 Purpose
 This directory is the Single Source of Truth (SSOT) for vNext financial correctness.
@@ -17,8 +17,9 @@ Section IDs in this file and all SSOT files are stable citation anchors.
 - Strong linking requires stable provenance; `row_dedupe_key` is treated as stable with strict 1:1 cardinality.
 - Schema guard is capability-based and blocks sensitive operations when required capabilities are missing.
 - Schema verifier parity is release-blocking: `total_checks == required_artifact_count` is mandatory.
+- Invariant catalog parity is release-blocking: `catalog_ids == asserted_ids` is mandatory.
 - Canonical ledger query API is the reporting contract surface.
-- CI vNext gate enforces schema, dedupe, convergence, reporting parity, and scope invariants.
+- CI vNext gate enforces schema, dedupe, convergence, reporting parity, scope invariants, and invariant catalog parity.
 
 ## 00.3 Source Precedence (Anti-Shadow-Truth Rule)
 When sources disagree, precedence is:
@@ -45,6 +46,7 @@ Any change to locked decisions, contract surfaces, or gate thresholds must satis
 - Obtain architect signoff for stable interface changes listed in `99_team_boundaries.md`.
 - Include the mandatory `SSOT Impact` section from `.github/pull_request_template.md`.
 - For schema verifier or capability changes, include parity evidence from `SSOT 61.8`.
+- For invariant catalog or invariant assertion changes, include parity evidence from `SSOT 81.8`.
 
 ## 00.6 Document Map
 | File | Purpose |
@@ -59,6 +61,7 @@ Any change to locked decisions, contract surfaces, or gate thresholds must satis
 | `61_schema_verifier_parity_playbook.md` | Formal verifier parity definition, release rule, and implementation checklists. |
 | `70_security_model.md` | AuthN/AuthZ, CSRF, admin safety, audit requirements, endpoint sensitivity classes. |
 | `80_quality_gates.md` | Gate invariants, CI jobs, thresholds, failure drills. |
+| `81_invariant_catalog_parity_playbook.md` | Formal invariant catalog parity definition, release rule, and implementation checklists. |
 | `90_operator_runbook.md` | Backup/restore/migrate/backfill/reconcile/cutover/rollback operations. |
 | `99_team_boundaries.md` | Team ownership, stable interfaces, forbidden changes, signoff rules. |
 
@@ -75,6 +78,6 @@ Use `.github/pull_request_template.md` as the source template. Minimum required 
 - [ ] I confirmed no forbidden changes from `project/docs/ssot/99_team_boundaries.md`.
 
 ### Required SSOT Section References
-- SSOT refs: `<SSOT 30.x, SSOT 40.x, SSOT 50.x, SSOT 60.x, SSOT 70.x, SSOT 80.x, SSOT 90.x>`
+- SSOT refs: `<SSOT 30.x, SSOT 40.x, SSOT 50.x, SSOT 60.x, SSOT 70.x, SSOT 80.x, SSOT 81.x, SSOT 90.x>`
 - Rationale for each ref: `<why it applies>`
 ```
