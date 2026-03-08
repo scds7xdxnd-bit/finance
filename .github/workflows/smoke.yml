@@ -78,6 +78,46 @@ jobs:
           path: migration_smoke_vnext.json
           if-no-files-found: error
 
+      - name: Invariant catalog parity check
+        shell: bash
+        run: |
+          set +e
+          : > invariant_catalog_parity.json
+          python3 scripts/check_invariant_catalog_parity.py | tee invariant_catalog_parity.json
+          cmd_status=${PIPESTATUS[0]}
+          set -e
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          payload = {}
+          text = Path("invariant_catalog_parity.json").read_text(encoding="utf-8").strip()
+          if text:
+              try:
+                  payload = json.loads(text)
+              except json.JSONDecodeError:
+                  start = text.find("{")
+                  end = text.rfind("}")
+                  if start >= 0 and end > start:
+                      try:
+                          payload = json.loads(text[start:end + 1])
+                      except Exception:
+                          payload = {}
+          ok = str(bool(payload.get("ok", False))).lower()
+          missing_count = len(payload.get("missing_ids") or [])
+          extra_count = len(payload.get("extra_asserted_ids") or [])
+          print(f"invariant_parity_ok={ok} missing_count={missing_count} extra_count={extra_count}")
+          PY
+          exit "${cmd_status}"
+
+      - name: Upload invariant catalog parity artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: invariant_catalog_parity.json
+          path: invariant_catalog_parity.json
+          if-no-files-found: error
+
       - name: vNext gate tests
         run: |
           python3 -m pytest -q tests/test_vnext_gate.py
