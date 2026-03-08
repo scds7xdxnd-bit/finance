@@ -63,6 +63,7 @@ def _build_default_config() -> dict:
         "LEDGER_WRITE_MODE": os.environ.get("LEDGER_WRITE_MODE", "journal").strip().lower() or "journal",
         "SCHEMA_GUARD_ENFORCE": os.environ.get("SCHEMA_GUARD_ENFORCE", "true").lower() in ("1", "true", "yes"),
         "ALLOW_LEGACY_REPORT_FALLBACK": os.environ.get("ALLOW_LEGACY_REPORT_FALLBACK", "false").lower() in ("1", "true", "yes"),
+        "FORECAST_LEGACY_ENABLED": os.environ.get("FORECAST_LEGACY_ENABLED", "false").lower() in ("1", "true", "yes"),
         "CSV_IDEMPOTENCY_ENABLED": os.environ.get("CSV_IDEMPOTENCY_ENABLED", "true").lower() in ("1", "true", "yes"),
         "ADMIN_ACTION_COOLDOWN_SECONDS": int(os.environ.get("ADMIN_ACTION_COOLDOWN_SECONDS", "5")),
         "SCHEMA_GUARD_BYPASS_REASON": os.environ.get("SCHEMA_GUARD_BYPASS_REASON", "").strip(),

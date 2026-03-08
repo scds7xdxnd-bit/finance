@@ -6,6 +6,9 @@ from flask import request, session
 from finance_app.extensions import db
 from finance_app.models.user_models import User
 
+CSRF_FAILURE_MESSAGE = "CSRF token missing or invalid"
+CSRF_FAILURE_STATUS = 400
+
 
 def current_user():
     """Return the logged-in user based on session storage."""
@@ -27,8 +30,15 @@ def _get_csrf_token():
 
 
 def csrf_token_valid() -> bool:
-    token = request.headers.get("X-CSRF-Token") or request.form.get("csrf_token")
-    return bool(token and token == session.get("csrf_token"))
+    token = request.headers.get("X-CSRF-Token")
+    if token is None:
+        token = request.form.get("csrf_token")
+    expected = session.get("csrf_token")
+    return bool(token and expected and secrets.compare_digest(str(token), str(expected)))
+
+
+def csrf_failure_response():
+    return (CSRF_FAILURE_MESSAGE, CSRF_FAILURE_STATUS)
 
 
 def require_csrf(fn):
@@ -37,7 +47,7 @@ def require_csrf(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
         if not csrf_token_valid():
-            return ("CSRF token missing or invalid", 400)
+            return csrf_failure_response()
         return fn(*args, **kwargs)
 
     return wrapper

@@ -736,6 +736,7 @@
                                                 <i class="fa fa-edit"></i>
                                             </button>
                                             <form class="delete-form" method="POST" action="{{ url_for('user_bp.delete_post', post_id=post.id) }}" style="margin:0;">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                                                 <button type="submit" class="icon-btn danger" title="Delete Post" onclick="return confirm('Delete this post?');"><i class="fa fa-trash"></i></button>
                                             </form>
                                         </div>
@@ -760,6 +761,7 @@
     <div id="notesModal" class="modal">
         <div class="modal-inner">
             <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <label for="notes">Edit Notes</label>
                 <textarea id="notes" name="notes" rows="4">{{ profile.notes or '' }}</textarea>
                 <div class="modal-actions">
@@ -774,6 +776,7 @@
     <div id="picModal" class="modal">
         <div class="modal-inner">
             <form method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <label for="profile_pic">Change Profile Picture</label>
                 <input id="profile_pic" type="file" name="profile_pic" accept="image/*">
                 <div class="modal-actions">
@@ -787,6 +790,7 @@
     <div id="postModal" class="modal">
         <div class="modal-inner">
             <form method="POST" action="{{ url_for('user_bp.add_post') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <label for="content">New Post</label>
                 <textarea id="content" name="content" rows="3"></textarea>
                 <div class="modal-actions">
@@ -808,6 +812,7 @@
     <div id="editPostModal" class="modal">
         <div class="modal-inner">
             <form method="POST" id="editPostForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <label for="edit_post_content">Edit Post</label>
                 <textarea id="edit_post_content" name="content" rows="3"></textarea>
                 <div class="modal-actions">

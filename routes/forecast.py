@@ -5,10 +5,13 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Dict
 
 from finance_app import db
+from finance_app.lib.auth import csrf_token_valid, current_user
+from finance_app.models.accounting_models import AdminActionAudit
 from finance_app.models.money_account import MoneyScheduleAccount as Account
 from finance_app.models.scheduled_transaction import ScheduledTransaction, TransactionStatus
 from finance_app.services.forecast import compute_daily_forecast, month_grid
-from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
+from finance_app.services.schema_guard_service import guard_capabilities
+from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, url_for
 
 forecast_bp = Blueprint(
     "forecast",
@@ -19,6 +22,48 @@ forecast_bp = Blueprint(
 
 
 DEFAULT_BUFFER_FLOOR = Decimal("500000")
+
+
+def _forecast_legacy_enabled() -> bool:
+    return bool(current_app.config.get("FORECAST_LEGACY_ENABLED", False))
+
+
+def _require_forecast_admin():
+    if not _forecast_legacy_enabled():
+        return None, ("Not Found", 404)
+    user = current_user()
+    if not user:
+        return None, ("Unauthorized", 401)
+    if not getattr(user, "is_admin", False):
+        return None, ("Forbidden", 403)
+    return user, None
+
+
+def _audit_forecast_schedule(
+    *,
+    actor_user_id: int,
+    outcome: str,
+    status: str,
+    reason: str | None = None,
+    details: dict | None = None,
+) -> None:
+    outcome_token = (outcome or "").strip().lower() or "unknown"
+    payload = dict(details or {})
+    payload.setdefault("outcome", outcome_token)
+    try:
+        db.session.add(
+            AdminActionAudit(
+                actor_user_id=int(actor_user_id),
+                action=f"forecast_schedule:{outcome_token}",
+                target_type="scheduled_transaction",
+                status=(status or "ok")[:20],
+                reason=(reason or "")[:255] or None,
+                details=payload,
+            )
+        )
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
 
 
 def _parse_date(value: str | None) -> date | None:
@@ -67,6 +112,9 @@ def _format_currency(value: Decimal) -> str:
 
 @forecast_bp.route("/forecast")
 def forecast_index():
+    _user, denied = _require_forecast_admin()
+    if denied:
+        return denied
     today = date.today()
     start_param = request.args.get("start")
     end_param = request.args.get("end")
@@ -148,6 +196,9 @@ def forecast_index():
 
 @forecast_bp.route("/api/forecast.json")
 def forecast_api():
+    _user, denied = _require_forecast_admin()
+    if denied:
+        return denied
     today = date.today()
     start_param = request.args.get("start")
     end_param = request.args.get("end")
@@ -185,6 +236,23 @@ def forecast_api():
 
 @forecast_bp.route("/forecast/schedule", methods=["POST"])
 def add_schedule_item():
+    user, denied = _require_forecast_admin()
+    if denied:
+        return denied
+    if not csrf_token_valid():
+        return {"ok": False, "error": "CSRF token missing or invalid"}, 400
+
+    ok_guard, payload, _status = guard_capabilities(["admin_audit"], enforce=True)
+    if not ok_guard:
+        _audit_forecast_schedule(
+            actor_user_id=int(user.id),
+            outcome="blocked_guard",
+            status="blocked",
+            reason="schema_guard_failed",
+            details={"missing_capabilities": payload.get("missing_capabilities") or []},
+        )
+        return payload, 503
+
     description = (request.form.get("description") or "").strip()
     category = (request.form.get("category") or "").strip() or None
     amount_raw = request.form.get("amount")
@@ -240,6 +308,17 @@ def add_schedule_item():
     )
     db.session.add(tx)
     db.session.commit()
+    _audit_forecast_schedule(
+        actor_user_id=int(user.id),
+        outcome="success",
+        status="ok",
+        details={
+            "account_id": account_id,
+            "currency": currency,
+            "date": target_date.isoformat(),
+            "amount": str(amount),
+        },
+    )
 
     flash("Scheduled item added.", "success")
     return redirect(url_for("forecast.forecast_index", **params))

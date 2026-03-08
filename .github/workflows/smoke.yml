@@ -138,6 +138,24 @@ jobs:
             artifacts/statement_export_parity/**
           if-no-files-found: ignore
 
+      - name: Security compliance gate
+        shell: bash
+        run: |
+          set +e
+          : > security_compliance.log
+          python3 -m pytest -q tests/test_security_compliance_gate.py tests/test_security_sensitive_endpoints.py | tee security_compliance.log
+          cmd_status=${PIPESTATUS[0]}
+          set -e
+          exit "${cmd_status}"
+
+      - name: Upload security compliance artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security_compliance.log
+          path: security_compliance.log
+          if-no-files-found: ignore
+
       - name: vNext gate tests
         run: |
           python3 -m pytest -q tests/test_vnext_gate.py

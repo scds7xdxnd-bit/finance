@@ -1,0 +1,77 @@
+{
+  "snapshot_version": 1,
+  "source": "project/docs/ssot/70_security_model.md#70.5",
+  "exceptions": [
+    {
+      "exception_id": "SEC-EX-001",
+      "status": "open"
+    },
+    {
+      "exception_id": "SEC-EX-002",
+      "status": "open"
+    },
+    {
+      "exception_id": "SEC-EX-003",
+      "status": "open"
+    },
+    {
+      "exception_id": "SEC-EX-004",
+      "status": "open"
+    },
+    {
+      "exception_id": "SEC-EX-005",
+      "status": "open"
+    },
+    {
+      "exception_id": "SEC-EX-006",
+      "status": "open"
+    },
+    {
+      "exception_id": "SEC-EX-007",
+      "status": "open"
+    },
+    {
+      "exception_id": "SEC-EX-008",
+      "status": "open"
+    },
+    {
+      "exception_id": "SEC-EX-009",
+      "status": "open"
+    },
+    {
+      "exception_id": "SEC-EX-010",
+      "status": "open"
+    },
+    {
+      "exception_id": "SEC-EX-011",
+      "status": "open"
+    },
+    {
+      "exception_id": "SEC-EX-012",
+      "status": "open"
+    },
+    {
+      "exception_id": "SEC-EX-013",
+      "status": "open"
+    },
+    {
+      "exception_id": "SEC-EX-014",
+      "status": "closed"
+    }
+  ],
+  "open_exception_ids": [
+    "SEC-EX-001",
+    "SEC-EX-002",
+    "SEC-EX-003",
+    "SEC-EX-004",
+    "SEC-EX-005",
+    "SEC-EX-006",
+    "SEC-EX-007",
+    "SEC-EX-008",
+    "SEC-EX-009",
+    "SEC-EX-010",
+    "SEC-EX-011",
+    "SEC-EX-012",
+    "SEC-EX-013"
+  ]
+}

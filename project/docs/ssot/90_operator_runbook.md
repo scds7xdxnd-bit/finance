@@ -9,6 +9,7 @@ Canonical procedure for backup/restore, migrations, backfill, reconcile, cutover
 - Do not run import/backfill/reset/cutover operations when schema verifier parity fails (`total_checks != required_artifact_count`).
 - Do not run release/cutover operations when invariant catalog parity fails (`missing_ids` or `extra_asserted_ids` non-empty).
 - Do not run release/cutover operations when statement export parity fails (`GATE-STATEMENT-EXPORT-PARITY`).
+- Do not run release/cutover operations when security compliance gate fails (`GATE-SECURITY-COMPLIANCE`).
 - Always create a backup/snapshot before migrations or destructive operations.
 - Run backfill as dry-run before apply.
 - Do not cut over while `ledger-reconcile` fails or coverage thresholds are below defaults.
@@ -50,6 +51,12 @@ Canonical procedure for backup/restore, migrations, backfill, reconcile, cutover
   - command exits `0`
   - no parity mismatches reported for totals/source/coverage rules
 - if statement export parity fails, stop and do not continue to release/cutover.
+- required security compliance gate: `python3 -m pytest -q tests/test_security_compliance_gate.py tests/test_security_sensitive_endpoints.py`
+- confirm all:
+  - command exits `0`
+  - no `Security compliance gate failed:` output
+  - no expired exceptions from SSOT 70.5
+- if security compliance gate fails, stop and do not continue to release/cutover.
 
 4. Convergence baseline + backfill
 - `python3 -m flask --app finance_app ledger-convergence-metrics`
@@ -107,7 +114,14 @@ Run these in order for release readiness:
   - module passes
   - no `Statement export parity mismatch:` failures
   - on mismatch: release is blocked; do not proceed.
-5. Reconcile gate:
+5. Security compliance gate:
+- `python3 -m pytest -q tests/test_security_compliance_gate.py tests/test_security_sensitive_endpoints.py`
+- expected:
+  - modules pass
+  - no `Security compliance gate failed:` failures
+  - no expired exceptions in SSOT 70.5
+  - on mismatch: release is blocked; do not proceed.
+6. Reconcile gate:
 - `python3 -m flask --app finance_app ledger-reconcile`
 - required pass thresholds:
   - `missing_links_count == 0`
@@ -116,12 +130,12 @@ Run these in order for release readiness:
   - `coverage_count >= 0.99`
   - `coverage_amount >= 0.995`
   - `unlinked_recent_90d_count <= 0`
-6. Required test gates:
+7. Required test gates:
 - `pytest -q tests/test_transaction_import_idempotency.py`
 - `pytest -q tests/test_ledger_convergence.py`
 - `pytest -q tests/test_ranked_reporting_cutover.py`
 - `pytest -q tests/test_vnext_gate.py`
-7. Policy lock:
+8. Policy lock:
 - reporting fallback may be `legacy` only, never `mixed`
 - fallback duration must be time-boxed and documented in incident notes
 
@@ -134,4 +148,5 @@ Branch protection must require checks mapped in `project/docs/ssot/80_quality_ga
 - Verifier parity playbook: `project/docs/ssot/61_schema_verifier_parity_playbook.md`
 - Invariant parity playbook: `project/docs/ssot/81_invariant_catalog_parity_playbook.md`
 - Statement export parity contract: `project/docs/ssot/50_reporting_contracts.md` (SSOT 50.7)
+- Security model and exception register: `project/docs/ssot/70_security_model.md`
 - Existing operator reference: `project/docs/operator_runbook.md`

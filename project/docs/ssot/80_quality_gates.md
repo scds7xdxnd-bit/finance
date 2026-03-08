@@ -8,6 +8,7 @@ Release-blocking invariants and required CI/local gate sequence for vNext correc
 1. `python3 scripts/migration_smoke_vnext.py`
 2. `python3 -m pytest -q tests/test_vnext_gate.py`
 3. `python3 -m pytest -q tests/test_statement_export_contract.py`
+4. `python3 -m pytest -q tests/test_security_compliance_gate.py tests/test_security_sensitive_endpoints.py`
 - Command 2 is release-blocking only if unified gate assertions include invariant catalog parity per `SSOT 80.10` / `SSOT 81`.
 
 ## 80.3 Required Checks on `main` (Branch Protection)
@@ -27,6 +28,7 @@ Required checks must be enforced in GitHub branch protection and map to SSOT gat
 - unified gate must cover schema, dedupe, linking/reconcile, reporting parity, mode matrix, and scope invariants.
 - unified gate must also enforce invariant catalog parity (`project/docs/qa_gate_invariants.md` vs asserted IDs in unified gate code).
 - release checks must execute statement export parity assertions (`tests/test_statement_export_contract.py`) directly or via unified gate.
+- release checks must execute security compliance gate assertions (`tests/test_security_compliance_gate.py` + `tests/test_security_sensitive_endpoints.py`).
 
 If check names change, update branch protection and this SSOT section in the same PR.
 
@@ -35,6 +37,7 @@ If check names change, update branch protection and this SSOT section in the sam
 - Release is blocked if schema verifier parity fails (`total_checks != required_artifact_count`).
 - Release is blocked if invariant catalog parity fails (`catalog_ids != asserted_ids`).
 - Release is blocked if statement export parity fails (`/accounting/statement/export` vs `/accounting/statement/data`).
+- Release is blocked if security compliance gate fails (`GATE-SECURITY-COMPLIANCE`).
 - Release is blocked if import idempotency or dedupe invariants fail.
 - Release is blocked if convergence reconcile or coverage gates fail.
 - Release is blocked if ranked report parity invariants fail.
@@ -56,6 +59,7 @@ If check names change, update branch protection and this SSOT section in the sam
 - `GATE-MODE`
 - `GATE-INVARIANT-PARITY`
 - `GATE-STATEMENT-EXPORT-PARITY`
+- `GATE-SECURITY-COMPLIANCE`
 
 ## 80.7 How To Intentionally Test Failures
 - Schema failure drill:
@@ -79,16 +83,22 @@ If check names change, update branch protection and this SSOT section in the sam
   - preferred (non-destructive): run `python3 -m pytest -q tests/test_statement_export_contract.py::test_statement_export_parity_simulated_mismatch`.
   - fallback: run targeted mismatch test cases in `tests/test_statement_export_contract.py` that assert failure payload parsing for totals/source drift.
   - confirm failure signal includes non-zero exit and explicit mismatch payload keys.
+- Security compliance drill:
+  - preferred (non-destructive): run `python3 -m pytest -q tests/test_security_compliance_gate.py::test_security_exception_expiry_simulated`.
+  - fallback: run `python3 -m pytest -q tests/test_security_compliance_gate.py`.
+  - confirm failure signal includes non-zero exit and explicit expired exception IDs or missing control sets.
 
 ## 80.8 Implementation Truth Pointers
 - Release gate test: `tests/test_vnext_gate.py`
 - Golden fixture: `tests/fixtures/golden/vnext_gate_minimal.json`
 - Gate invariant catalog: `project/docs/qa_gate_invariants.md`
 - Statement export parity suite: `tests/test_statement_export_contract.py`
+- Security compliance suite: `tests/test_security_compliance_gate.py`, `tests/test_security_sensitive_endpoints.py`
 - Gate runbook doc: `project/docs/vnext_gate.md`
 - Migration smoke: `scripts/migration_smoke_vnext.py`
 - Verifier parity playbook: `project/docs/ssot/61_schema_verifier_parity_playbook.md`
 - Invariant parity playbook: `project/docs/ssot/81_invariant_catalog_parity_playbook.md`
+- Security model and exception register: `project/docs/ssot/70_security_model.md`
 - PR checklist enforcement: `.github/pull_request_template.md`
 
 ## 80.9 `GATE-SCHEMA` Acceptance Criteria (Authoritative)
@@ -153,3 +163,30 @@ Required failure signal:
    - `metadata_mismatch_keys`
    - `status_mismatch_keys`
 4. failure output includes message prefix `Statement export parity mismatch:`.
+
+## 80.12 `GATE-SECURITY-COMPLIANCE` Acceptance Criteria (Authoritative)
+Definitions are normative in `SSOT 70`.
+
+`GATE-SECURITY-COMPLIANCE` passes only when all conditions below are true:
+1. `tests/test_security_compliance_gate.py` passes.
+2. `tests/test_security_sensitive_endpoints.py` passes.
+3. All open exceptions in SSOT 70.5 are unexpired:
+   - for every row with `status=open`, `today_utc <= expires_on_utc`.
+4. Every route listed in SSOT 70.5 is still explicitly classified as transitional exception until closed.
+5. No route outside SSOT 70.5 open exceptions is missing required controls from SSOT 70.4.
+6. Forecast Class D posture satisfies SSOT 70.6 Option A:
+   - disabled by feature flag, or
+   - admin-fenced + CSRF/audit/guard controls when enabled.
+
+`GATE-SECURITY-COMPLIANCE` fails when any condition above is false.
+
+Required failure signal:
+1. test command exits non-zero.
+2. failure output includes message prefix `Security compliance gate failed:`.
+3. failure output includes one or more mismatch sets:
+   - `expired_exception_ids`
+   - `missing_csrf_routes`
+   - `missing_auth_routes`
+   - `missing_scope_routes`
+   - `method_safety_failures`
+   - `forecast_fence_failures`
