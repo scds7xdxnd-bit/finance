@@ -1,5 +1,5 @@
 # vNext Architecture Overview
-_Last updated: 2026-03-07_
+_Last updated: 2026-03-08_
 
 ## 10.1 Scope
 This document defines the canonical runtime architecture for correctness-critical finance flows (ledger posting, CSV import, convergence, reporting, schema guard, and release gates).
@@ -119,3 +119,18 @@ Quality gates in `tests/test_vnext_gate.py` and related suites are release-block
 - Admin safety hooks: `blueprints/admin.py`
 - Auth/session/CSRF helpers: `finance_app/lib/auth.py`
 - CLI commands: `finance_app/cli/management.py`
+
+## 10.6 Boot Sequence Contract
+- Boot sequence is deterministic and must execute in this order:
+  1. resolve runtime DB URL (`FINANCE_DATABASE_URL` precedence per `SSOT 60.8.4`)
+  2. resolve Alembic DB URL (`ALEMBIC_DATABASE_URL` precedence per `SSOT 60.8.4`)
+  3. evaluate schema readiness (`schema_status.ok` and `at_head`)
+  4. apply request preflight gate based on readiness state
+- Runtime is `ready` only when both are true:
+  - required schema capabilities pass
+  - DB is at Alembic head
+- Route behavior before readiness:
+  - `/healthz` may respond with readiness diagnostics (`ok=false`, `required_action`, optional revision/capability metadata).
+  - non-health business endpoints must return HTTP `503` with the standard startup/migration payload from `SSOT 60.8.3`.
+- Non-test runtime must never create schema at boot (`db.create_all()` forbidden; Alembic-first only).
+- Any startup path that bypasses the preflight gate or emits non-standard error payloads is a contract violation.

@@ -20,6 +20,8 @@ Section IDs in this file and all SSOT files are stable citation anchors.
 - Invariant catalog parity is release-blocking: `catalog_ids == asserted_ids` is mandatory.
 - Statement export parity is release-blocking: `/accounting/statement/export` must remain parity-consistent with `/accounting/statement/data`.
 - Security compliance gate with exception expiry is release-blocking: expired security exceptions fail release.
+- Alembic-first schema management is mandatory; `db.create_all()` is forbidden outside isolated test harnesses.
+- Startup/migration contract gate is release-blocking: boot/migration changes require gate evidence.
 - Canonical ledger query API is the reporting contract surface.
 - CI vNext gate enforces schema, dedupe, convergence, reporting parity, scope invariants, invariant catalog parity, statement export parity, and security compliance.
 
@@ -51,6 +53,7 @@ Any change to locked decisions, contract surfaces, or gate thresholds must satis
 - For invariant catalog or invariant assertion changes, include parity evidence from `SSOT 81.8`.
 - For statement export or statement data contract changes, include parity evidence from `SSOT 50.7` and gate evidence from `SSOT 80.11`.
 - For sensitive endpoint changes, include security gate evidence from `SSOT 80.12` and exception-register updates from `SSOT 70.5` (if applicable).
+- For startup, app-factory preflight, migration, or DB URL precedence changes, include gate evidence from `SSOT 80.13` and operator impact notes from `SSOT 90.7`.
 
 ## 00.6 Document Map
 | File | Purpose |

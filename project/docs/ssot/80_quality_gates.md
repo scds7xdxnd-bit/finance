@@ -9,6 +9,7 @@ Release-blocking invariants and required CI/local gate sequence for vNext correc
 2. `python3 -m pytest -q tests/test_vnext_gate.py`
 3. `python3 -m pytest -q tests/test_statement_export_contract.py`
 4. `python3 -m pytest -q tests/test_security_compliance_gate.py tests/test_security_sensitive_endpoints.py`
+5. `python3 -m pytest -q tests/test_startup_migration_contract.py`
 - Command 2 is release-blocking only if unified gate assertions include invariant catalog parity per `SSOT 80.10` / `SSOT 81`.
 
 ## 80.3 Required Checks on `main` (Branch Protection)
@@ -38,6 +39,7 @@ If check names change, update branch protection and this SSOT section in the sam
 - Release is blocked if invariant catalog parity fails (`catalog_ids != asserted_ids`).
 - Release is blocked if statement export parity fails (`/accounting/statement/export` vs `/accounting/statement/data`).
 - Release is blocked if security compliance gate fails (`GATE-SECURITY-COMPLIANCE`).
+- Release is blocked if startup/migration contract fails (`GATE-STARTUP-MIGRATION-CONTRACT`).
 - Release is blocked if import idempotency or dedupe invariants fail.
 - Release is blocked if convergence reconcile or coverage gates fail.
 - Release is blocked if ranked report parity invariants fail.
@@ -60,6 +62,7 @@ If check names change, update branch protection and this SSOT section in the sam
 - `GATE-INVARIANT-PARITY`
 - `GATE-STATEMENT-EXPORT-PARITY`
 - `GATE-SECURITY-COMPLIANCE`
+- `GATE-STARTUP-MIGRATION-CONTRACT`
 
 ## 80.7 How To Intentionally Test Failures
 - Schema failure drill:
@@ -87,6 +90,10 @@ If check names change, update branch protection and this SSOT section in the sam
   - preferred (non-destructive): run `python3 -m pytest -q tests/test_security_compliance_gate.py::test_security_exception_expiry_simulated`.
   - fallback: run `python3 -m pytest -q tests/test_security_compliance_gate.py`.
   - confirm failure signal includes non-zero exit and explicit expired exception IDs or missing control sets.
+- Startup/migration contract drill:
+  - preferred (non-destructive): run `python3 -m pytest -q tests/test_startup_migration_contract.py::test_startup_contract_empty_db_drill`.
+  - required mismatch drill: run `python3 -m pytest -q tests/test_startup_migration_contract.py::test_startup_contract_db_url_mismatch_drill`.
+  - confirm failure signal includes non-zero exit and message prefix `Startup/migration contract failed:`.
 
 ## 80.8 Implementation Truth Pointers
 - Release gate test: `tests/test_vnext_gate.py`
@@ -99,6 +106,8 @@ If check names change, update branch protection and this SSOT section in the sam
 - Verifier parity playbook: `project/docs/ssot/61_schema_verifier_parity_playbook.md`
 - Invariant parity playbook: `project/docs/ssot/81_invariant_catalog_parity_playbook.md`
 - Security model and exception register: `project/docs/ssot/70_security_model.md`
+- Startup/migration contract: `project/docs/ssot/60_schema_capabilities.md` (SSOT 60.8)
+- Startup/migration contract suite: `tests/test_startup_migration_contract.py`
 - PR checklist enforcement: `.github/pull_request_template.md`
 
 ## 80.9 `GATE-SCHEMA` Acceptance Criteria (Authoritative)
@@ -190,3 +199,33 @@ Required failure signal:
    - `missing_scope_routes`
    - `method_safety_failures`
    - `forecast_fence_failures`
+
+## 80.13 `GATE-STARTUP-MIGRATION-CONTRACT` Acceptance Criteria (Authoritative)
+Definitions are normative in `SSOT 60.8` and `SSOT 10.6`.
+
+`GATE-STARTUP-MIGRATION-CONTRACT` passes only when all conditions below are true:
+1. `python3 scripts/migration_smoke_vnext.py` exits `0` and payload `ok=true`.
+2. `python3 -m pytest -q tests/test_startup_migration_contract.py` exits `0`.
+3. The startup/migration contract suite verifies Alembic-first policy:
+   - non-test runtime schema creation does not use `db.create_all()`.
+4. The suite verifies not-ready endpoint behavior on an unmigrated database:
+   - `/healthz` responds with readiness diagnostics (`ok=false` + `required_action`).
+   - representative business endpoints return HTTP `503` with required keys from `SSOT 60.8.3`.
+5. The suite verifies readiness enforcement:
+   - when `at_head=false`, startup contract fails closed on non-health endpoints.
+   - when required capabilities are missing, startup contract fails closed on non-health endpoints.
+6. The suite verifies DB URL match rule:
+   - non-test mismatch between runtime DB URL and Alembic DB URL fails with `error_code=DB_URL_MISMATCH`.
+
+`GATE-STARTUP-MIGRATION-CONTRACT` fails when any condition above is false.
+
+Required failure signal:
+1. command exits non-zero.
+2. failure output includes message prefix `Startup/migration contract failed:`.
+3. failure output includes one or more mismatch sets:
+   - `missing_payload_keys`
+   - `unexpected_ready_endpoint_status`
+   - `at_head_violation`
+   - `capability_violation`
+   - `db_url_mismatch_violation`
+   - `create_all_drift_violation`
