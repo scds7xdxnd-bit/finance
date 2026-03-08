@@ -1,7 +1,9 @@
 import os
+from pathlib import Path
+from typing import Any
 
 from flask import Flask, request
-from sqlalchemy import event, inspect
+from sqlalchemy import event, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.exc import OperationalError
@@ -25,11 +27,19 @@ from finance_app.services.ml_service import (
     best_hint_suggestion,
     record_suggestion_hint,
 )
+from finance_app.services.schema_guard_service import capability_report
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 INSTANCE_DIR = os.path.join(PROJECT_ROOT, "instance")
 os.makedirs(INSTANCE_DIR, exist_ok=True)
 DEFAULT_DB_PATH = os.path.join(INSTANCE_DIR, "finance_app.db")
+STARTUP_MIGRATION_FAILURE_PREFIX = "Startup/migration contract failed:"
+STARTUP_CONTRACT_ERROR_CODES = {
+    "SCHEMA_NOT_READY",
+    "ALEMBIC_NOT_AT_HEAD",
+    "SCHEMA_CAPABILITY_MISSING",
+    "DB_URL_MISMATCH",
+}
 
 
 def _resolve_database_uri() -> str:
@@ -102,6 +112,201 @@ def ensure_schema():
     db.create_all()
 
 
+def _is_non_test_runtime(app: Flask) -> bool:
+    # Deterministic switch used by startup gate tests and runtime behavior.
+    return not bool(app.config.get("TESTING", False))
+
+
+def _alembic_ini_path() -> Path:
+    return Path(PROJECT_ROOT) / "alembic.ini"
+
+
+def _resolve_alembic_database_uri() -> str | None:
+    env_uri = os.environ.get("ALEMBIC_DATABASE_URL")
+    if env_uri:
+        return env_uri
+    try:
+        from alembic.config import Config
+
+        cfg = Config(str(_alembic_ini_path()))
+        resolved = (cfg.get_main_option("sqlalchemy.url") or "").strip()
+        return resolved or None
+    except Exception:
+        return None
+
+
+def _canonicalize_database_uri(raw_uri: str | None) -> str:
+    if not raw_uri:
+        return ""
+    try:
+        parsed = make_url(raw_uri)
+    except Exception:
+        return str(raw_uri).strip()
+
+    driver = (parsed.drivername or "").lower()
+    if driver.startswith("sqlite"):
+        database = parsed.database or ""
+        if database in {"", ":memory:"}:
+            return f"{driver}:///{database or ':memory:'}"
+        if database.startswith("file:"):
+            return f"{driver}:///{database}"
+        abs_path = database if os.path.isabs(database) else os.path.join(PROJECT_ROOT, database)
+        return f"{driver}:///{os.path.realpath(abs_path)}"
+
+    host = (parsed.host or "").lower()
+    port = f":{parsed.port}" if parsed.port else ""
+    database = parsed.database or ""
+    query = parsed.query or {}
+    query_text = "&".join(f"{k}={query[k]}" for k in sorted(query))
+    suffix = f"?{query_text}" if query_text else ""
+    # Canonical target identity intentionally excludes credentials.
+    return f"{driver}://{host}{port}/{database}{suffix}"
+
+
+def _resolve_current_revision() -> str | None:
+    try:
+        row = db.session.execute(text("SELECT version_num FROM alembic_version")).fetchone()
+        return str(row[0]) if row and row[0] else None
+    except Exception:
+        return None
+
+
+def _resolve_head_revisions() -> list[str]:
+    try:
+        from alembic.config import Config
+        from alembic.script import ScriptDirectory
+
+        cfg = Config(str(_alembic_ini_path()))
+        cfg.set_main_option("script_location", str(Path(PROJECT_ROOT) / "alembic"))
+        script = ScriptDirectory.from_config(cfg)
+        heads = [str(head) for head in script.get_heads() if head]
+        return sorted(set(heads))
+    except Exception:
+        return []
+
+
+def _schema_revision_status() -> dict[str, Any]:
+    current_revision = _resolve_current_revision()
+    heads = _resolve_head_revisions()
+    head_count = len(heads)
+    head_revision = heads[0] if head_count == 1 else None
+    at_head = bool(current_revision is not None and head_count == 1 and current_revision == heads[0])
+    return {
+        "current_revision": current_revision,
+        "heads": heads,
+        "head_count": head_count,
+        "head_revision": head_revision,
+        "at_head": at_head,
+    }
+
+
+def _missing_tables_from_report(report: dict[str, Any]) -> list[str]:
+    missing_tables: set[str] = set()
+    details = (report.get("missing_details") or {}) if isinstance(report, dict) else {}
+    for artifacts in details.values():
+        for artifact in artifacts or []:
+            token = str(artifact or "")
+            if token.startswith("table:"):
+                missing_tables.add(token.split(":", 1)[1])
+    return sorted(missing_tables)
+
+
+def _startup_failure_payload(
+    *,
+    error_code: str,
+    detail: str,
+    required_action: str,
+    diagnostics: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    code = error_code if error_code in STARTUP_CONTRACT_ERROR_CODES else "SCHEMA_NOT_READY"
+    payload: dict[str, Any] = {
+        "ok": False,
+        "error_code": code,
+        "message": f"{STARTUP_MIGRATION_FAILURE_PREFIX} {detail}",
+        "required_action": required_action,
+    }
+    for key, value in (diagnostics or {}).items():
+        if value is not None:
+            payload[key] = value
+    return payload
+
+
+def _evaluate_startup_migration_contract(app: Flask) -> dict[str, Any]:
+    runtime_uri = str(app.config.get("SQLALCHEMY_DATABASE_URI") or "").strip()
+    alembic_uri = _resolve_alembic_database_uri()
+    runtime_target = _canonicalize_database_uri(runtime_uri)
+    alembic_target = _canonicalize_database_uri(alembic_uri)
+
+    if bool(app.config.get("AUTO_CREATE_SCHEMA", False)):
+        return _startup_failure_payload(
+            error_code="SCHEMA_NOT_READY",
+            detail="AUTO_CREATE_SCHEMA is forbidden in non-test runtime.",
+            required_action="Disable AUTO_CREATE_SCHEMA and run Alembic migrations to head.",
+            diagnostics={
+                "auto_create_schema": True,
+                "runtime_db_url": runtime_target,
+                "alembic_db_url": alembic_target,
+            },
+        )
+
+    if runtime_target and alembic_target and runtime_target != alembic_target:
+        return _startup_failure_payload(
+            error_code="DB_URL_MISMATCH",
+            detail="Runtime DB URL does not match Alembic DB URL.",
+            required_action="Set FINANCE_DATABASE_URL and ALEMBIC_DATABASE_URL to the same database target.",
+            diagnostics={
+                "runtime_db_url": runtime_target,
+                "alembic_db_url": alembic_target,
+            },
+        )
+
+    revision = _schema_revision_status()
+    if not bool(revision.get("at_head")):
+        return _startup_failure_payload(
+            error_code="ALEMBIC_NOT_AT_HEAD",
+            detail="Runtime database is not at Alembic head revision.",
+            required_action="Run `alembic upgrade head` against the runtime database.",
+            diagnostics={
+                "at_head": False,
+                "current_revision": revision.get("current_revision"),
+                "head_revision": revision.get("head_revision"),
+                "head_count": revision.get("head_count"),
+                "heads": revision.get("heads"),
+                "runtime_db_url": runtime_target,
+                "alembic_db_url": alembic_target,
+            },
+        )
+
+    caps_report = capability_report()
+    if not bool(caps_report.get("ok")):
+        capabilities = (caps_report.get("capabilities") or {}) if isinstance(caps_report, dict) else {}
+        missing_capabilities = sorted([name for name, ok in capabilities.items() if not bool(ok)])
+        missing_tables = _missing_tables_from_report(caps_report if isinstance(caps_report, dict) else {})
+        return _startup_failure_payload(
+            error_code="SCHEMA_CAPABILITY_MISSING",
+            detail="Required schema capabilities are missing.",
+            required_action="Apply Alembic migrations that satisfy all required schema capabilities.",
+            diagnostics={
+                "at_head": True,
+                "current_revision": revision.get("current_revision"),
+                "head_revision": revision.get("head_revision"),
+                "head_count": revision.get("head_count"),
+                "heads": revision.get("heads"),
+                "missing_capabilities": missing_capabilities,
+                "missing_tables": missing_tables,
+            },
+        )
+
+    return {
+        "ok": True,
+        "at_head": True,
+        "current_revision": revision.get("current_revision"),
+        "head_revision": revision.get("head_revision"),
+        "head_count": revision.get("head_count"),
+        "heads": revision.get("heads"),
+    }
+
+
 def create_app():
     """Application factory for WSGI/CLI entrypoints."""
     app = Flask(
@@ -157,52 +362,39 @@ def create_app():
     db.init_app(app)
 
     with app.app_context():
-        if app.config.get("AUTO_CREATE_SCHEMA", False):
-            ensure_schema()
         register_blueprints(app)
         register_cli(app)
-
-    # Lazy schema check on first request (helps when DB is wiped mid-run)
-    app._schema_checked = False  # type: ignore[attr-defined]
+    app._test_schema_bootstrapped = False  # type: ignore[attr-defined]
 
     @app.before_request
-    def _ensure_schema_if_missing():
-        if getattr(app, "_schema_checked", False):
+    def _startup_migration_gate():
+        if not _is_non_test_runtime(app):
+            if bool(app.config.get("AUTO_CREATE_SCHEMA", False)) and not getattr(app, "_test_schema_bootstrapped", False):
+                ensure_schema()
+                app._test_schema_bootstrapped = True  # type: ignore[attr-defined]
             return None
-        try:
-            insp = inspect(db.engine)
-            required = {"user", "rate_limit_bucket", "account_suggestion_log", "account_suggestion_hint"}
-            missing = [t for t in required if not insp.has_table(t)]
-            if missing:
-                if app.config.get("AUTO_CREATE_SCHEMA", False):
-                    ensure_schema()
-                else:
-                    app._schema_checked = True  # type: ignore[attr-defined]
-                    return (
-                        {
-                            "ok": False,
-                            "error": "Database schema missing. Run Alembic migrations to create the required tables.",
-                            "missing_tables": missing,
-                        },
-                        503,
-                    )
-            app._schema_checked = True  # type: ignore[attr-defined]
-        except Exception:
-            # Leave unchecked; the OperationalError handler will still emit a clear message
-            app._schema_checked = True  # type: ignore[attr-defined]
-        return None
+
+        payload = _evaluate_startup_migration_contract(app)
+        if bool(payload.get("ok")):
+            return None
+
+        app.logger.error("%s %s", STARTUP_MIGRATION_FAILURE_PREFIX, payload)
+        if request.path == "/healthz":
+            return payload, 503
+        return payload, 503
 
     @app.errorhandler(OperationalError)
     def _handle_db_errors(exc):
         msg = str(exc.orig) if getattr(exc, "orig", None) else str(exc)
         if "no such table: user" in msg.lower():
-            return (
-                {
-                    "ok": False,
-                    "error": "Database schema missing. Run Alembic migrations to create the user table.",
-                },
-                503,
+            payload = _startup_failure_payload(
+                error_code="SCHEMA_NOT_READY",
+                detail="Database schema missing required table(s).",
+                required_action="Run Alembic migrations to head for the runtime database.",
+                diagnostics={"missing_tables": ["user"]},
             )
+            app.logger.error("%s %s", STARTUP_MIGRATION_FAILURE_PREFIX, payload)
+            return payload, 503
         return {"ok": False, "error": f"Database error: {msg}"}, 500
 
     @app.after_request

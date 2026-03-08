@@ -78,6 +78,24 @@ jobs:
           path: migration_smoke_vnext.json
           if-no-files-found: error
 
+      - name: Startup migration contract gate
+        shell: bash
+        run: |
+          set +e
+          : > startup_migration_contract.log
+          python3 -m pytest -q tests/test_startup_migration_contract.py | tee startup_migration_contract.log
+          cmd_status=${PIPESTATUS[0]}
+          set -e
+          exit "${cmd_status}"
+
+      - name: Upload startup migration contract artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: startup_migration_contract.log
+          path: startup_migration_contract.log
+          if-no-files-found: ignore
+
       - name: Invariant catalog parity check
         shell: bash
         run: |
