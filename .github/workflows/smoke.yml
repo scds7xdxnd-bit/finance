@@ -53,7 +53,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install alembic pytest
+          pip install alembic pytest openpyxl
 
       - name: vNext migration smoke
         shell: bash
@@ -117,6 +117,26 @@ jobs:
           name: invariant_catalog_parity.json
           path: invariant_catalog_parity.json
           if-no-files-found: error
+
+      - name: Statement export parity gate
+        shell: bash
+        run: |
+          set +e
+          : > statement_export_parity.log
+          python3 -m pytest -q tests/test_statement_export_contract.py | tee statement_export_parity.log
+          cmd_status=${PIPESTATUS[0]}
+          set -e
+          exit "${cmd_status}"
+
+      - name: Upload statement export parity artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: statement_export_parity_artifacts
+          path: |
+            statement_export_parity.log
+            artifacts/statement_export_parity/**
+          if-no-files-found: ignore
 
       - name: vNext gate tests
         run: |

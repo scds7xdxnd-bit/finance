@@ -2493,6 +2493,7 @@ def statement_export():
     """Export statement data as CSV or XLSX."""
     import csv
     import io
+    from decimal import Decimal, ROUND_HALF_UP
 
     from finance_app import current_user
 
@@ -2504,21 +2505,102 @@ def statement_export():
     if fmt not in {'csv', 'xlsx'}:
         return {'ok': False, 'error': 'Unsupported format'}, 400
 
-    ym = (request.args.get('ym') or '').strip()
-    if not ym:
-        return {'ok': False, 'error': 'Missing ym'}, 400
-
     # Reuse statement_data to build payload using the current request context/session.
     payload = statement_data()
     if isinstance(payload, tuple):
         return payload
     if not isinstance(payload, dict) or not payload.get('ok'):
         return {'ok': False, 'error': payload.get('error', 'Failed to build data')}, 400
+    ym = (payload.get('ym') or request.args.get('ym') or '').strip()
+    if not ym:
+        return {'ok': False, 'error': 'Missing ym (YYYY-MM)'}, 400
 
     kind = (request.args.get('kind') or 'income').strip().lower()
     data = payload.get('statements', {}).get(kind)
     if not data:
         return {'ok': False, 'error': 'No statement data'}, 400
+
+    def _decimal_str(val):
+        try:
+            return format(Decimal(str(val)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP), 'f')
+        except Exception:
+            return ""
+
+    def _meta_value_str(val):
+        if isinstance(val, bool):
+            return "true" if val else "false"
+        if val is None:
+            return ""
+        return str(val)
+
+    def _is_numeric_value(val):
+        return isinstance(val, (int, float, Decimal)) and not isinstance(val, bool)
+
+    def _build_reserved_parity_rows():
+        parity_rows = []
+        totals = data.get('totals') or {}
+        for total_key, total_value in totals.items():
+            if str(total_key).endswith('_fmt'):
+                continue
+            if not _is_numeric_value(total_value):
+                continue
+            parity_rows.append(
+                {
+                    'Section': '__TOTAL__',
+                    'Label': str(total_key),
+                    'amount_base': _decimal_str(total_value),
+                    'meta_value': '',
+                }
+            )
+
+        source = payload.get('source') or {}
+        coverage = payload.get('coverage')
+        parity_rows.append(
+            {
+                'Section': '__META__',
+                'Label': 'source.mode',
+                'amount_base': '',
+                'meta_value': _meta_value_str(source.get('mode')),
+            }
+        )
+        parity_rows.append(
+            {
+                'Section': '__META__',
+                'Label': 'source.mixed_mode_allowed',
+                'amount_base': '',
+                'meta_value': _meta_value_str(source.get('mixed_mode_allowed')),
+            }
+        )
+        parity_rows.append(
+            {
+                'Section': '__META__',
+                'Label': 'source.legacy_rows_included_in_totals',
+                'amount_base': '',
+                'meta_value': _meta_value_str(source.get('legacy_rows_included_in_totals')),
+            }
+        )
+        coverage_present = isinstance(coverage, dict)
+        parity_rows.append(
+            {
+                'Section': '__META__',
+                'Label': 'coverage.present',
+                'amount_base': '',
+                'meta_value': "true" if coverage_present else "false",
+            }
+        )
+        if coverage_present:
+            for cov_key, cov_val in coverage.items():
+                if not _is_numeric_value(cov_val):
+                    continue
+                parity_rows.append(
+                    {
+                        'Section': '__META__',
+                        'Label': f'coverage.{cov_key}',
+                        'amount_base': _decimal_str(cov_val),
+                        'meta_value': _meta_value_str(cov_val),
+                    }
+                )
+        return parity_rows
 
     # Normalize rows per kind with the same currency/compare resolution as the UI
     selected_ccy = (request.args.get('ccy') or '').upper()
@@ -2584,6 +2666,10 @@ def statement_export():
 
     cols = resolve_columns()
     headers = ['Section', 'Label'] + column_labels(cols)
+    if 'amount_base' not in headers:
+        headers.append('amount_base')
+    if 'meta_value' not in headers:
+        headers.append('meta_value')
     rows = []
     if kind == 'income':
         for row in data.get('rows') or []:
@@ -2605,6 +2691,7 @@ def statement_export():
                 for col in cols:
                     out_row[column_labels([col])[0]] = resolve_amount_cashflow(item, col)
                 rows.append(out_row)
+    rows.extend(_build_reserved_parity_rows())
 
     filename = f"{kind}_statement_{ym}"
     if fmt == 'csv':
@@ -2616,14 +2703,25 @@ def statement_export():
         csv_bytes = output.getvalue().encode('utf-8')
         return Response(csv_bytes, mimetype='text/csv', headers={'Content-Disposition': f'attachment; filename=\"{filename}.csv\"'})
 
-    # XLSX fallback using csv for simplicity
-    output = io.StringIO()
-    writer = csv.DictWriter(output, fieldnames=headers)
-    writer.writeheader()
+    # XLSX output must be a valid OOXML zip container (PK...).
+    from openpyxl import Workbook
+
+    workbook = Workbook(write_only=False)
+    sheet = workbook.active
+    sheet.title = "statement_export"
+    sheet.append(headers)
     for row in rows:
-        writer.writerow(row)
-    xlsx_bytes = output.getvalue().encode('utf-8')
-    return Response(xlsx_bytes, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', headers={'Content-Disposition': f'attachment; filename=\"{filename}.xlsx\"'})
+        sheet.append([row.get(header, '') for header in headers])
+
+    out = io.BytesIO()
+    workbook.save(out)
+    xlsx_bytes = out.getvalue()
+    headers_out = {'Content-Disposition': f'attachment; filename=\"{filename}.xlsx\"'}
+    return Response(
+        xlsx_bytes,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers=headers_out,
+    )
 
 
 @accounting_bp.route('/accounting/statement/pdf', methods=['GET'])
