@@ -1,5 +1,5 @@
 # Schema Capabilities Contract
-_Last updated: 2026-03-07_
+_Last updated: 2026-03-08_
 
 ## 60.1 Scope
 Capability-based schema guard contract for sensitive operations.
@@ -61,3 +61,54 @@ Capability-based schema guard contract for sensitive operations.
   - `failed_checks` may be empty for parity-only failures
   - explicit parity mismatch metadata when counts differ (`total_checks`, `required_artifact_count`, `parity_ok=false`, `parity_message`, `parity_delta`).
   - `parity_message` must start with `Schema verifier parity mismatch:`.
+
+## 60.8 Startup/Migration Contract (Authoritative)
+
+### 60.8.1 Canonical Schema Creation Path
+- Alembic-first is mandatory for runtime schema creation:
+  - `alembic upgrade head`
+- In non-test runtime, automatic schema creation via `db.create_all()` is forbidden.
+- `AUTO_CREATE_SCHEMA` may be used only in isolated test harnesses that do not provide release evidence.
+- Any production/dev runtime path that creates or mutates schema outside Alembic migrations is a contract violation.
+
+### 60.8.2 Runtime Readiness Rule
+- Runtime DB readiness requires both:
+  1. required schema capabilities pass (`schema_status.ok=true`)
+  2. DB revision is at Alembic head (`at_head=true`)
+- If either condition is false, runtime state is `schema_not_ready`.
+
+### 60.8.3 Not-Ready Endpoint Contract
+- `/healthz` is the only endpoint allowed to respond while `schema_not_ready`.
+- Every non-health business endpoint (at minimum `/`, `/login`, `/transactions`, `/accounting/*`, `/upload_csv`, `/add_transaction`, `/admin/*`, `/money-schedule/*`) must fail closed with HTTP `503`.
+- Required `503` JSON payload keys:
+  - `ok=false`
+  - `error_code` (stable enum): `SCHEMA_NOT_READY` | `ALEMBIC_NOT_AT_HEAD` | `SCHEMA_CAPABILITY_MISSING` | `DB_URL_MISMATCH`
+  - `message`
+  - `required_action`
+- Optional diagnostics keys:
+  - `at_head`
+  - `current_revision`
+  - `head_revision`
+  - `missing_tables`
+  - `missing_capabilities`
+- Required failure/log prefix for tests and diagnostics:
+  - `Startup/migration contract failed:`
+
+### 60.8.4 Environment Variable Precedence and Match Rule
+- Runtime DB URL precedence:
+  1. `FINANCE_DATABASE_URL`
+  2. `DATABASE_URL` (local development fallback only)
+  3. sqlite instance fallback (local development fallback only)
+- Alembic DB URL precedence:
+  1. `ALEMBIC_DATABASE_URL`
+  2. `alembic.ini` configured URL
+- In non-test environments, resolved runtime DB URL and Alembic DB URL must target the same database.
+- Any non-test mismatch is release-blocking and must emit `error_code=DB_URL_MISMATCH`.
+
+### 60.8.5 Verification Contract
+- Required release checks:
+  - `python3 scripts/migration_smoke_vnext.py`
+  - `python3 -m pytest -q tests/test_startup_migration_contract.py`
+- Pass condition:
+  - migration smoke exits `0` with `ok=true`
+  - startup/migration contract suite exits `0`

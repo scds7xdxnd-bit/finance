@@ -10,6 +10,7 @@ Canonical procedure for backup/restore, migrations, backfill, reconcile, cutover
 - Do not run release/cutover operations when invariant catalog parity fails (`missing_ids` or `extra_asserted_ids` non-empty).
 - Do not run release/cutover operations when statement export parity fails (`GATE-STATEMENT-EXPORT-PARITY`).
 - Do not run release/cutover operations when security compliance gate fails (`GATE-SECURITY-COMPLIANCE`).
+- Do not run release/cutover operations when startup/migration contract gate fails (`GATE-STARTUP-MIGRATION-CONTRACT`).
 - Always create a backup/snapshot before migrations or destructive operations.
 - Run backfill as dry-run before apply.
 - Do not cut over while `ledger-reconcile` fails or coverage thresholds are below defaults.
@@ -121,7 +122,14 @@ Run these in order for release readiness:
   - no `Security compliance gate failed:` failures
   - no expired exceptions in SSOT 70.5
   - on mismatch: release is blocked; do not proceed.
-6. Reconcile gate:
+6. Startup/migration contract gate:
+- `python3 -m pytest -q tests/test_startup_migration_contract.py`
+- expected:
+  - module passes
+  - no `Startup/migration contract failed:` failures
+  - non-ready DB drill and DB URL mismatch drill both covered by the suite
+  - on mismatch: release is blocked; do not proceed.
+7. Reconcile gate:
 - `python3 -m flask --app finance_app ledger-reconcile`
 - required pass thresholds:
   - `missing_links_count == 0`
@@ -130,12 +138,12 @@ Run these in order for release readiness:
   - `coverage_count >= 0.99`
   - `coverage_amount >= 0.995`
   - `unlinked_recent_90d_count <= 0`
-7. Required test gates:
+8. Required test gates:
 - `pytest -q tests/test_transaction_import_idempotency.py`
 - `pytest -q tests/test_ledger_convergence.py`
 - `pytest -q tests/test_ranked_reporting_cutover.py`
 - `pytest -q tests/test_vnext_gate.py`
-8. Policy lock:
+9. Policy lock:
 - reporting fallback may be `legacy` only, never `mixed`
 - fallback duration must be time-boxed and documented in incident notes
 
@@ -150,3 +158,53 @@ Branch protection must require checks mapped in `project/docs/ssot/80_quality_ga
 - Statement export parity contract: `project/docs/ssot/50_reporting_contracts.md` (SSOT 50.7)
 - Security model and exception register: `project/docs/ssot/70_security_model.md`
 - Existing operator reference: `project/docs/operator_runbook.md`
+
+## 90.7 Startup and Migration Standard Procedure
+This subsection is authoritative for fresh setup, upgrades, and startup troubleshooting.
+
+### 90.7.1 Fresh Install / New Database
+1. Set DB URLs for the same target DB:
+- `export FINANCE_DATABASE_URL=<db_url>`
+- `export ALEMBIC_DATABASE_URL=<db_url>`
+2. Run migrations:
+- `alembic upgrade head`
+3. Verify readiness:
+- `python3 -m flask --app finance_app schema-status`
+- `python3 scripts/migration_smoke_vnext.py`
+- `python3 -m pytest -q tests/test_startup_migration_contract.py`
+4. Pass criteria:
+- migration smoke exits `0` with `ok=true`
+- startup/migration contract suite exits `0`
+- no `Startup/migration contract failed:` output
+
+### 90.7.2 Existing Database Upgrade
+1. Create backup:
+- `python3 -m flask --app finance_app sqlite-backup`
+2. Apply migrations:
+- `alembic upgrade head`
+3. Validate contract:
+- `python3 -m flask --app finance_app schema-status`
+- `python3 scripts/migration_smoke_vnext.py`
+- `python3 -m pytest -q tests/test_startup_migration_contract.py`
+4. Stop conditions:
+- any command exits non-zero
+- any output includes `Startup/migration contract failed:`
+
+### 90.7.3 Backup Rule Before Destructive Operations
+- Do not run reset/restore/backfill/cutover operations without a fresh backup.
+- Minimum required command:
+  - `python3 -m flask --app finance_app sqlite-backup`
+
+### 90.7.4 Troubleshooting Missing-Schema 503
+If runtime returns 503 with schema-not-ready semantics (for example missing `user` table):
+1. Confirm DB URL alignment:
+- resolved runtime DB URL must equal Alembic DB URL in non-test environments.
+2. Confirm migration state:
+- `alembic current`
+- `alembic heads`
+3. Apply migrations if needed:
+- `alembic upgrade head`
+4. Re-run readiness checks:
+- `python3 -m flask --app finance_app schema-status`
+- `python3 scripts/migration_smoke_vnext.py`
+5. Do not proceed to release/cutover until both checks pass.
