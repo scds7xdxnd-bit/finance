@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 import io
 import os
 import time
@@ -7,6 +8,14 @@ import time
 import pytest
 from finance_app import User, create_app, db
 from finance_app.models.accounting_models import AdminActionAudit, JournalEntry, Transaction
+from finance_app.models.money_account import AccountType
+from finance_app.models.money_account import MoneyScheduleAccount as Account
+from helpers.security_compliance import (
+    has_active_exception,
+    load_exception_register,
+    probe_forecast_option_a,
+    probe_logout_method_safety,
+)
 
 
 @pytest.fixture()
@@ -386,3 +395,126 @@ def test_admin_mutation_schema_guard_hard_fails(app_ctx, monkeypatch):
     payload = resp.get_json()
     assert payload["ok"] is False
     assert "admin_audit" in payload.get("missing_capabilities", [])
+
+
+def test_logout_method_safety_or_active_exception_contract(app_ctx):
+    # SSOT 70.5 / 70.6 transition contract:
+    # unsafe GET /logout is allowed only while active unexpired exception exists.
+    app = app_ctx
+    rows = load_exception_register()
+    today = dt.datetime.now(dt.timezone.utc).date()
+    probe = probe_logout_method_safety(app)
+
+    if probe.get("get_logs_out_without_csrf"):
+        assert has_active_exception(
+            rows,
+            method="GET",
+            path="/logout",
+            control="method_safety",
+            today_utc=today,
+        ), probe
+    else:
+        assert int(probe.get("get_status_code") or 0) in (400, 401, 403, 405), probe
+
+
+def test_forecast_option_a_or_active_exception_contract(app_ctx):
+    # SSOT 70.6 Option A probes run in both modes.
+    # During transition, failures are allowed only when covered by active unexpired exceptions.
+    app = app_ctx
+    rows = load_exception_register()
+    today = dt.datetime.now(dt.timezone.utc).date()
+    violations = probe_forecast_option_a(app)
+    uncovered = [
+        violation
+        for violation in violations
+        if not has_active_exception(
+            rows,
+            method=str(violation["method"]),
+            path=str(violation["path"]),
+            control=str(violation["control"]),
+            today_utc=today,
+        )
+    ]
+    assert not uncovered, uncovered
+
+
+def test_forecast_schedule_audit_outcome_messages(app_ctx, monkeypatch):
+    app = app_ctx
+    app.config["FORECAST_LEGACY_ENABLED"] = True
+
+    with app.app_context():
+        admin = User(username="forecast_audit_admin", password_hash="pw", is_admin=True)
+        account = Account(
+            name="Forecast Audit Account",
+            type=AccountType.CHECKING,
+            currency="KRW",
+            current_balance=0,
+            is_included_in_closing=True,
+        )
+        db.session.add_all([admin, account])
+        db.session.commit()
+        admin_id = int(admin.id)
+        account_id = int(account.id)
+
+    client = app.test_client()
+    _login(client, admin_id, csrf_token="forecast-admin-csrf")
+
+    schedule_form = {
+        "description": "audit-probe",
+        "amount": "100",
+        "date": dt.date.today().isoformat(),
+        "account_id": str(account_id),
+        "currency": "KRW",
+    }
+
+    import routes.forecast as forecast_module
+
+    monkeypatch.setattr(
+        forecast_module,
+        "guard_capabilities",
+        lambda *_args, **_kwargs: (
+            False,
+            {
+                "ok": False,
+                "error": "Schema capability requirements not met",
+                "missing_capabilities": ["admin_audit"],
+            },
+            503,
+        ),
+    )
+
+    blocked = client.post(
+        "/forecast/schedule",
+        data=schedule_form,
+        headers={"X-CSRF-Token": "forecast-admin-csrf"},
+        follow_redirects=False,
+    )
+    assert blocked.status_code == 503
+    with app.app_context():
+        blocked_audit = (
+            AdminActionAudit.query.filter_by(actor_user_id=admin_id, action="forecast_schedule:blocked_guard")
+            .order_by(AdminActionAudit.created_at.desc())
+            .first()
+        )
+        assert blocked_audit is not None
+
+    monkeypatch.setattr(
+        forecast_module,
+        "guard_capabilities",
+        lambda *_args, **_kwargs: (True, {"ok": True}, 200),
+    )
+
+    success = client.post(
+        "/forecast/schedule",
+        data=schedule_form,
+        headers={"X-CSRF-Token": "forecast-admin-csrf"},
+        follow_redirects=False,
+    )
+    assert success.status_code in (302, 303)
+    with app.app_context():
+        success_audit = (
+            AdminActionAudit.query.filter_by(actor_user_id=admin_id, action="forecast_schedule:success")
+            .order_by(AdminActionAudit.created_at.desc())
+            .first()
+        )
+        assert success_audit is not None

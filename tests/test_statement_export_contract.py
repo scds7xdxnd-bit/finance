@@ -127,6 +127,17 @@ def _build_shared_selectors(*, ym: str, cash_folder_ids: list[int]) -> dict[str,
     }
 
 
+def _require_openpyxl() -> None:
+    try:
+        import openpyxl  # noqa: F401
+    except Exception:
+        pytest.fail(
+            "XLSX parity gate requires openpyxl in the runtime environment. "
+            "Install with: pip install -r requirements.txt",
+            pytrace=False,
+        )
+
+
 def _run_data_export_pair(
     client,
     *,
@@ -194,6 +205,7 @@ def test_statement_export_parity_csv_with_shared_selectors(app_ctx, kind):
 
 
 def test_statement_export_parity_xlsx_with_shared_selectors(app_ctx):
+    _require_openpyxl()
     case_data = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
     with app.app_context():
         seed = _seed_case(case_data)
@@ -224,6 +236,7 @@ def test_statement_export_parity_xlsx_with_shared_selectors(app_ctx):
 
 
 def test_statement_export_parity_xlsx_parse_error_includes_diagnostics(app_ctx):
+    _require_openpyxl()
     case_data = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
     with app.app_context():
         seed = _seed_case(case_data)

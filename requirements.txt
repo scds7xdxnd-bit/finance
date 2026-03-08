@@ -5,6 +5,7 @@ click>=8.1
 requests>=2.31
 jinja2>=3.1
 weasyprint>=61
+openpyxl>=3.1
 
 # Optional (ML suggesters). Set DISABLE_ML=1 to skip.
 # joblib>=1.3

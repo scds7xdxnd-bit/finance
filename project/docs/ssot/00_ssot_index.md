@@ -19,8 +19,9 @@ Section IDs in this file and all SSOT files are stable citation anchors.
 - Schema verifier parity is release-blocking: `total_checks == required_artifact_count` is mandatory.
 - Invariant catalog parity is release-blocking: `catalog_ids == asserted_ids` is mandatory.
 - Statement export parity is release-blocking: `/accounting/statement/export` must remain parity-consistent with `/accounting/statement/data`.
+- Security compliance gate with exception expiry is release-blocking: expired security exceptions fail release.
 - Canonical ledger query API is the reporting contract surface.
-- CI vNext gate enforces schema, dedupe, convergence, reporting parity, scope invariants, invariant catalog parity, and statement export parity.
+- CI vNext gate enforces schema, dedupe, convergence, reporting parity, scope invariants, invariant catalog parity, statement export parity, and security compliance.
 
 ## 00.3 Source Precedence (Anti-Shadow-Truth Rule)
 When sources disagree, precedence is:
@@ -49,6 +50,7 @@ Any change to locked decisions, contract surfaces, or gate thresholds must satis
 - For schema verifier or capability changes, include parity evidence from `SSOT 61.8`.
 - For invariant catalog or invariant assertion changes, include parity evidence from `SSOT 81.8`.
 - For statement export or statement data contract changes, include parity evidence from `SSOT 50.7` and gate evidence from `SSOT 80.11`.
+- For sensitive endpoint changes, include security gate evidence from `SSOT 80.12` and exception-register updates from `SSOT 70.5` (if applicable).
 
 ## 00.6 Document Map
 | File | Purpose |

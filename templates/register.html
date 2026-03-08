@@ -189,6 +189,7 @@
 
     <section class="auth-card">
       <form method="POST" class="auth-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <div class="form-grid">
           <div class="form-group">
             <label for="username">Username</label>

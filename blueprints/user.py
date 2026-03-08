@@ -3,7 +3,7 @@ import os
 from typing import TYPE_CHECKING
 
 from finance_app.extensions import db
-from finance_app.lib.auth import current_user
+from finance_app.lib.auth import csrf_failure_response, csrf_token_valid, current_user
 from finance_app.models.accounting_models import (
     JournalEntry,
     LoginSession,
@@ -161,6 +161,8 @@ def _compute_financial_pulse(user):
 
 @user_bp.route('/profile', methods=['GET', 'POST'])
 def profile():
+    if request.method == 'POST' and not csrf_token_valid():
+        return csrf_failure_response()
     user = current_user()
     if not user:
         flash('Login required.')
@@ -296,6 +298,8 @@ def profile():
 
 @user_bp.route('/profile/post', methods=['POST'])
 def add_post():
+    if not csrf_token_valid():
+        return csrf_failure_response()
     user = current_user()
     if not user or not user.profile:
         flash('Login required.')
@@ -311,6 +315,8 @@ def add_post():
 
 @user_bp.route('/profile/post/edit/<int:post_id>', methods=['POST'])
 def edit_post(post_id):
+    if not csrf_token_valid():
+        return csrf_failure_response()
     user = current_user()
     post = UserPost.query.get_or_404(post_id)
     if not user or (not user.is_admin and (not user.profile or post.profile_id != user.profile.id)):
@@ -328,6 +334,8 @@ def edit_post(post_id):
 
 @user_bp.route('/profile/change_credentials', methods=['GET', 'POST'])
 def change_credentials():
+    if request.method == 'POST' and not csrf_token_valid():
+        return csrf_failure_response()
     user = current_user()
     if not user:
         flash('Login required.')
@@ -376,6 +384,8 @@ def change_credentials():
 
 @user_bp.route('/profile/post/delete/<int:post_id>', methods=['POST'])
 def delete_post(post_id):
+    if not csrf_token_valid():
+        return csrf_failure_response()
     user = current_user()
     post = UserPost.query.get_or_404(post_id)
     if user and (user.is_admin or (user.profile and post.profile_id == user.profile.id)):
