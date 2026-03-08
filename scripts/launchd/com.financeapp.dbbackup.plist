@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.financeapp.dbbackup</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/ammarhakimi/Dev/finance_app_clean/flask_app/scripts/db_backup_with_retention.sh</string>
+        <string>30</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/ammarhakimi/Dev/finance_app_clean/flask_app</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>FINANCE_DATABASE_URL</key>
+        <string>sqlite:///instance/finance_app.db</string>
+        <key>ALEMBIC_DATABASE_URL</key>
+        <string>sqlite:///instance/finance_app.db</string>
+    </dict>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>2</integer>
+        <key>Minute</key>
+        <integer>10</integer>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/ammarhakimi/Dev/finance_app_clean/flask_app/instance/backups/sqlite/launchd_dbbackup.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/ammarhakimi/Dev/finance_app_clean/flask_app/instance/backups/sqlite/launchd_dbbackup.err.log</string>
+</dict>
+</plist>
