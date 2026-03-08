@@ -28,6 +28,9 @@ instance/
 instance/backups/
 instance/uploads/
 instance/user_models/
+instance/ml_state/**
+ml/account_embeds.json
+ml/journal_state.json
 :memory:
 :memory:-shm
 :memory:-wal

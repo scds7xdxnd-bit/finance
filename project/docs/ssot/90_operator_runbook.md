@@ -1,5 +1,5 @@
 # Operator Runbook (Canonical)
-_Last updated: 2026-03-07_
+_Last updated: 2026-03-08_
 
 ## 90.1 Scope
 Canonical procedure for backup/restore, migrations, backfill, reconcile, cutover, and rollback.
@@ -7,6 +7,8 @@ Canonical procedure for backup/restore, migrations, backfill, reconcile, cutover
 ## 90.2 Non-Negotiable Contracts
 - Do not run import/backfill/reset/cutover operations until `schema-status` passes.
 - Do not run import/backfill/reset/cutover operations when schema verifier parity fails (`total_checks != required_artifact_count`).
+- Do not run release/cutover operations when invariant catalog parity fails (`missing_ids` or `extra_asserted_ids` non-empty).
+- Do not run release/cutover operations when statement export parity fails (`GATE-STATEMENT-EXPORT-PARITY`).
 - Always create a backup/snapshot before migrations or destructive operations.
 - Run backfill as dry-run before apply.
 - Do not cut over while `ledger-reconcile` fails or coverage thresholds are below defaults.
@@ -36,6 +38,18 @@ Canonical procedure for backup/restore, migrations, backfill, reconcile, cutover
   - `total_checks == required_artifact_count`
   - stdout contains `parity_ok=true total_checks=<int> required_artifact_count=<int>`
 - if parity fails, stop and do not continue to backfill/reconcile/cutover.
+- required invariant parity check: `python3 scripts/check_invariant_catalog_parity.py`
+- confirm all:
+  - command exits `0`
+  - payload `ok=true`
+  - `missing_ids=[]`
+  - `extra_asserted_ids=[]`
+- if invariant parity fails, stop and do not continue to release/cutover.
+- required statement export parity check: `python3 -m pytest -q tests/test_statement_export_contract.py`
+- confirm all:
+  - command exits `0`
+  - no parity mismatches reported for totals/source/coverage rules
+- if statement export parity fails, stop and do not continue to release/cutover.
 
 4. Convergence baseline + backfill
 - `python3 -m flask --app finance_app ledger-convergence-metrics`
@@ -80,7 +94,20 @@ Run these in order for release readiness:
   - `total_checks == required_artifact_count`
   - summary line `parity_ok=true total_checks=<int> required_artifact_count=<int>`
   - on mismatch: release is blocked; do not proceed.
-3. Reconcile gate:
+3. Invariant catalog parity:
+- `python3 scripts/check_invariant_catalog_parity.py`
+- expected:
+  - top-level `ok=true`
+  - `missing_ids=[]`
+  - `extra_asserted_ids=[]`
+  - on mismatch: release is blocked; do not proceed.
+4. Statement export parity:
+- `python3 -m pytest -q tests/test_statement_export_contract.py`
+- expected:
+  - module passes
+  - no `Statement export parity mismatch:` failures
+  - on mismatch: release is blocked; do not proceed.
+5. Reconcile gate:
 - `python3 -m flask --app finance_app ledger-reconcile`
 - required pass thresholds:
   - `missing_links_count == 0`
@@ -89,12 +116,12 @@ Run these in order for release readiness:
   - `coverage_count >= 0.99`
   - `coverage_amount >= 0.995`
   - `unlinked_recent_90d_count <= 0`
-4. Required test gates:
+6. Required test gates:
 - `pytest -q tests/test_transaction_import_idempotency.py`
 - `pytest -q tests/test_ledger_convergence.py`
 - `pytest -q tests/test_ranked_reporting_cutover.py`
 - `pytest -q tests/test_vnext_gate.py`
-5. Policy lock:
+7. Policy lock:
 - reporting fallback may be `legacy` only, never `mixed`
 - fallback duration must be time-boxed and documented in incident notes
 
@@ -105,4 +132,6 @@ Branch protection must require checks mapped in `project/docs/ssot/80_quality_ga
 - TB snapshot implementation: `finance_app/services/trial_balance_service.py`
 - Schema verification SQL: `scripts/verify_schema_capabilities.sql`
 - Verifier parity playbook: `project/docs/ssot/61_schema_verifier_parity_playbook.md`
+- Invariant parity playbook: `project/docs/ssot/81_invariant_catalog_parity_playbook.md`
+- Statement export parity contract: `project/docs/ssot/50_reporting_contracts.md` (SSOT 50.7)
 - Existing operator reference: `project/docs/operator_runbook.md`
