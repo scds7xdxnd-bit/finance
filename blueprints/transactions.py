@@ -377,6 +377,8 @@ def delete_transaction(tx_id):
 def add_transaction():
     user = current_user()
     if not user:
+        if request.method == 'POST' and request.is_json:
+            return {'ok': False, 'error': 'Unauthorized'}, 401
         return ("Unauthorized", 401)
     # JSON API used by the transactions.html UI
     if request.method == 'POST' and request.is_json:

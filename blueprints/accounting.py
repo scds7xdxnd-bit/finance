@@ -2031,7 +2031,7 @@ def tb_monthly(ym_override=None):
     from finance_app import current_user
     user = current_user()
     if not user:
-        return ("Unauthorized", 401)
+        return {"ok": False, "error": "Unauthorized"}, 401
     ok_guard, payload, status = _guard_schema_caps(["journal_report_perf"], user_id=user.id)
     if not ok_guard:
         return payload, status
@@ -2045,8 +2045,17 @@ def tb_monthly(ym_override=None):
         ym = f"{today.year:04d}-{today.month:02d}"
     ccy = (request.args.get('ccy') or '').strip().upper() or None
     result = ledger_trial_balance_month(user.id, ym, currency=ccy)
-    status = 200 if result.get("ok") else 400
-    return result, status
+    if not isinstance(result, dict):
+        return {"ok": False, "error": "Failed to compute monthly trial balance"}, 400
+    if bool(result.get("ok")):
+        result.setdefault("groups", {})
+        result.setdefault("grand_totals", {})
+        result.setdefault("source", {"mode": "journal"})
+        return result, 200
+    result["ok"] = False
+    if not isinstance(result.get("error"), str) or not result.get("error"):
+        result["error"] = "Failed to compute monthly trial balance"
+    return result, 400
 @accounting_bp.route('/accounting/tb/close', methods=['POST'])
 def tb_close_month():
     """Persist monthly per-account balances for faster future reports.
@@ -2103,7 +2112,7 @@ def statement_data():
 
     user = current_user()
     if not user:
-        return ("Unauthorized", 401)
+        return {"ok": False, "error": "Unauthorized"}, 401
     ok_guard, payload, status = _guard_schema_caps(["journal_report_perf"], user_id=user.id)
     if not ok_guard:
         return payload, status
@@ -2348,6 +2357,7 @@ def statement_data():
         'ym': ym,
         'organization': org,
         'period': {'start': start.isoformat(), 'end': end.isoformat()},
+        'source': canonical_stmt.get("source") or {'mode': 'journal'},
         'statements': {
             'income': income_statement,
             'balance': balance_statement,
@@ -2358,10 +2368,11 @@ def statement_data():
         'cash_folder_options': cash_folder_options,
         'selected_cash_folders': cash_folder_ids,
     }
-    if canonical_stmt.get("source"):
-        payload["source"] = canonical_stmt.get("source")
     if canonical_stmt.get("coverage") is not None:
         payload["coverage"] = canonical_stmt.get("coverage")
+        if isinstance(payload["coverage"], dict):
+            payload["coverage"].setdefault("coverage_count", 0)
+            payload["coverage"].setdefault("coverage_amount", 0)
     if compare_period:
         payload['compare_period'] = compare_period
         payload['ym_compare'] = compare_ym

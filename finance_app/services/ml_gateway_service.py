@@ -31,6 +31,30 @@ def _normalize_weight(value, default=1, minimum=1):
     return w
 
 
+def normalize_predictions(predictions: List[Dict[str, Any]] | None) -> List[Dict[str, Any]]:
+    """Normalize prediction items to always expose account_name + probability."""
+    normalized: List[Dict[str, Any]] = []
+    for item in predictions or []:
+        if not isinstance(item, dict):
+            continue
+        account_name = (item.get("account_name") or item.get("account") or "").strip()
+        if not account_name:
+            continue
+        raw_probability = item.get("probability")
+        if raw_probability is None:
+            raw_probability = item.get("score")
+        try:
+            probability = float(raw_probability) if raw_probability is not None else 0.0
+        except Exception:
+            probability = 0.0
+        normalized_item = dict(item)
+        normalized_item["account_name"] = account_name
+        normalized_item["probability"] = probability
+        normalized_item.setdefault("score", probability)
+        normalized.append(normalized_item)
+    return normalized
+
+
 def compute_suggestions(
     user_id: int,
     lines: List[Dict[str, Any]],
@@ -80,7 +104,7 @@ def try_user_model(user_id: int, line_type: str, description: str, top_k: int):
     """Return predictions from the per-user model if available."""
     try:
         preds, meta = predict_user_model(user_id, line_type, description, top_k=top_k)
-        return preds, meta
+        return normalize_predictions(preds), meta
     except Exception:
         return [], None
 
@@ -107,7 +131,7 @@ def call_ml_api(api_url: str, payload: Dict[str, Any], timeout: float, max_attem
 def fallback_hint(user_id: int, line_type: str, description: str):
     """Return a hint-based suggestion payload."""
     suggestion = best_hint_suggestion(user_id, line_type, description)
-    return [{"account_name": suggestion, "score": 0.0}] if suggestion else []
+    return normalize_predictions([{"account_name": suggestion, "probability": 0.0, "score": 0.0}] if suggestion else [])
 
 
 def handle_ml_response(features, context, ml_response, started_ts, request_id, top_k, model_meta=None):
@@ -116,7 +140,7 @@ def handle_ml_response(features, context, ml_response, started_ts, request_id, t
     latency_ms = int((time.perf_counter() - started_ts) * 1000)
     results = ml_response.get("results") or []
     first = results[0] if results else {}
-    predictions = first.get("predictions") or []
+    predictions = normalize_predictions(first.get("predictions") or [])
     model_path = ml_response.get("model_path")
     model_version = ml_response.get("model_version")
     model_hash = ml_response.get("model_hash") or ml_response.get("model_version_hash")

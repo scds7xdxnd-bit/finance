@@ -1,5 +1,5 @@
 # Team Boundaries and Change Rules
-_Last updated: 2026-03-07_
+_Last updated: 2026-03-10_
 
 ## 99.1 Scope
 Ownership boundaries, stable interfaces, and forbidden changes for vNext correctness work.
@@ -13,6 +13,7 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 | Reporting | `finance_app/services/ledger_query_service.py`, ranked report routes in `blueprints/accounting.py`, `statements_pdf.py`, `trial_balance_pdf.py` |
 | QA | `tests/test_vnext_gate.py`, `tests/test_transaction_import_idempotency.py`, `tests/test_ledger_convergence.py`, `tests/test_ranked_reporting_cutover.py`, `tests/test_security_sensitive_endpoints.py`, golden fixtures under `tests/fixtures/golden/*` |
 | Sec | `finance_app/lib/auth.py`, `blueprints/auth.py`, `blueprints/admin.py`, authz/CSRF checks in sensitive blueprints |
+| Frontend | `templates/*`, `static/js/*`, `static/css/*`, UI-side use of `window.FINANCE_ENDPOINTS` |
 | PM | `project/docs/ssot/*`, release policy docs, acceptance and rollout checklists |
 
 ## 99.3 Stable Interfaces (Architect Signoff Required)
@@ -23,6 +24,25 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Schema capability names and required artifacts in `schema_guard_service.py`.
 - Schema-guard bypass metadata contract (`SCHEMA_GUARD_BYPASS_REASON`, `SCHEMA_GUARD_BYPASS_UNTIL`, 7-day max window).
 - Release gate invariant IDs and pass/fail semantics in `tests/test_vnext_gate.py`.
+- Frontend Contract Surface (`SSOT 55`):
+  - locked endpoint contracts:
+    - `POST /add_transaction`
+    - `POST /api/ml_suggestions`
+    - `POST /api/suggestions/log`
+    - `GET /accounting/tb/monthly`
+    - `GET /accounting/statement/data`
+  - locked endpoint-registry keys in `window.FINANCE_ENDPOINTS`:
+    - `transactions.add`
+    - `ml.suggestions`
+    - `ml.suggestionLog`
+    - `accounting.tbMonthly`
+    - `accounting.statements.data`
+
+### 99.3.1 Frontend Contract Surface Ownership
+- Architect owns SSOT definitions in `project/docs/ssot/55_frontend_contracts.md`.
+- QA owns contract tests in `tests/test_frontend_contracts.py`.
+- Backend owns endpoint conformity with locked request/response keys and status semantics.
+- Frontend owns UI consumption of locked contracts and registry keys.
 
 ## 99.4 Forbidden Changes
 - Reporting code must not compute ranked totals from legacy `Transaction` rows.
@@ -33,12 +53,17 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Ledger posting code must not bypass balance validation.
 - Sensitive routes must not bypass schema guard when capability checks are required.
 - Admin mutation flows must not bypass CSRF, confirmation cooldown, or audit logging.
+- Backend and Frontend must not remove or rename required frontend-contract keys (`SSOT 55`) without SSOT update and QA contract-test update.
+- Backend and Frontend must not remove or rename required `window.FINANCE_ENDPOINTS` keys (`SSOT 55.5`) without SSOT update and QA contract-test update.
 
 ## 99.5 SSOT Change Protocol (Mandatory)
 - Any PR that changes a stable interface or forbidden-change area must:
   - update relevant SSOT file(s)
   - update tests/gates in the same PR
   - include architect signoff before merge
+- Any PR that changes frontend contract surface (`SSOT 55`) must include:
+  - SSOT 55 section references
+  - QA contract evidence from `tests/test_frontend_contracts.py` (once implemented)
 - If behavior is intentionally transitional, PR must include:
   - explicit temporary rule
   - expiration date

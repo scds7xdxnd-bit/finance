@@ -87,7 +87,7 @@ def documents():
 def ml_suggestions():
     user = current_user()
     if not user:
-        return ("Unauthorized", 401)
+        return {"ok": False, "error": "Unauthorized"}, 401
     if is_rate_limited(user.id, "ml_suggestions", _RATE_LIMITS):
         return {"ok": False, "error": "Rate limit exceeded"}, 429
 
@@ -217,22 +217,25 @@ def ml_suggestions():
             200,
         )
 
-    return handle_ml_response(
-        features=features,
-        context=context,
-        ml_response=ml_response,
-        started_ts=started_ts,
-        request_id=request_id,
-        top_k=top_k,
-        model_meta=None,
-    )
+    try:
+        return handle_ml_response(
+            features=features,
+            context=context,
+            ml_response=ml_response,
+            started_ts=started_ts,
+            request_id=request_id,
+            top_k=top_k,
+            model_meta=None,
+        )
+    except Exception:
+        return {"ok": False, "error": "Failed to process ML suggestions"}, 500
 
 
 @core_bp.route("/api/suggestions/log", methods=["POST"])
 def ml_suggestion_log():
     user = current_user()
     if not user:
-        return ("Unauthorized", 401)
+        return {"ok": False, "error": "Unauthorized"}, 401
     if is_rate_limited(user.id, "ml_logs", _RATE_LIMITS):
         return {"ok": False, "error": "Rate limit exceeded"}, 429
     data = request.get_json(silent=True) or {}
@@ -240,13 +243,16 @@ def ml_suggestion_log():
     if not isinstance(logs, list) or not logs:
         return {"ok": False, "error": "logs must be a non-empty list"}, 400
 
-    saved = log_suggestions(
-        user_id=user.id,
-        entries=logs,
-        default_currency=core_bp.app.config["MLSUGGESTER_DEFAULT_CURRENCY"],
-        auto_train=core_bp.app.config.get("MLSUGGESTER_AUTO_TRAIN_USER_MODEL", False),
-        min_rows=core_bp.app.config.get("MLSUGGESTER_USER_MODEL_MIN_ROWS", 5),
-    )
+    try:
+        saved = log_suggestions(
+            user_id=user.id,
+            entries=logs,
+            default_currency=core_bp.app.config["MLSUGGESTER_DEFAULT_CURRENCY"],
+            auto_train=core_bp.app.config.get("MLSUGGESTER_AUTO_TRAIN_USER_MODEL", False),
+            min_rows=core_bp.app.config.get("MLSUGGESTER_USER_MODEL_MIN_ROWS", 5),
+        )
+    except Exception:
+        return {"ok": False, "error": "Failed to save suggestion logs"}, 500
     return {"ok": True, "saved": saved}
 
 

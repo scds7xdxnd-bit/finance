@@ -435,9 +435,14 @@
       const ratioQuick = document.getElementById('ratio-quick');
       const ratioDe = document.getElementById('ratio-de');
       const statementEndpoints = (window.FINANCE_ENDPOINTS && window.FINANCE_ENDPOINTS.accounting && window.FINANCE_ENDPOINTS.accounting.statements) || {};
-      const statementDataUrl = statementEndpoints.data || '/accounting/statement/data';
-      const statementExportUrl = statementEndpoints.export || '/accounting/statement/export';
-      const statementPdfUrl = statementEndpoints.pdf || '/accounting/statement/pdf';
+      const statementDataUrl = (statementEndpoints.data || '').trim();
+      const statementExportUrl = (statementEndpoints.export || '').trim();
+      const statementPdfUrl = (statementEndpoints.pdf || '').trim();
+      const resolveEndpoint = (url, key) => {
+        const value = (url || '').trim();
+        if (value) return value;
+        throw new Error(`Configuration error: missing endpoint key ${key}.`);
+      };
       const noticeBox = document.createElement('div');
       noticeBox.style.fontSize = '0.9rem';
       noticeBox.style.color = 'var(--negative)';
@@ -535,6 +540,7 @@
 
 
       const buildDataUrl = () => {
+        const baseUrl = resolveEndpoint(statementDataUrl, 'accounting.statements.data');
         const params = new URLSearchParams();
         params.set('ym', monthSel.value);
         params.set('include_trend', '1');
@@ -548,7 +554,7 @@
         if (compareToggle?.checked && compareMonthSel?.value) {
           params.set('ym_compare', compareMonthSel.value);
         }
-        return `${statementDataUrl}?${params.toString()}`;
+        return `${baseUrl}?${params.toString()}`;
       };
 
       const resolveCurrencyColumns = availableCurrencies => {
@@ -1922,14 +1928,20 @@
         const kind = document.getElementById('doc_type').value || 'income';
         const ym = monthSel ? (monthSel.value || '') : '';
         if (!ym){ alert('Select a month first.'); return; }
-        const org = 'Taeyang Finance';
-        const ccy = (document.getElementById('doc_ccy')?.value || '');
-        const selectedFolders = getSelectedCashFolders();
-        const folderParam = selectedFolders.length ? `&cash_folders=${encodeURIComponent(selectedFolders.join(','))}` : '';
-        const url = `${statementPdfUrl}?kind=${encodeURIComponent(kind)}&ym=${encodeURIComponent(ym)}&org=${encodeURIComponent(org)}${ccy?('&ccy='+encodeURIComponent(ccy)):''}${folderParam}`;
-        window.open(url, '_blank');
+        try {
+          const pdfBaseUrl = resolveEndpoint(statementPdfUrl, 'accounting.statements.pdf');
+          const org = 'Taeyang Finance';
+          const ccy = (document.getElementById('doc_ccy')?.value || '');
+          const selectedFolders = getSelectedCashFolders();
+          const folderParam = selectedFolders.length ? `&cash_folders=${encodeURIComponent(selectedFolders.join(','))}` : '';
+          const url = `${pdfBaseUrl}?kind=${encodeURIComponent(kind)}&ym=${encodeURIComponent(ym)}&org=${encodeURIComponent(org)}${ccy?('&ccy='+encodeURIComponent(ccy)):''}${folderParam}`;
+          window.open(url, '_blank');
+        } catch (err) {
+          docMsg.textContent = err?.message || 'Unable to open statement PDF.';
+        }
       });
       const buildExportUrl = (fmt) => {
+        const exportBaseUrl = resolveEndpoint(statementExportUrl, 'accounting.statements.export');
         const kind = document.getElementById('doc_type').value || 'income';
         const ym = monthSel ? (monthSel.value || '') : '';
         if (!ym) return null;
@@ -1937,7 +1949,7 @@
         const selectedFolders = getSelectedCashFolders();
         const folderParam = selectedFolders.length ? `&cash_folders=${encodeURIComponent(selectedFolders.join(','))}` : '';
         const compareParam = (compareToggle?.checked && compareMonthSel?.value) ? `&ym_compare=${encodeURIComponent(compareMonthSel.value)}` : '';
-        return `${statementExportUrl}?format=${encodeURIComponent(fmt)}&kind=${encodeURIComponent(kind)}&ym=${encodeURIComponent(ym)}${ccy?('&ccy='+encodeURIComponent(ccy)):''}${folderParam}${compareParam}`;
+        return `${exportBaseUrl}?format=${encodeURIComponent(fmt)}&kind=${encodeURIComponent(kind)}&ym=${encodeURIComponent(ym)}${ccy?('&ccy='+encodeURIComponent(ccy)):''}${folderParam}${compareParam}`;
       };
       document.getElementById('btn-doc-csv')?.addEventListener('click', () => {
         const url = buildExportUrl('csv');
