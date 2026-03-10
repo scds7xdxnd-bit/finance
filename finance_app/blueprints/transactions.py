@@ -7,7 +7,7 @@ compliance. Legacy implementation details remain sourced from ``blueprints.trans
 from importlib import import_module
 
 from finance_app.lib.auth import csrf_token_valid, current_user
-from flask import flash, redirect, session, url_for
+from flask import flash, redirect, request, session, url_for
 
 _mod = import_module("blueprints.transactions")
 transactions_bp = _mod.transactions_bp
@@ -23,7 +23,10 @@ def dismiss_last_import_result():
         flash("CSRF token missing or invalid.")
         return redirect(url_for("transactions_bp.transactions"))
     session.pop("last_import_result_v1", None)
-    return redirect(url_for("transactions_bp.transactions"))
+    preserved_params = _mod._extract_preserved_filter_params(request.args)
+    if not preserved_params:
+        preserved_params = _mod._extract_preserved_filter_params(request.form)
+    return redirect(url_for("transactions_bp.transactions", **preserved_params))
 
 # Re-export symbols
 for _name in dir(_mod):

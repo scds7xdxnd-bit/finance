@@ -70,6 +70,13 @@
     color: #b3352f;
     background: #fff;
   }
+  .app-nav__logout-form {
+    margin: 0;
+  }
+  .app-nav__logout-btn {
+    cursor: pointer;
+    font: inherit;
+  }
   .app-nav__logout:hover {
     background: rgba(179,53,47,0.08);
   }
@@ -112,6 +119,9 @@
       {% endif %}
     </ul>
     <div class="app-nav__spacer"></div>
-    <a class="app-nav__link app-nav__logout" href="{{ url_for('auth_bp.logout') }}"><i class="fa fa-sign-out-alt"></i> Logout</a>
+    <form class="app-nav__logout-form" method="post" action="{{ url_for('auth_bp.logout_post') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="app-nav__link app-nav__logout app-nav__logout-btn"><i class="fa fa-sign-out-alt"></i> Logout</button>
+    </form>
   </div>
 </nav>

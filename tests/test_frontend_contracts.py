@@ -24,6 +24,8 @@ from helpers.contract_assertions import (
     run_alembic_upgrade,
 )
 
+CSV_IMPORT_UX_FAILURE_PREFIX = "CSV import UX contract failed:"
+
 
 def _sqlite_url(db_path) -> str:
     return f"sqlite:///{db_path.resolve()}"
@@ -167,6 +169,21 @@ def _phase11_transactions_params(frontend_contract_ctx) -> dict[str, str]:
         "page": "1",
         "per_page": "1",
     }
+
+
+def _csv_import_contract_assert(condition: bool, message: str) -> None:
+    assert condition, f"{CSV_IMPORT_UX_FAILURE_PREFIX} {message}"
+
+
+def _set_last_import_result_session(client, payload: dict) -> None:
+    with client.session_transaction() as sess:
+        sess["last_import_result_v1"] = payload
+
+
+def _extract_form_open_tag(html: str, action_path: str) -> str | None:
+    pattern = re.compile(rf"<form\b[^>]*action=\"[^\"]*{re.escape(action_path)}[^\"]*\"[^>]*>", flags=re.IGNORECASE)
+    match = pattern.search(html)
+    return match.group(0) if match else None
 
 
 def _assert_unbalanced_update_mapping(frontend_contract_ctx, monkeypatch) -> None:
@@ -476,3 +493,107 @@ def test_frontend_contract_phase12_registry_journal_keys_and_token(frontend_cont
         assert required not in missing_keys, f"Frontend contract lock failed: missing registry key {required}"
 
     assert "__ENTRY_ID__" in html, "Frontend contract lock failed: accounting.journal.updateTemplate missing __ENTRY_ID__ token"
+
+
+def test_frontend_contract_phase13_import_panel_presence_and_selector_surface(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    _set_last_import_result_session(
+        client,
+        {
+            "imported_count": 2,
+            "duplicate_count": 1,
+            "failed_count": 0,
+            "summary_text": "Imported 2 rows; skipped 1 duplicate.",
+            "source_filename": "phase13.csv",
+            "recorded_at": "2026-03-10T13:00:00Z",
+        },
+    )
+
+    resp = client.get("/transactions")
+    _csv_import_contract_assert(resp.status_code == 200, f"expected /transactions 200, got {resp.status_code}")
+    html = resp.get_data(as_text=True)
+
+    required_selectors = (
+        "#last-import-result-panel",
+        'data-role="import-severity"',
+        'data-role="import-summary"',
+        'data-role="import-counts"',
+        'data-role="import-recorded-at"',
+        'data-role="import-filename"',
+        'data-action="dismiss-import-result"',
+    )
+    for selector in required_selectors:
+        _csv_import_contract_assert(selector in html, f"missing selector {selector}")
+
+
+def test_frontend_contract_phase13_dismiss_semantics_post_csrf(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    _set_last_import_result_session(
+        client,
+        {
+            "imported_count": 1,
+            "duplicate_count": 0,
+            "failed_count": 0,
+            "summary_text": "Imported 1 row.",
+            "source_filename": "dismiss.csv",
+            "recorded_at": "2026-03-10T13:01:00Z",
+        },
+    )
+
+    resp = client.get("/transactions")
+    _csv_import_contract_assert(resp.status_code == 200, f"expected /transactions 200, got {resp.status_code}")
+    html = resp.get_data(as_text=True)
+
+    form_open = _extract_form_open_tag(html, "/transactions/import_result/dismiss")
+    _csv_import_contract_assert(form_open is not None, "dismiss form action /transactions/import_result/dismiss not found")
+    _csv_import_contract_assert('method="post"' in (form_open or "").lower(), "dismiss form must use POST method")
+    _csv_import_contract_assert('name="csrf_token"' in html, "dismiss form must include csrf_token field")
+    _csv_import_contract_assert('data-action="dismiss-import-result"' in html, "dismiss control must include data-action=\"dismiss-import-result\"")
+
+
+def test_frontend_contract_phase13_dismiss_redirect_preserves_active_filter_params(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    csrf_token = frontend_contract_ctx["csrf_token"]
+    _set_last_import_result_session(
+        client,
+        {
+            "imported_count": 0,
+            "duplicate_count": 3,
+            "failed_count": 1,
+            "summary_text": "Partial import.",
+            "source_filename": "redirect.csv",
+            "recorded_at": "2026-03-10T13:02:00Z",
+        },
+    )
+
+    params = {
+        "q": "seed",
+        "account": str(frontend_contract_ctx["expense_account_name"]),
+        "category": str(frontend_contract_ctx["expense_category_name"]),
+        "min_amount": "10.00",
+        "max_amount": "500.00",
+        "start_date": "2026-03-01",
+        "end_date": "2026-03-31",
+        "page": "2",
+        "per_page": "25",
+    }
+    page_resp = client.get("/transactions", query_string=params)
+    _csv_import_contract_assert(page_resp.status_code == 200, f"expected /transactions 200, got {page_resp.status_code}")
+
+    html = page_resp.get_data(as_text=True)
+    form_open = _extract_form_open_tag(html, "/transactions/import_result/dismiss")
+    _csv_import_contract_assert(form_open is not None, "dismiss form action /transactions/import_result/dismiss not found")
+
+    action_match = re.search(r'action="([^"]+)"', form_open or "")
+    _csv_import_contract_assert(action_match is not None, "dismiss form action attribute missing")
+    dismiss_action = (action_match.group(1) if action_match else "/transactions/import_result/dismiss").replace("&amp;", "&")
+
+    post_resp = client.post(dismiss_action, data={"csrf_token": csrf_token}, follow_redirects=False)
+    _csv_import_contract_assert(300 <= post_resp.status_code < 400, f"dismiss should redirect, got status {post_resp.status_code}")
+    location = str(post_resp.headers.get("Location") or "")
+    _csv_import_contract_assert(bool(location), "dismiss redirect missing Location header")
+
+    parsed = urlparse(location)
+    query = parse_qs(parsed.query, keep_blank_values=True)
+    for key in params:
+        _csv_import_contract_assert(key in query, f"dismiss redirect missing preserved key {key}")

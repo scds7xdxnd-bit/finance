@@ -6,6 +6,7 @@ _Last updated: 2026-03-10_
 - This document locks minimal backend contracts for frontend-critical endpoints during UI refactors.
 - Non-JSON endpoints are out of scope for this contract lock.
 - `/upload_csv` JSON behavior is explicitly excluded in this phase; current redirect/flash flow remains authoritative.
+- Phase 1.3 CSV import UX is HTML/session contract only and is defined in `SSOT 59` (no JSON endpoint lock added here).
 
 ## 55.2 Rule of Change
 - Additive response/request changes are allowed if required keys in this document remain valid.
@@ -227,3 +228,4 @@ _Last updated: 2026-03-10_
 - Phase 1 UX contract companion: `project/docs/ssot/56_phase1_ux_friction_removal.md`.
 - Phase 1.1 filters companion: `project/docs/ssot/57_phase1_1_filters_roundtrip.md` (no additional endpoint creation).
 - Phase 1.2 transaction edit UX companion: `project/docs/ssot/58_phase1_2_transaction_edit_ux.md` (no new endpoint creation; edit flow is locked to `PUT /accounting/journal/<entry_id>`).
+- Phase 1.3 CSV import UX companion: `project/docs/ssot/59_phase1_3_csv_import_ux_no_json.md` (session/HTML UX only; no `/upload_csv` JSON contract and no registry-key churn required).

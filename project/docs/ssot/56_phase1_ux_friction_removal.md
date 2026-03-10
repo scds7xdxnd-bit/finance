@@ -217,3 +217,8 @@ _Last updated: 2026-03-10_
 - Phase 1.2 transaction edit UX is defined in `SSOT 58`.
 - Quick Add behavior in `56.4.1` and `56.5` is unchanged by Phase 1.2.
 - Any Phase 1.2 implementation must preserve all Phase 1 contracts in this document and must not weaken `56.9` safety/gate dependencies.
+
+## 56.12 Phase 1.3 Companion (CSV Import UX, No JSON)
+- Phase 1.3 CSV import UX behavior is defined in `SSOT 59`.
+- `/upload_csv` remains redirect/flash; no CSV JSON contract is introduced.
+- Phase 1.0/1.1/1.2 behavior in this document remains unchanged by Phase 1.3.

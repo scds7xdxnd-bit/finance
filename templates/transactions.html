@@ -184,6 +184,30 @@
       font-size: 0.85rem;
       font-weight: 700;
     }
+    .tx-import-details {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fbfcfd;
+      padding: 8px 10px;
+      box-sizing: border-box;
+    }
+    .tx-import-details summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--text-strong);
+    }
+    .tx-import-details [data-role="import-details"] {
+      margin-top: 8px;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .tx-import-details ul {
+      margin: 0;
+      padding-left: 18px;
+    }
 
     .entry-feedback {
       font-size: 0.92rem;
@@ -518,22 +542,66 @@
         </div>
 
         {% if last_import_result %}
-          <div class="tx-card tx-section" id="last-import-result-panel">
+          {% set imported_count = (last_import_result.imported_count or 0)|int %}
+          {% set duplicate_count = (last_import_result.duplicate_count or 0)|int %}
+          {% set failed_count = (last_import_result.failed_count or 0)|int %}
+          {% set failure_samples = last_import_result.failure_samples if last_import_result.failure_samples is defined and last_import_result.failure_samples else [] %}
+          {% set import_warnings = last_import_result.warnings if last_import_result.warnings is defined and last_import_result.warnings else [] %}
+          {% set has_import_details = (failure_samples|length > 0) or (import_warnings|length > 0) %}
+          {% if failed_count > 0 and imported_count > 0 %}
+            {% set import_severity = "partial" %}
+          {% elif failed_count > 0 and imported_count == 0 %}
+            {% set import_severity = "failed" %}
+          {% elif failed_count == 0 and imported_count > 0 %}
+            {% set import_severity = "success" %}
+          {% elif imported_count == 0 and duplicate_count > 0 and failed_count == 0 %}
+            {% set import_severity = "no_op" %}
+          {% else %}
+            {% set import_severity = "no_op" %}
+          {% endif %}
+          <div class="tx-card tx-section" id="last-import-result-panel" data-panel-selector="#last-import-result-panel">
             <div class="tx-section-head">
               <div>
                 <div class="tx-eyebrow">Import Summary</div>
                 <h3>Last CSV Import</h3>
+                <span class="tx-badge" data-role="import-severity">{{ import_severity|upper }}</span>
               </div>
-              <form method="post" action="{{ url_for('transactions_bp.dismiss_last_import_result') }}">
+              <form method="post" action="{{ dismiss_import_result_url or url_for('transactions_bp.dismiss_last_import_result') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <button type="submit" class="button ghost">Dismiss</button>
+                <button type="submit" class="button ghost" data-action="dismiss-import-result">Dismiss</button>
               </form>
             </div>
             <div class="tx-meta" style="flex-direction:column;align-items:flex-start;gap:6px;">
-              <span>{{ last_import_result.summary_text }}</span>
-              <span>Imported: {{ last_import_result.imported_count }} | Duplicates: {{ last_import_result.duplicate_count }} | Failed: {{ last_import_result.failed_count }}</span>
-              {% if last_import_result.source_filename %}<span>File: {{ last_import_result.source_filename }}</span>{% endif %}
-              {% if last_import_result.recorded_at %}<span>Recorded: {{ last_import_result.recorded_at }}</span>{% endif %}
+              <span data-role="import-summary">{{ last_import_result.summary_text or "No import summary available." }}</span>
+              <span data-role="import-counts">Imported: {{ imported_count }} | Duplicates: {{ duplicate_count }} | Failed: {{ failed_count }}</span>
+              <span data-role="import-filename">File: {{ last_import_result.source_filename or "Unknown" }}</span>
+              <span data-role="import-recorded-at">Recorded: {{ last_import_result.recorded_at or "Unknown" }}</span>
+              {% if import_severity in ["partial", "failed"] and has_import_details %}
+                <details class="tx-import-details">
+                  <summary data-action="toggle-import-details">Show import details</summary>
+                  <div data-role="import-details">
+                    {% if import_warnings|length > 0 %}
+                      <div><strong>Warnings</strong></div>
+                      <ul>
+                        {% for warning in import_warnings %}
+                          <li>{{ warning }}</li>
+                        {% endfor %}
+                      </ul>
+                    {% endif %}
+                    {% if failure_samples|length > 0 %}
+                      <div><strong>Failed rows</strong></div>
+                      <ul>
+                        {% for sample in failure_samples %}
+                          <li>
+                            {% if sample.line_number is defined %}Line {{ sample.line_number }}:{% endif %}
+                            {{ sample.message if sample.message is defined else sample }}
+                          </li>
+                        {% endfor %}
+                      </ul>
+                    {% endif %}
+                  </div>
+                </details>
+              {% endif %}
             </div>
           </div>
         {% endif %}
