@@ -212,3 +212,8 @@ _Last updated: 2026-03-10_
   - required keys from SSOT 55, SSOT 56, and SSOT 57
   - stable endpoint registry keys used by Phase 1
   - deterministic error-key presence for failure paths
+
+## 56.11 Phase 1.2 Companion (Non-Contradiction Lock)
+- Phase 1.2 transaction edit UX is defined in `SSOT 58`.
+- Quick Add behavior in `56.4.1` and `56.5` is unchanged by Phase 1.2.
+- Any Phase 1.2 implementation must preserve all Phase 1 contracts in this document and must not weaken `56.9` safety/gate dependencies.

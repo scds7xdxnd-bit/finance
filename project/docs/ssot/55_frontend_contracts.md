@@ -226,3 +226,4 @@ _Last updated: 2026-03-10_
 - This PR is docs-only; test implementation is follow-up work owned by QA/Backend/Frontend coordination.
 - Phase 1 UX contract companion: `project/docs/ssot/56_phase1_ux_friction_removal.md`.
 - Phase 1.1 filters companion: `project/docs/ssot/57_phase1_1_filters_roundtrip.md` (no additional endpoint creation).
+- Phase 1.2 transaction edit UX companion: `project/docs/ssot/58_phase1_2_transaction_edit_ux.md` (no new endpoint creation; edit flow is locked to `PUT /accounting/journal/<entry_id>`).

@@ -26,6 +26,7 @@ Section IDs in this file and all SSOT files are stable citation anchors.
 - Frontend contract lock is authoritative; changes to frontend-consumed payload keys require SSOT update and QA contract test update.
 - Phase 1 UX friction removal contract is authoritative (`SSOT 56`): Quick Add reuses `POST /add_transaction`, and `/upload_csv` remains redirect/flash (no CSV JSON contract change in Phase 1).
 - Phase 1.1 filters round-trip contract is authoritative (`SSOT 57`): no new endpoints, no transactions filter JSON endpoint, and no `/upload_csv` JSON behavior change.
+- Phase 1.2 transaction edit UX contract is authoritative (`SSOT 58`): edit flow must reuse `PUT /accounting/journal/<entry_id>` and unbalanced finalize failures must map deterministically to `error_code=JOURNAL_NOT_BALANCED`.
 - Canonical ledger query API is the reporting contract surface.
 - CI vNext gate enforces schema, dedupe, convergence, reporting parity, scope invariants, invariant catalog parity, statement export parity, security compliance, startup/migration contract, and DB integrity.
 
@@ -62,6 +63,7 @@ Any change to locked decisions, contract surfaces, or gate thresholds must satis
 - For frontend-consumed endpoint payloads or endpoint-registry key changes, include SSOT references from `SSOT 55` and QA contract evidence from `tests/test_frontend_contracts.py` once implemented.
 - For Phase 1 UX behavior or DOM/query contract changes, include SSOT references from `SSOT 56` and QA contract evidence for key-presence/status handling.
 - For Phase 1.1 filter/query round-trip changes, include SSOT references from `SSOT 57` and QA contract evidence for parameter preservation/status handling.
+- For Phase 1.2 transaction edit UX contract changes, include SSOT references from `SSOT 58` and QA contract evidence for deterministic error mapping and registry-key usage checks.
 
 ## 00.6 Document Map
 | File | Purpose |
@@ -75,6 +77,7 @@ Any change to locked decisions, contract surfaces, or gate thresholds must satis
 | `55_frontend_contracts.md` | Frontend-facing endpoint payload lock and endpoint registry contract. |
 | `56_phase1_ux_friction_removal.md` | Phase 1 UX behavior, DOM/query contracts, and implementation boundaries. |
 | `57_phase1_1_filters_roundtrip.md` | Phase 1.1 filter/query round-trip contract and measurement-first performance posture. |
+| `58_phase1_2_transaction_edit_ux.md` | Phase 1.2 transaction edit UX contract, edit DOM surface, error mapping, and registry touchpoints. |
 | `60_schema_capabilities.md` | Capability matrix and hard-fail guard behavior. |
 | `61_schema_verifier_parity_playbook.md` | Formal verifier parity definition, release rule, and implementation checklists. |
 | `70_security_model.md` | AuthN/AuthZ, CSRF, admin safety, audit requirements, endpoint sensitivity classes. |

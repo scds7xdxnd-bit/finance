@@ -11,6 +11,7 @@
 </head>
 <body>
   {% include 'menu.html' %}
+  {% include 'partials/frontend_endpoints.html' %}
   <div class="profile-cover"></div>
   <div class="profile-main">
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -25,7 +26,6 @@
     {% block content %}{% endblock %}
   </div>
   {% include 'partials/footer.html' %}
-  {% include 'partials/frontend_endpoints.html' %}
   <script>
     (function() {
       var token = "{{ csrf_token }}";

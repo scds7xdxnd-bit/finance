@@ -54,6 +54,167 @@
     .journal-filter-errors.visible {
       display: block;
     }
+    #journal-edit-modal[hidden] {
+      display: none !important;
+    }
+    #journal-edit-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 1200;
+      display: grid;
+      place-items: center;
+    }
+    .journal-edit-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(10, 20, 30, 0.56);
+    }
+    .journal-edit-dialog {
+      position: relative;
+      z-index: 1;
+      width: min(980px, calc(100vw - 32px));
+      max-height: calc(100vh - 32px);
+      overflow: auto;
+      border-radius: 14px;
+      background: #fff;
+      border: 1px solid #dbe8e0;
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.2);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .journal-edit-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .journal-edit-head h4 {
+      margin: 0;
+      color: #1a4d2e;
+      font-size: 18px;
+    }
+    .journal-edit-meta {
+      margin: 4px 0 0;
+      color: #1a4d2e;
+      opacity: 0.75;
+      font-size: 12px;
+    }
+    .journal-edit-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
+    .journal-edit-grid label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      color: #1a4d2e;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .journal-edit-grid input {
+      border: 1px solid #b2d8b2;
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: #1a4d2e;
+      font-size: 13px;
+    }
+    .journal-edit-field-error {
+      min-height: 14px;
+      color: #b22222;
+      font-size: 11px;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+    .journal-edit-form-error {
+      display: none;
+      border: 1px solid #f3c2c2;
+      background: #fff5f5;
+      color: #b22222;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .journal-edit-form-error.visible {
+      display: block;
+    }
+    .journal-edit-lines {
+      border: 1px solid #dfeade;
+      border-radius: 10px;
+      background: #fcfffc;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .journal-edit-lines-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: #1a4d2e;
+    }
+    .journal-edit-lines-head strong {
+      font-size: 14px;
+    }
+    .journal-edit-line {
+      display: grid;
+      grid-template-columns: 90px minmax(180px, 1fr) 120px minmax(160px, 1fr) 50px;
+      gap: 8px;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid #e6f3e6;
+      border-radius: 8px;
+      background: #fff;
+    }
+    .journal-edit-line select,
+    .journal-edit-line input {
+      width: 100%;
+      border: 1px solid #b2d8b2;
+      border-radius: 8px;
+      padding: 6px 8px;
+      color: #1a4d2e;
+      font-size: 12px;
+      box-sizing: border-box;
+    }
+    .journal-edit-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    [data-role="balance-delta"] {
+      font-size: 12px;
+      font-weight: 700;
+      color: #1a4d2e;
+      background: #f5faf6;
+      border: 1px solid #dce9dd;
+      border-radius: 999px;
+      padding: 7px 12px;
+    }
+    [data-role="balance-delta"].balanced {
+      color: #0f7b5f;
+      border-color: #bde1c7;
+      background: #f0fff4;
+    }
+    [data-role="balance-delta"].unbalanced {
+      color: #b22222;
+      border-color: #f3c2c2;
+      background: #fff5f5;
+    }
+    @media (max-width: 860px) {
+      .journal-edit-line {
+        grid-template-columns: 1fr;
+      }
+      .journal-edit-dialog {
+        width: calc(100vw - 20px);
+        max-height: calc(100vh - 20px);
+      }
+    }
   </style>
 {% endblock %}
 
@@ -1030,7 +1191,54 @@
               </div>
             </div>
             <div class="journal-editor" id="journal-editor">
-              <div class="journal-editor-empty"><i class="fa fa-circle-info"></i> Select a journal entry to review or edit.</div>
+              <div class="journal-editor-empty"><i class="fa fa-circle-info"></i> Select a journal entry to open the edit modal.</div>
+            </div>
+          </div>
+
+          <div id="journal-edit-modal" aria-hidden="true" hidden>
+            <div class="journal-edit-backdrop" data-action="close-edit-modal"></div>
+            <div class="journal-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="journal-edit-title">
+              <div class="journal-edit-head">
+                <div>
+                  <h4 id="journal-edit-title">Edit Journal Entry</h4>
+                  <p id="journal-edit-meta" class="journal-edit-meta">Update header and lines, then save balanced totals.</p>
+                </div>
+                <button type="button" class="icon-btn" data-action="close-edit-modal"><i class="fa fa-xmark"></i> Close</button>
+              </div>
+
+              <form id="journal-edit-form" novalidate>
+                <div data-role="form-error" class="journal-edit-form-error" aria-live="polite"></div>
+                <div class="journal-edit-grid">
+                  <div>
+                    <label for="journal-edit-date">Date</label>
+                    <input id="journal-edit-date" name="date" type="date" required>
+                    <div class="journal-edit-field-error" data-field-error="date" aria-live="polite"></div>
+                  </div>
+                  <div>
+                    <label for="journal-edit-description">Description</label>
+                    <input id="journal-edit-description" name="description" type="text" maxlength="255" required>
+                    <div class="journal-edit-field-error" data-field-error="description" aria-live="polite"></div>
+                  </div>
+                  <div>
+                    <label for="journal-edit-reference">Reference (optional)</label>
+                    <input id="journal-edit-reference" name="reference" type="text">
+                  </div>
+                </div>
+
+                <section class="journal-edit-lines">
+                  <div class="journal-edit-lines-head">
+                    <strong>Lines</strong>
+                    <button type="button" class="icon-btn" data-action="add-line"><i class="fa fa-plus"></i> Add line</button>
+                  </div>
+                  <div data-role="lines"></div>
+                  <div class="journal-edit-field-error" data-field-error="lines" aria-live="polite"></div>
+                </section>
+
+                <div class="journal-edit-footer">
+                  <div data-role="balance-delta" aria-live="polite">Delta: 0.00</div>
+                  <button type="submit" class="icon-btn tb-summary-toggle" data-action="save-entry" disabled><i class="fa fa-save"></i> Save Entry</button>
+                </div>
+              </form>
             </div>
           </div>
       </div>
@@ -6244,210 +6452,278 @@ function bindReceivableRow(entry, baseRow, row){
     JOURNAL_STATE.selectedId = entryId;
     renderJournalTable(JOURNAL_STATE.entries);
     renderJournalEditor(entry);
+    openJournalEditModal(entry);
   }
 
   function renderJournalEditor(entry){
     const editor = document.getElementById('journal-editor');
     if (!editor) return;
     if (!entry){
-      editor.innerHTML = '<div class="journal-editor-empty"><i class="fa fa-circle-info"></i> Select a journal entry to review or edit.</div>';
+      editor.innerHTML = '<div class="journal-editor-empty"><i class="fa fa-circle-info"></i> Select a journal entry to open the edit modal.</div>';
       return;
     }
-    const iso = entry.date_iso || '';
-    editor.innerHTML = `
-      <div class="journal-editor-form">
-        <div class="journal-field">
-          <label for="journal-edit-date">Date</label>
-          <input type="date" id="journal-edit-date" value="${iso}">
-        </div>
-        <div class="journal-field">
-          <label for="journal-edit-description">Description</label>
-          <input type="text" id="journal-edit-description" value="${escapeHtml(entry.description || '')}" placeholder="Entry description">
-        </div>
-        <div class="journal-field">
-          <label for="journal-edit-reference">Reference</label>
-          <input type="text" id="journal-edit-reference" value="${escapeHtml(entry.reference || '')}" placeholder="Optional reference">
-        </div>
-        <div class="journal-lines-box">
-          <div class="journal-line-header"><div>Account</div><div>Type</div><div>Amount</div><div>Memo</div><div></div></div>
-          <div id="journal-lines-body"></div>
-          <div id="journal-lines-total" class="journal-lines-total"></div>
-        </div>
-        <div id="journal-editor-message" class="journal-editor-message"></div>
-        <div class="journal-editor-actions">
-          <button type="button" class="icon-btn" id="journal-add-line"><i class="fa fa-plus"></i> Add line</button>
-          <div style="flex:1"></div>
-          <button type="button" class="icon-btn" id="journal-save"><i class="fa fa-save"></i> Save Changes</button>
-          <button type="button" class="icon-btn" id="journal-cancel"><i class="fa fa-circle-xmark"></i> Cancel</button>
-        </div>
-      </div>
-    `;
-    const body = editor.querySelector('#journal-lines-body');
-    const lines = (entry.lines && entry.lines.length ? entry.lines : [{ dc: 'D', amount: 0, account_name: '', memo: '' }, { dc: 'C', amount: 0, account_name: '', memo: '' }]);
-    lines.forEach(line => body.appendChild(createJournalLineRow(line)));
-    refreshJournalLineControls();
-    const addBtn = editor.querySelector('#journal-add-line');
-    if (addBtn) addBtn.addEventListener('click', () => {
-      body.appendChild(createJournalLineRow({ dc: 'D', amount: 0, account_name: '', memo: '' }));
-      refreshJournalLineControls();
-    });
-    const saveBtn = editor.querySelector('#journal-save');
-    if (saveBtn) saveBtn.addEventListener('click', () => submitJournalEdit(entry.id));
-    const cancelBtn = editor.querySelector('#journal-cancel');
-    if (cancelBtn) cancelBtn.addEventListener('click', () => {
-      JOURNAL_STATE.selectedId = null;
-      renderJournalTable(JOURNAL_STATE.entries);
-      renderJournalEditor(null);
-    });
+    const lineCount = Array.isArray(entry.lines) ? entry.lines.length : 0;
+    editor.innerHTML = `<div class="journal-editor-empty"><i class="fa fa-pen"></i> Editing entry #${escapeHtml(entry.id)} in modal (${lineCount} lines).</div>`;
   }
 
-  function createJournalLineRow(line){
-    const row = document.createElement('div');
-    row.className = 'journal-line-row';
-    const hasAmount = line.amount != null && Math.abs(Number(line.amount)) > 0;
-    const amt = hasAmount ? Number(line.amount).toFixed(2) : '';
-    row.innerHTML = `
-      <div><input type="text" class="journal-line-account" value="${escapeHtml(line.account_name || '')}" list="journal-account-options" placeholder="Account"></div>
-      <div><select class="journal-line-dc"><option value="D">Debit</option><option value="C">Credit</option></select></div>
-      <div><input type="number" class="journal-line-amount" step="0.01" min="0" value="${amt}"></div>
-      <div><input type="text" class="journal-line-memo" value="${escapeHtml(line.memo || '')}" placeholder="Memo (optional)"></div>
-      <div style="text-align:right;"><button type="button" class="icon-btn journal-line-remove"><i class="fa fa-trash"></i></button></div>
-    `;
-    const dcSelect = row.querySelector('.journal-line-dc');
-    dcSelect.value = (line.dc === 'C') ? 'C' : 'D';
-    const removeBtn = row.querySelector('.journal-line-remove');
-    removeBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      row.remove();
-      refreshJournalLineControls();
+  function getJournalEditModal(){
+    return document.getElementById('journal-edit-modal');
+  }
+
+  function getJournalEditForm(){
+    return document.getElementById('journal-edit-form');
+  }
+
+  function setJournalEditFormError(message){
+    const form = getJournalEditForm();
+    if (!form) return;
+    const node = form.querySelector('[data-role="form-error"]');
+    if (!node) return;
+    const text = String(message || '').trim();
+    if (!text){
+      node.textContent = '';
+      node.classList.remove('visible');
+      return;
+    }
+    node.textContent = text;
+    node.classList.add('visible');
+  }
+
+  function setJournalEditFieldError(field, message){
+    const form = getJournalEditForm();
+    if (!form) return;
+    const node = form.querySelector(`[data-field-error="${field}"]`);
+    if (!node) return;
+    node.textContent = String(message || '').trim();
+  }
+
+  function clearJournalEditErrors(){
+    const form = getJournalEditForm();
+    if (!form) return;
+    form.querySelectorAll('[data-field-error]').forEach((node) => {
+      node.textContent = '';
     });
-    const amountInput = row.querySelector('.journal-line-amount');
-    amountInput.addEventListener('input', updateJournalTotals);
-    dcSelect.addEventListener('change', updateJournalTotals);
+    setJournalEditFormError('');
+  }
+
+  function createJournalEditLineRow(line){
+    const row = document.createElement('div');
+    row.className = 'journal-edit-line';
+    const amountRaw = Number(line && line.amount);
+    const amountValue = Number.isFinite(amountRaw) && amountRaw > 0 ? amountRaw.toFixed(2) : '';
+    row.innerHTML = `
+      <select data-line-field="dc" aria-label="Debit or credit">
+        <option value="D">Debit</option>
+        <option value="C">Credit</option>
+      </select>
+      <input type="text" data-line-field="account" list="journal-account-options" placeholder="Account" aria-label="Account" value="${escapeHtml((line && line.account_name) || (line && line.account) || '')}">
+      <input type="number" data-line-field="amount" step="0.01" min="0" placeholder="0.00" aria-label="Amount" value="${escapeHtml(amountValue)}">
+      <input type="text" data-line-field="memo" placeholder="Memo (optional)" aria-label="Memo" value="${escapeHtml((line && line.memo) || '')}">
+      <button type="button" class="icon-btn" data-action="remove-line" aria-label="Remove line"><i class="fa fa-trash"></i></button>
+    `;
+    const dcInput = row.querySelector('[data-line-field="dc"]');
+    if (dcInput) dcInput.value = ((line && line.dc) === 'C') ? 'C' : 'D';
     return row;
   }
 
-  function refreshJournalLineControls(){
-    updateJournalTotals();
-    const body = document.getElementById('journal-lines-body');
-    if (!body) return;
-    const rows = Array.from(body.querySelectorAll('.journal-line-row'));
-    const allowRemove = rows.length > 2;
-    rows.forEach(row => {
-      const btn = row.querySelector('.journal-line-remove');
-      if (btn){
-        btn.disabled = !allowRemove;
-        btn.title = allowRemove ? 'Remove line' : 'At least two lines are required';
-      }
+  function getJournalEditLinesContainer(){
+    const form = getJournalEditForm();
+    if (!form) return null;
+    return form.querySelector('[data-role="lines"]');
+  }
+
+  function collectJournalEditLines(){
+    const container = getJournalEditLinesContainer();
+    if (!container) return [];
+    const rows = Array.from(container.querySelectorAll('.journal-edit-line'));
+    return rows.map((row) => {
+      const dc = String((row.querySelector('[data-line-field="dc"]') || {}).value || 'D').trim().toUpperCase();
+      const account = String((row.querySelector('[data-line-field="account"]') || {}).value || '').trim();
+      const amountRaw = parseFloat(String((row.querySelector('[data-line-field="amount"]') || {}).value || '0'));
+      const memo = String((row.querySelector('[data-line-field="memo"]') || {}).value || '').trim();
+      const amount = Number.isFinite(amountRaw) ? Number(amountRaw.toFixed(2)) : 0;
+      const accountId = account ? JOURNAL_ACCOUNT_INDEX.map.get(account.toLowerCase()) : null;
+      return { dc, account, account_id: accountId || null, amount, memo };
     });
   }
 
-  function updateJournalTotals(){
-    const body = document.getElementById('journal-lines-body');
-    const totalsEl = document.getElementById('journal-lines-total');
-    if (!body || !totalsEl) return;
-    let debit = 0;
-    let credit = 0;
-    body.querySelectorAll('.journal-line-row').forEach(row => {
-      const amountInput = row.querySelector('.journal-line-amount');
-      const dcSelect = row.querySelector('.journal-line-dc');
-      const val = parseFloat(amountInput.value || '0');
-      if (!Number.isFinite(val) || val <= 0) return;
-      if ((dcSelect.value || 'D') === 'C') credit += val;
-      else debit += val;
-    });
-    const diff = debit - credit;
-    const diffClass = Math.abs(diff) < 0.005 ? 'balanced' : 'journal-total-mismatch';
-    totalsEl.innerHTML = `<span>Debits: ${formatCurrency(debit)}</span><span>Credits: ${formatCurrency(credit)}</span><span class="${diffClass}">Difference: ${formatCurrency(diff)}</span>`;
-  }
-
-  function collectJournalLines(){
-    const body = document.getElementById('journal-lines-body');
-    if (!body) return [];
-    const rows = Array.from(body.querySelectorAll('.journal-line-row'));
-    return rows.map(row => {
-      const accountInput = row.querySelector('.journal-line-account');
-      const amountInput = row.querySelector('.journal-line-amount');
-      const memoInput = row.querySelector('.journal-line-memo');
-      const dcSelect = row.querySelector('.journal-line-dc');
-      const accountName = (accountInput.value || '').trim();
-      const amountVal = parseFloat(amountInput.value || '0');
-      const accountId = accountName ? JOURNAL_ACCOUNT_INDEX.map.get(accountName.toLowerCase()) : null;
-      return {
-        account: accountName,
-        account_id: accountId,
-        dc: (dcSelect.value || 'D'),
-        amount: Number.isFinite(amountVal) ? Number(amountVal.toFixed(2)) : 0,
-        memo: (memoInput.value || '').trim()
-      };
+  function updateJournalEditRemoveState(){
+    const container = getJournalEditLinesContainer();
+    if (!container) return;
+    const rows = Array.from(container.querySelectorAll('.journal-edit-line'));
+    const canRemove = rows.length > 2;
+    rows.forEach((row) => {
+      const btn = row.querySelector('[data-action="remove-line"]');
+      if (!btn) return;
+      btn.disabled = !canRemove;
+      btn.title = canRemove ? 'Remove line' : 'At least two lines are required';
     });
   }
 
-  async function submitJournalEdit(entryId){
-    const messageEl = document.getElementById('journal-editor-message');
-    if (messageEl){ messageEl.textContent = ''; messageEl.dataset.tone = ''; }
-    const dateInput = document.getElementById('journal-edit-date');
-    const descInput = document.getElementById('journal-edit-description');
-    const refInput = document.getElementById('journal-edit-reference');
-    const dateVal = (dateInput && dateInput.value) ? dateInput.value.trim() : '';
-    const descVal = (descInput && descInput.value) ? descInput.value.trim() : '';
-    const referenceVal = refInput ? refInput.value.trim() : '';
-    const lines = collectJournalLines();
-    const showMessage = (text, tone='error') => {
-      if (messageEl){
-        messageEl.textContent = text;
-        messageEl.dataset.tone = tone;
-      }
-    };
-    if (!dateVal){ showMessage('Date is required.'); return; }
-    if (!descVal){ showMessage('Description is required.'); return; }
-    if (!lines || lines.length < 2){ showMessage('At least two lines are required.'); return; }
-    let debit = 0;
-    let credit = 0;
-    for (const ln of lines){
-      if (!ln.account){ showMessage('Account name is required for each line.'); return; }
-      if (!Number.isFinite(ln.amount) || ln.amount <= 0){ showMessage('Amounts must be greater than zero.'); return; }
-      if ((ln.dc || 'D') === 'C') credit += ln.amount;
-      else debit += ln.amount;
+  function updateJournalEditDelta(lines){
+    const form = getJournalEditForm();
+    if (!form) return 0;
+    const deltaNode = form.querySelector('[data-role="balance-delta"]');
+    if (!deltaNode) return 0;
+    const items = Array.isArray(lines) ? lines : [];
+    const debit = items.filter((line) => line.dc === 'D').reduce((sum, line) => sum + (Number(line.amount) || 0), 0);
+    const credit = items.filter((line) => line.dc === 'C').reduce((sum, line) => sum + (Number(line.amount) || 0), 0);
+    const delta = Number((debit - credit).toFixed(2));
+    deltaNode.classList.remove('balanced', 'unbalanced');
+    if (Math.abs(delta) < 0.005) deltaNode.classList.add('balanced');
+    else deltaNode.classList.add('unbalanced');
+    deltaNode.textContent = `Delta: ${formatCurrency(delta)}`;
+    return delta;
+  }
+
+  function journalEditDateValid(value){
+    const raw = String(value || '').trim();
+    if (!raw) return false;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return false;
+    const [yy, mm, dd] = raw.split('-').map(Number);
+    const dt = new Date(Date.UTC(yy, mm - 1, dd));
+    return !Number.isNaN(dt.getTime()) && dt.getUTCFullYear() === yy && dt.getUTCMonth() + 1 === mm && dt.getUTCDate() === dd;
+  }
+
+  function evaluateJournalEditForm(showErrors){
+    const form = getJournalEditForm();
+    if (!form) return { valid: false, lines: [], delta: 0 };
+    if (showErrors) clearJournalEditErrors();
+    const dateVal = String(form.date ? form.date.value : '').trim();
+    const descVal = String(form.description ? form.description.value : '').trim();
+    const lines = collectJournalEditLines();
+    let valid = true;
+    let lineError = '';
+
+    if (!journalEditDateValid(dateVal)){
+      if (showErrors) setJournalEditFieldError('date', 'Date is required in YYYY-MM-DD format.');
+      valid = false;
     }
-    if (Math.abs(debit - credit) > 0.005){ showMessage('Debits and credits must balance.'); return; }
+    if (!descVal){
+      if (showErrors) setJournalEditFieldError('description', 'Description is required.');
+      valid = false;
+    }
+    if (lines.length < 2){
+      lineError = 'At least two lines are required.';
+      valid = false;
+    }
+    lines.forEach((line) => {
+      if (line.dc !== 'D' && line.dc !== 'C'){
+        lineError = lineError || 'Each line must be debit or credit.';
+        valid = false;
+      }
+      if (!line.account){
+        lineError = lineError || 'Account is required for each line.';
+        valid = false;
+      }
+      if (!Number.isFinite(line.amount) || line.amount <= 0){
+        lineError = lineError || 'Amount must be greater than zero for each line.';
+        valid = false;
+      }
+    });
+    const delta = updateJournalEditDelta(lines);
+    if (Math.abs(delta) >= 0.005){
+      lineError = lineError || 'Debits and credits must balance before saving.';
+      valid = false;
+    }
+    if (showErrors && lineError){
+      setJournalEditFieldError('lines', lineError);
+    }
+    updateJournalEditRemoveState();
+    const saveBtn = form.querySelector('[data-action="save-entry"]');
+    if (saveBtn) saveBtn.disabled = !valid;
+    return { valid, lines, delta };
+  }
+
+  function openJournalEditModal(entry){
+    const modal = getJournalEditModal();
+    const form = getJournalEditForm();
+    if (!modal || !form || !entry) return;
+    form.dataset.entryId = String(entry.id);
+    if (form.date) form.date.value = String(entry.date_iso || entry.date || '').trim();
+    if (form.description) form.description.value = String(entry.description || '').trim();
+    if (form.reference) form.reference.value = String(entry.reference || '').trim();
+    const meta = document.getElementById('journal-edit-meta');
+    if (meta){
+      const lineCount = Array.isArray(entry.lines) ? entry.lines.length : 0;
+      meta.textContent = `Entry #${entry.id} • ${lineCount} lines`;
+    }
+    const linesNode = getJournalEditLinesContainer();
+    if (linesNode){
+      linesNode.innerHTML = '';
+      const sourceLines = (Array.isArray(entry.lines) && entry.lines.length)
+        ? entry.lines
+        : [{ dc: 'D', amount: 0, account_name: '', memo: '' }, { dc: 'C', amount: 0, account_name: '', memo: '' }];
+      sourceLines.forEach((line) => linesNode.appendChild(createJournalEditLineRow(line)));
+    }
+    clearJournalEditErrors();
+    evaluateJournalEditForm(false);
+    modal.hidden = false;
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeJournalEditModal(){
+    const modal = getJournalEditModal();
+    if (!modal) return;
+    modal.hidden = true;
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  async function submitJournalEdit(){
+    const form = getJournalEditForm();
+    if (!form) return;
+    const entryIdRaw = parseInt(String(form.dataset.entryId || '0'), 10);
+    if (!Number.isInteger(entryIdRaw) || entryIdRaw <= 0){
+      setJournalEditFormError('Unable to save: missing journal entry id.');
+      return;
+    }
+    const evaluated = evaluateJournalEditForm(true);
+    if (!evaluated.valid){
+      setJournalEditFormError('Please fix the highlighted issues before saving.');
+      return;
+    }
+    const payload = {
+      date: String(form.date ? form.date.value : '').trim(),
+      description: String(form.description ? form.description.value : '').trim(),
+      reference: String(form.reference ? form.reference.value : '').trim(),
+      lines: evaluated.lines.map((line) => ({
+        dc: line.dc,
+        account: line.account,
+        account_id: line.account_id || undefined,
+        amount: line.amount,
+        memo: line.memo
+      }))
+    };
+    const saveBtn = form.querySelector('[data-action="save-entry"]');
+    if (saveBtn) saveBtn.disabled = true;
     try {
-      const updateUrl = buildJournalUpdateUrl(entryId);
+      const updateUrl = buildJournalUpdateUrl(entryIdRaw);
       const res = await fetch(updateUrl, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': (window.ACC_BOOT && window.ACC_BOOT.csrfToken) || '' },
-        body: JSON.stringify({ date: dateVal, description: descVal, reference: referenceVal, lines })
+        body: JSON.stringify(payload)
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok){
         const errorCode = String((data && data.error_code) || '').toUpperCase();
         if (errorCode === 'JOURNAL_NOT_BALANCED'){
-          const stableMessage = 'Journal entry must be balanced before finalizing.';
-          showMessage(stableMessage);
-          setJournalFeedback(stableMessage, 'error');
+          setJournalEditFormError('Journal entry must be balanced before finalizing.');
+          if (saveBtn) saveBtn.disabled = false;
           return;
         }
-        throw new Error(data.error || 'Failed to save journal entry.');
+        setJournalEditFormError((data && data.error) || 'Unable to save journal entry right now. Please try again.');
+        if (saveBtn) saveBtn.disabled = false;
+        return;
       }
-      if (data.entry){
-        JOURNAL_STATE.byId.set(data.entry.id, data.entry);
-        const idx = JOURNAL_STATE.entries.findIndex(e => e.id === data.entry.id);
-        if (idx !== -1){
-          JOURNAL_STATE.entries[idx] = data.entry;
-        } else {
-          JOURNAL_STATE.entries.unshift(data.entry);
-        }
-        JOURNAL_STATE.selectedId = data.entry.id;
-        renderJournalTable(JOURNAL_STATE.entries);
-        renderJournalEditor(data.entry);
-      }
-      showMessage('Journal entry saved.', 'success');
+      closeJournalEditModal();
       setJournalFeedback('Journal entry saved.', 'success');
+      await loadJournalEntries(JOURNAL_STATE.page || 1, { useControlState: false, pushHistory: false });
     } catch (err){
       console.error(err);
-      const msg = err && err.message ? err.message : 'Failed to save journal entry.';
-      showMessage(msg);
-      setJournalFeedback(msg, 'error');
+      setJournalEditFormError('Unable to save journal entry right now. Please try again.');
+      if (saveBtn) saveBtn.disabled = false;
     }
   }
 
@@ -6470,6 +6746,62 @@ function bindReceivableRow(entry, baseRow, row){
     JOURNAL_STATE.perPage = initialJournalState.perPage;
     applyJournalControlState(JOURNAL_STATE.filters, JOURNAL_STATE.perPage);
     updateJournalStatusLabel();
+    const journalEditModal = getJournalEditModal();
+    const journalEditForm = getJournalEditForm();
+    if (journalEditModal && journalEditForm){
+      journalEditModal.addEventListener('click', (evt) => {
+        const actionNode = evt.target && evt.target.closest ? evt.target.closest('[data-action]') : null;
+        if (!actionNode) return;
+        const action = String(actionNode.getAttribute('data-action') || '').trim();
+        if (action === 'close-edit-modal'){
+          evt.preventDefault();
+          closeJournalEditModal();
+          return;
+        }
+        if (action === 'add-line'){
+          evt.preventDefault();
+          const linesNode = getJournalEditLinesContainer();
+          if (!linesNode) return;
+          linesNode.appendChild(createJournalEditLineRow({ dc: 'D', amount: 0, account_name: '', memo: '' }));
+          clearJournalEditErrors();
+          evaluateJournalEditForm(false);
+          return;
+        }
+        if (action === 'remove-line'){
+          evt.preventDefault();
+          const linesNode = getJournalEditLinesContainer();
+          if (!linesNode) return;
+          const rows = Array.from(linesNode.querySelectorAll('.journal-edit-line'));
+          if (rows.length <= 2){
+            setJournalEditFieldError('lines', 'At least two lines are required.');
+            setJournalEditFormError('At least two lines are required.');
+            evaluateJournalEditForm(false);
+            return;
+          }
+          const row = actionNode.closest('.journal-edit-line');
+          if (row) row.remove();
+          clearJournalEditErrors();
+          evaluateJournalEditForm(false);
+        }
+      });
+      journalEditForm.addEventListener('input', () => {
+        clearJournalEditErrors();
+        evaluateJournalEditForm(false);
+      });
+      journalEditForm.addEventListener('change', () => {
+        clearJournalEditErrors();
+        evaluateJournalEditForm(false);
+      });
+      journalEditForm.addEventListener('submit', (evt) => {
+        evt.preventDefault();
+        submitJournalEdit();
+      });
+      document.addEventListener('keydown', (evt) => {
+        if (evt.key === 'Escape' && !journalEditModal.hidden){
+          closeJournalEditModal();
+        }
+      });
+    }
 
     const quickAddBtn = document.getElementById('journal-quick-add');
     if (window.QuickAddModal && typeof window.QuickAddModal.setOnSuccess === 'function'){

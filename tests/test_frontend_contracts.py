@@ -169,6 +169,38 @@ def _phase11_transactions_params(frontend_contract_ctx) -> dict[str, str]:
     }
 
 
+def _assert_unbalanced_update_mapping(frontend_contract_ctx, monkeypatch) -> None:
+    client = frontend_contract_ctx["client"]
+    csrf_token = frontend_contract_ctx["csrf_token"]
+    entry_id = frontend_contract_ctx["entry_id"]
+    expense_account_id = frontend_contract_ctx["expense_account_id"]
+    income_account_id = frontend_contract_ctx["income_account_id"]
+
+    import blueprints.accounting as accounting_module
+
+    # Force DB-level finalization guard path by bypassing service-level balance precheck.
+    monkeypatch.setattr(accounting_module, "_validate_balanced", lambda *_args, **_kwargs: None)
+
+    response = client.put(
+        f"/accounting/journal/{entry_id}",
+        json={
+            "date": "2026-03-12",
+            "description": "phase1.2 unbalanced mapping drill",
+            "reference": "REF-LOCK-2",
+            "lines": [
+                {"dc": "D", "account_id": expense_account_id, "amount": 100.0},
+                {"dc": "C", "account_id": income_account_id, "amount": 60.0},
+            ],
+        },
+        headers={"X-CSRF-Token": csrf_token},
+    )
+    payload = assert_json_envelope(response, endpoint="PUT /accounting/journal/<entry_id> (unbalanced)")
+    assert 400 <= response.status_code < 500
+    assert payload["ok"] is False
+    assert "error" in payload and isinstance(payload["error"], str)
+    assert payload.get("error_code") == "JOURNAL_NOT_BALANCED"
+
+
 def test_frontend_contract_add_transaction_envelope_and_shape(frontend_contract_ctx):
     client = frontend_contract_ctx["client"]
     csrf_token = frontend_contract_ctx["csrf_token"]
@@ -361,36 +393,8 @@ def test_frontend_contract_journal_update_shape(frontend_contract_ctx):
     assert "entry" in payload
 
 
-def test_frontend_contract_unbalanced_finalize_mapping(frontend_contract_ctx, monkeypatch):
-    client = frontend_contract_ctx["client"]
-    csrf_token = frontend_contract_ctx["csrf_token"]
-    entry_id = frontend_contract_ctx["entry_id"]
-    expense_account_id = frontend_contract_ctx["expense_account_id"]
-    income_account_id = frontend_contract_ctx["income_account_id"]
-
-    import blueprints.accounting as accounting_module
-
-    # Force DB-level finalization guard path by bypassing service-level balance precheck.
-    monkeypatch.setattr(accounting_module, "_validate_balanced", lambda *_args, **_kwargs: None)
-
-    response = client.put(
-        f"/accounting/journal/{entry_id}",
-        json={
-            "date": "2026-03-12",
-            "description": "phase1 unbalanced mapping drill",
-            "reference": "REF-LOCK-2",
-            "lines": [
-                {"dc": "D", "account_id": expense_account_id, "amount": 100.0},
-                {"dc": "C", "account_id": income_account_id, "amount": 60.0},
-            ],
-        },
-        headers={"X-CSRF-Token": csrf_token},
-    )
-    payload = assert_json_envelope(response, endpoint="PUT /accounting/journal/<entry_id> (unbalanced)")
-    assert 400 <= response.status_code < 500
-    assert payload["ok"] is False
-    assert "error" in payload and isinstance(payload["error"], str)
-    assert payload.get("error_code") == "JOURNAL_NOT_BALANCED"
+def test_frontend_contract_phase12_unbalanced_update_mapping(frontend_contract_ctx, monkeypatch):
+    _assert_unbalanced_update_mapping(frontend_contract_ctx, monkeypatch)
 
 
 def test_frontend_contract_transactions_pagination_roundtrip_preserves_active_params(frontend_contract_ctx):
@@ -457,3 +461,18 @@ def test_frontend_contract_endpoint_registry_keys_present(frontend_contract_ctx)
 
     missing_keys = find_missing_endpoint_registry_keys(html)
     assert missing_keys == [], f"Missing endpoint registry keys: {missing_keys}"
+
+
+def test_frontend_contract_phase12_registry_journal_keys_and_token(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    html_resp = client.get("/accounting")
+    assert html_resp.status_code == 200
+    html = html_resp.get_data(as_text=True)
+    missing_keys = find_missing_endpoint_registry_keys(html)
+    for required in (
+        "window.FINANCE_ENDPOINTS.accounting.journal.list",
+        "window.FINANCE_ENDPOINTS.accounting.journal.updateTemplate",
+    ):
+        assert required not in missing_keys, f"Frontend contract lock failed: missing registry key {required}"
+
+    assert "__ENTRY_ID__" in html, "Frontend contract lock failed: accounting.journal.updateTemplate missing __ENTRY_ID__ token"

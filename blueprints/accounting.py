@@ -2923,8 +2923,10 @@ def update_journal_entry(entry_id):
     if not _check_csrf():
         return {"ok": False, "error": "CSRF token missing or invalid"}, 400
     from finance_app import current_user, db, ensure_account
+    if not request.is_json:
+        return {"ok": False, "error": "Expected JSON payload"}, 400
     try:
-        from finance_app import Account, JournalEntry, JournalLine, _parse_date_tuple
+        from finance_app import Account, JournalEntry, JournalLine
     except Exception:
         return {'ok': False, 'error': 'Journal model not available'}, 500
 
@@ -2939,7 +2941,9 @@ def update_journal_entry(entry_id):
     if entry.user_id != user.id:
         return {"ok": False, "error": "Forbidden"}, 403
 
-    data = request.get_json(force=True)
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return {'ok': False, 'error': 'Invalid JSON payload'}, 400
     date_raw = (data.get('date') or '').strip()
     description = (data.get('description') or '').strip()
     reference = (data.get('reference') or '').strip()
@@ -2951,13 +2955,10 @@ def update_journal_entry(entry_id):
     from decimal import ROUND_HALF_UP, Decimal
 
     try:
-        parsed = _dt.datetime.strptime(date_raw.replace('-', '/'), '%Y/%m/%d')
-        date_str = parsed.strftime('%Y/%m/%d')
-        y, m, d = _parse_date_tuple(date_str)
-        date_parsed = _dt.date(y, m, d) if y and m and d else None
+        date_parsed = _dt.date.fromisoformat(date_raw)
+        date_str = date_parsed.strftime('%Y/%m/%d')
     except Exception:
-        date_str = date_raw
-        date_parsed = None
+        return {'ok': False, 'error': 'Invalid date; expected YYYY-MM-DD'}, 400
 
     built: list[JournalLinePayload] = []
 
