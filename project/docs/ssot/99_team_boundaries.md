@@ -76,6 +76,11 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
   - local-buffer authority under active modal session is mandatory
   - background refresh must preserve active query params and must not overwrite local editor buffer
   - no new endpoint or registry key is allowed in this phase
+- Phase 1.2.4 transaction edit usability polish (`SSOT 58_4`):
+  - additive usability selectors are stable where declared
+  - keyboard/focus, balance clarity, and save-status semantics are deterministic
+  - JS-state preload posture remains unchanged (`JOURNAL_STATE.byId`, no row JSON blobs)
+  - no endpoint or registry-key expansion is allowed in this phase
 
 ### 99.3.1 Frontend Contract Surface Ownership
 - Architect owns SSOT definitions in `project/docs/ssot/55_frontend_contracts.md`.
@@ -119,6 +124,12 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Backend owns existing endpoint behavior only; no endpoint expansion.
 - QA owns contract-shape checks for refresh-safety markers and registry stability.
 
+### 99.3.7 Phase 1.2.4 Ownership
+- Architect owns `project/docs/ssot/58_4_phase1_2_4_transaction_edit_usability_polish.md`.
+- Frontend owns additive usability selector implementation and deterministic behavior.
+- Backend owns existing endpoint behavior only; no endpoint expansion.
+- QA owns selector-surface and registry-stability contract checks.
+
 ## 99.4 Forbidden Changes
 - Reporting code must not compute ranked totals from legacy `Transaction` rows.
 - Reporting code must not enable or silently emulate mixed mode aggregation.
@@ -143,6 +154,8 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Frontend must not remove or rename preload-state marker contract (`[data-role="preload-state"]` with allowed `data-state` values) without SSOT update and QA evidence.
 - Backend and Frontend must not remove or rename Phase 1.2.3 refresh-safety markers (`[data-role="edit-session"]`, `[data-role="stale-warning"]`, `data-buffer-authority="local"`) without SSOT update and QA evidence.
 - Backend and Frontend must not drop `page`/`per_page` preservation on edit-list refresh flows in Phase 1.2.3.
+- Backend and Frontend must not introduce new endpoints, new registry keys, or row-level embedded JSON blobs for Phase 1.2.4 without SSOT update and QA evidence.
+- Frontend must not remove or rename SSOT 58_4 locked usability selectors (when implemented) without SSOT update and QA evidence.
 
 ## 99.5 SSOT Change Protocol (Mandatory)
 - Any PR that changes a stable interface or forbidden-change area must:
@@ -173,6 +186,9 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Any PR that changes Phase 1.2.3 edit refresh-safety contracts (`SSOT 58_3`) must include:
   - SSOT 58_3 section references
   - QA contract evidence for edit-session marker, stale-warning selector, buffer-authority marker, and refresh-param preservation checks
+- Any PR that changes Phase 1.2.4 edit usability-polish contracts (`SSOT 58_4`) must include:
+  - SSOT 58_4 section references
+  - QA contract evidence for additive selector surface and registry-stability checks
 - If behavior is intentionally transitional, PR must include:
   - explicit temporary rule
   - expiration date

@@ -242,3 +242,20 @@ Quality gates in `tests/test_vnext_gate.py` and related suites are release-block
   - no new registry keys
   - no new JSON contracts
   - no `/upload_csv` JSON behavior changes (SSOT 58_3).
+
+## 10.14 Phase 1.2.4 Transaction Edit Usability Polish Integration Points
+- Data source posture remains unchanged:
+  - list rows remain minimal HTML (`data-entry-id` + action markers, no per-row JSON blobs).
+  - full entry payloads remain in `JOURNAL_STATE.byId` from `GET /accounting/journal/list`.
+- Editor flow remains endpoint-stable:
+  - update: `PUT /accounting/journal/<entry_id>`
+  - refresh: `GET /accounting/journal/list` via existing registry keys only.
+- Additive usability polish:
+  - keyboard/focus markers and save-status markers are additive DOM contracts only.
+  - line affordance actions are additive and must preserve existing save-gating rules.
+  - stale-warning CTA (when implemented) remains non-blocking and local-buffer-safe.
+- Contract boundary:
+  - no new endpoints
+  - no new registry keys
+  - no new JSON contracts
+  - no `/upload_csv` JSON behavior changes (SSOT 58_4).

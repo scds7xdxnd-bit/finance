@@ -121,3 +121,8 @@ _Last updated: 2026-03-10_
 - Phase 1.2.2 preload/state-drift contract details are defined in `SSOT 58_2`.
 - Phase 1.2.1 selector, save-gating, and error placement rules remain authoritative unless explicitly tightened by SSOT 58_2.
 - Phase 1.2.2 introduces no new endpoint, no new registry key, and no CSV JSON behavior.
+
+## 58.1.10 Phase 1.2.4 Companion (Usability Polish)
+- Phase 1.2.4 usability polish details are defined in `SSOT 58_4`.
+- Phase 1.2.1 selector, save-gating, and error-placement rules remain authoritative unless explicitly tightened additively by SSOT 58_4.
+- Phase 1.2.4 introduces no new endpoint, no new registry key, no JSON expansion, and no CSV JSON behavior.

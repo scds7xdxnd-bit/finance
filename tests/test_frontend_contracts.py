@@ -28,6 +28,7 @@ CSV_IMPORT_UX_FAILURE_PREFIX = "CSV import UX contract failed:"
 TRANSACTION_EDIT_UX_FAILURE_PREFIX = "Transaction edit UX contract failed:"
 TRANSACTION_EDIT_STATE_FAILURE_PREFIX = "Transaction edit state contract failed:"
 TRANSACTION_EDIT_REFRESH_SAFETY_FAILURE_PREFIX = "Transaction edit refresh safety contract failed:"
+TRANSACTION_EDIT_USABILITY_FAILURE_PREFIX = "Transaction edit usability contract failed:"
 
 
 def _sqlite_url(db_path) -> str:
@@ -188,6 +189,10 @@ def _transaction_edit_state_contract_assert(condition: bool, message: str) -> No
 
 def _transaction_edit_refresh_safety_contract_assert(condition: bool, message: str) -> None:
     assert condition, f"{TRANSACTION_EDIT_REFRESH_SAFETY_FAILURE_PREFIX} {message}"
+
+
+def _transaction_edit_usability_contract_assert(condition: bool, message: str) -> None:
+    assert condition, f"{TRANSACTION_EDIT_USABILITY_FAILURE_PREFIX} {message}"
 
 
 def _set_last_import_result_session(client, payload: dict) -> None:
@@ -732,6 +737,81 @@ def test_frontend_contract_phase123_refresh_builder_references_page_and_per_page
     _transaction_edit_refresh_safety_contract_assert(
         "params.set('per_page', String(perPage));" in html,
         "refresh URL builder must reference per_page",
+    )
+
+
+def test_frontend_contract_phase124_modal_usability_selector_surface(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    html_resp = client.get("/accounting")
+    _transaction_edit_usability_contract_assert(html_resp.status_code == 200, f"expected /accounting 200, got {html_resp.status_code}")
+    html = html_resp.get_data(as_text=True)
+
+    modal_start = html.find('id="journal-edit-modal"')
+    _transaction_edit_usability_contract_assert(modal_start >= 0, "missing #journal-edit-modal")
+    modal_fragment = html[modal_start : modal_start + 9000] if modal_start >= 0 else ""
+
+    regression_markers = (
+        'data-role="edit-session"',
+        'data-role="stale-warning"',
+        'data-role="preload-state"',
+    )
+    for marker in regression_markers:
+        _transaction_edit_usability_contract_assert(marker in modal_fragment, f"missing required regression marker {marker}")
+
+    _transaction_edit_usability_contract_assert(
+        re.search(r'<div id="journal-edit-modal"[^>]*data-buffer-authority="local"', html) is not None,
+        "missing data-buffer-authority=\"local\" on #journal-edit-modal",
+    )
+
+    required_selectors = (
+        'data-role="first-focus"',
+        'data-role="focus-trap"',
+        'data-action="close-editor"',
+        'data-action="cancel-editor"',
+        'data-role="balance-delta-label"',
+        'data-role="balance-delta-amount"',
+        'data-role="not-balanced-callout"',
+    )
+    for selector in required_selectors:
+        _transaction_edit_usability_contract_assert(selector in modal_fragment, f"missing selector {selector}")
+
+    save_status_match = re.search(r'data-role="save-status"[^>]*data-state="([^"]+)"', modal_fragment)
+    _transaction_edit_usability_contract_assert(
+        save_status_match is not None,
+        "missing [data-role=\"save-status\"] with data-state attribute",
+    )
+
+    # Optional features in this phase: assert only if already implemented.
+    if 'data-action="duplicate-line"' in modal_fragment:
+        _transaction_edit_usability_contract_assert(True, "optional selector duplicate-line present")
+    if 'data-action="reload-latest"' in modal_fragment:
+        _transaction_edit_usability_contract_assert(True, "optional selector reload-latest present")
+
+
+def test_frontend_contract_phase124_registry_stability(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    html_resp = client.get("/accounting")
+    _transaction_edit_usability_contract_assert(html_resp.status_code == 200, f"expected /accounting 200, got {html_resp.status_code}")
+    html = html_resp.get_data(as_text=True)
+    missing_keys = find_missing_endpoint_registry_keys(html)
+
+    _transaction_edit_usability_contract_assert(
+        "window.FINANCE_ENDPOINTS.accounting.journal.list" not in missing_keys,
+        "missing registry key window.FINANCE_ENDPOINTS.accounting.journal.list",
+    )
+    _transaction_edit_usability_contract_assert(
+        "window.FINANCE_ENDPOINTS.accounting.journal.updateTemplate" not in missing_keys,
+        "missing registry key window.FINANCE_ENDPOINTS.accounting.journal.updateTemplate",
+    )
+    _transaction_edit_usability_contract_assert(
+        "__ENTRY_ID__" in html,
+        "journal update template token __ENTRY_ID__ missing",
+    )
+
+    # Optional non-JS guard: refresh builder still references page/per_page.
+    _transaction_edit_usability_contract_assert(
+        "params.set('page', String(page));" in html and "params.set('per_page', String(perPage));" in html,
+        "refresh builder must reference page and per_page",
     )
 
 

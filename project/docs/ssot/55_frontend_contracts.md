@@ -218,6 +218,7 @@ _Last updated: 2026-03-10_
 - Phase 1.2.1 introduces no new registry keys; `accounting.journal.list` and `accounting.journal.updateTemplate` remain the only required edit/list keys.
 - Phase 1.2.2 introduces no new registry keys; preload/state-drift behavior must use existing edit/list keys and local UI state markers only.
 - Phase 1.2.3 introduces no new registry keys; refresh-safety behavior must use existing edit/list keys and editor session markers only.
+- Phase 1.2.4 introduces no endpoint or registry-key changes; only additive DOM/behavior locks are defined in SSOT 58_4.
 - Breaking registry change definition:
   - removing or renaming required keys
   - repointing required keys to incompatible endpoint contracts without SSOT/test updates.
@@ -234,4 +235,5 @@ _Last updated: 2026-03-10_
 - Phase 1.2.1 transaction edit UX hardening companion: `project/docs/ssot/58_1_phase1_2_1_transaction_edit_ux_hardening.md` (no new endpoint or registry key creation).
 - Phase 1.2.2 transaction edit preload/state-drift companion: `project/docs/ssot/58_2_phase1_2_2_transaction_edit_state_drift.md` (no new endpoint, no new registry key, no new JSON contract).
 - Phase 1.2.3 transaction edit refresh-safety companion: `project/docs/ssot/58_3_phase1_2_3_transaction_edit_refresh_safety.md` (no new endpoint, no new registry key, no JSON expansion).
+- Phase 1.2.4 transaction edit usability polish companion: `project/docs/ssot/58_4_phase1_2_4_transaction_edit_usability_polish.md` (additive selector/UX locks only; no endpoint/registry expansion).
 - Phase 1.3 CSV import UX companion: `project/docs/ssot/59_phase1_3_csv_import_ux_no_json.md` (session/HTML UX only; no `/upload_csv` JSON contract and no registry-key churn required).
