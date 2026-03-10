@@ -164,19 +164,6 @@ def upload_csv():
     return redirect(url_for('transactions_bp.transactions'))
 
 
-@transactions_bp.route('/transactions/import_result/dismiss', methods=['POST'])
-def dismiss_last_import_result():
-    user = current_user()
-    if not user:
-        flash('Login required.')
-        return redirect(url_for('auth_bp.login'))
-    if not _check_csrf():
-        flash('CSRF token missing or invalid.')
-        return redirect(url_for('transactions_bp.transactions'))
-    session.pop("last_import_result_v1", None)
-    return redirect(url_for('transactions_bp.transactions'))
-
-
 @transactions_bp.route('/transactions', methods=['GET'])
 def transactions():
     user = current_user()
