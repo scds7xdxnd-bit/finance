@@ -333,6 +333,7 @@
             </div>
             <div class="tx-inline-actions">
               <input id="csv_file_input" type="file" name="csv_file" accept=".csv" style="display:none;">
+              <button type="button" class="button primary" id="open-quick-add-transactions"><i class="fa fa-bolt"></i> Quick Add</button>
               <button type="button" class="button ghost icon-only" title="Import CSV" onclick="triggerCsvUpload()"><i class="fa fa-file-csv"></i></button>
             </div>
           </div>
@@ -412,10 +413,10 @@
           {% if pages > 1 %}
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;">
             {% if page > 1 %}
-              <a class="button ghost" href="{{ url_for('transactions_bp.transactions', page=page-1, per_page=per_page, start_date=filters.start_date, end_date=filters.end_date, account=filters.account, min_amount=filters.min_amount, max_amount=filters.max_amount) }}">&laquo; Prev</a>
+              <a class="button ghost" href="{{ url_for('transactions_bp.transactions', q=filters.q, account=filters.account, category=filters.category, start_date=filters.start_date, end_date=filters.end_date, min_amount=filters.min_amount, max_amount=filters.max_amount, page=page-1, per_page=per_page) }}">&laquo; Prev</a>
             {% endif %}
             {% if page < pages %}
-              <a class="button ghost" href="{{ url_for('transactions_bp.transactions', page=page+1, per_page=per_page, start_date=filters.start_date, end_date=filters.end_date, account=filters.account, min_amount=filters.min_amount, max_amount=filters.max_amount) }}">Next &raquo;</a>
+              <a class="button ghost" href="{{ url_for('transactions_bp.transactions', q=filters.q, account=filters.account, category=filters.category, start_date=filters.start_date, end_date=filters.end_date, min_amount=filters.min_amount, max_amount=filters.max_amount, page=page+1, per_page=per_page) }}">Next &raquo;</a>
             {% endif %}
           </div>
           {% endif %}
@@ -430,12 +431,21 @@
           </div>
           <form id="tx-filter-form">
             <div class="tx-filters">
+              <label>Search
+                <input type="text" name="q" value="{{ filters.q }}" placeholder="Description, account, memo">
+              </label>
               <label>Start Date<input type="date" name="start_date" value="{{ filters.start_date }}"></label>
               <label>End Date<input type="date" name="end_date" value="{{ filters.end_date }}"></label>
               <label>Account<select name="account">
                 <option value="">All accounts</option>
                 {% for acc in accounts %}
                   <option value="{{ acc }}" {% if filters.account == acc %}selected{% endif %}>{{ acc }}</option>
+                {% endfor %}
+              </select></label>
+              <label>Category<select name="category">
+                <option value="">All categories</option>
+                {% for cat in categories %}
+                  <option value="{{ cat }}" {% if filters.category == cat %}selected{% endif %}>{{ cat }}</option>
                 {% endfor %}
               </select></label>
               <label>Min Amount<input type="number" step="0.01" name="min_amount" placeholder="0.00" value="{{ filters.min_amount }}"></label>
@@ -448,6 +458,27 @@
             </div>
           </form>
         </div>
+
+        {% if last_import_result %}
+          <div class="tx-card tx-section" id="last-import-result-panel">
+            <div class="tx-section-head">
+              <div>
+                <div class="tx-eyebrow">Import Summary</div>
+                <h3>Last CSV Import</h3>
+              </div>
+              <form method="post" action="{{ url_for('transactions_bp.dismiss_last_import_result') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="button ghost">Dismiss</button>
+              </form>
+            </div>
+            <div class="tx-meta" style="flex-direction:column;align-items:flex-start;gap:6px;">
+              <span>{{ last_import_result.summary_text }}</span>
+              <span>Imported: {{ last_import_result.imported_count }} | Duplicates: {{ last_import_result.duplicate_count }} | Failed: {{ last_import_result.failed_count }}</span>
+              {% if last_import_result.source_filename %}<span>File: {{ last_import_result.source_filename }}</span>{% endif %}
+              {% if last_import_result.recorded_at %}<span>Recorded: {{ last_import_result.recorded_at }}</span>{% endif %}
+            </div>
+          </div>
+        {% endif %}
 
         {% with messages = get_flashed_messages() %}
           {% if messages %}
@@ -470,9 +501,11 @@
       <option value="{{ acc }}">{{ acc }}</option>
     {% endfor %}
   </datalist>
+  {% include "partials/quick_add_modal.html" %}
 {% endblock %}
 {% block scripts %}
   {{ super() }}
+  <script src="{{ url_for('static', filename='js/quick_add_modal.js') }}"></script>
   <script>
     const ENTRY_LINES = document.getElementById('entry-lines');
     const ENTRY_TOTAL = document.getElementById('entry-total');
@@ -481,6 +514,15 @@
     const endpointRegistry = window.FINANCE_ENDPOINTS || {};
     const txEndpoints = endpointRegistry.transactions || {};
     const mlEndpoints = endpointRegistry.ml || {};
+    const TX_LIST_URL = (txEndpoints.list || '').trim();
+    const TX_LIST_PATH = (() => {
+      if (!TX_LIST_URL) return '';
+      try {
+        return new URL(TX_LIST_URL, window.location.origin).pathname;
+      } catch (_) {
+        return '';
+      }
+    })();
     const TX_ADD_URL = (txEndpoints.add || '').trim();
     const ML_SUGGESTIONS_URL = (mlEndpoints.suggestions || '').trim();
     const ML_SUGGESTION_LOG_URL = (mlEndpoints.suggestionLog || '').trim();
@@ -904,7 +946,7 @@
           telemetryWarning = err && err.message ? err.message : 'suggestion logging failed.';
         }
         resetEntry();
-        const base = '{{ url_for("transactions_bp.transactions") }}';
+        const base = requireEndpoint(TX_LIST_URL, 'transactions.list');
         updateTxListFromURL(base);
         const list = document.getElementById('tx-list-section');
         if (list) { list.style.display = 'block'; list.scrollIntoView({ behavior:'smooth', block:'start' }); }
@@ -1005,7 +1047,7 @@
       if (current.searchParams.get('per_page') && !params.get('per_page')){
         params.set('per_page', current.searchParams.get('per_page'));
       }
-      const base = '{{ url_for("transactions_bp.transactions") }}';
+      const base = requireEndpoint(TX_LIST_URL, 'transactions.list');
       return params.toString() ? `${base}?${params.toString()}` : base;
     }
 
@@ -1013,7 +1055,12 @@
       const form = document.getElementById('tx-filter-form');
       if (!form) return;
       const trigger = () => {
-        const url = buildTxListURLFromForm(form);
+        let url = '';
+        try {
+          url = buildTxListURLFromForm(form);
+        } catch (_) {
+          return;
+        }
         const section = document.getElementById('tx-list-section');
         if (section) section.style.display = 'block';
         const btn = document.getElementById('toggle-tx-btn');
@@ -1041,7 +1088,12 @@
           if (el.type === 'checkbox' || el.type === 'radio') el.checked = false; else el.value = '';
         }
       });
-      const base = '{{ url_for("transactions_bp.transactions") }}';
+      let base = '';
+      try {
+        base = requireEndpoint(TX_LIST_URL, 'transactions.list');
+      } catch (_) {
+        return;
+      }
       updateTxListFromURL(base);
       const section = document.getElementById('tx-list-section');
       if (section) section.style.display = 'block';
@@ -1053,7 +1105,10 @@
     async function updateTxListFromURL(url){
       try{
         const res = await fetch(url, { headers:{ 'X-Requested-With':'XMLHttpRequest' }});
-        if (!res.ok) return;
+        if (!res.ok){
+          showFeedback('Unable to refresh transaction list.', 'error');
+          return;
+        }
         const html = await res.text();
         const doc = new DOMParser().parseFromString(html, 'text/html');
         const newSection = doc.getElementById('tx-list-section');
@@ -1066,6 +1121,8 @@
           window.history.pushState({}, '', url);
           attachFilterHandler();
           attachTxListDelegation();
+        } else {
+          showFeedback('Unable to refresh transaction list.', 'error');
         }
       }catch(err){ console.error(err); }
     }
@@ -1079,7 +1136,16 @@
         const link = e.target && e.target.closest ? e.target.closest('a') : null;
         if (link){
           const href = link.getAttribute('href') || '';
-          if (href.includes('/transactions')){
+          let isListLink = false;
+          if (href && TX_LIST_PATH){
+            try {
+              const hrefPath = new URL(href, window.location.origin).pathname;
+              isListLink = hrefPath === TX_LIST_PATH;
+            } catch (_) {
+              isListLink = false;
+            }
+          }
+          if (isListLink){
             e.preventDefault();
             updateTxListFromURL(href);
             return;
@@ -1129,6 +1195,29 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+      const quickAddBtn = document.getElementById('open-quick-add-transactions');
+      if (window.QuickAddModal && typeof window.QuickAddModal.setOnSuccess === 'function'){
+        window.QuickAddModal.setOnSuccess(() => {
+          const form = document.getElementById('tx-filter-form');
+          let refreshUrl = '';
+          try {
+            refreshUrl = form ? buildTxListURLFromForm(form) : requireEndpoint(TX_LIST_URL, 'transactions.list');
+          } catch (_) {
+            return;
+          }
+          updateTxListFromURL(refreshUrl);
+          showFeedback('Entry saved successfully.', 'success');
+        });
+      }
+      if (quickAddBtn){
+        quickAddBtn.addEventListener('click', () => {
+          if (window.QuickAddModal && typeof window.QuickAddModal.open === 'function'){
+            window.QuickAddModal.open({});
+            return;
+          }
+          showFeedback('Quick Add is unavailable.', 'error');
+        });
+      }
       attachFilterHandler();
       attachTxListDelegation();
       const toggleBtn = document.getElementById('toggle-tx-btn');
@@ -1158,7 +1247,11 @@
             headers: { 'X-CSRF-Token': getCsrfToken() },
             body: fd
           });
-          if (res.ok){ updateTxListFromURL('{{ url_for("transactions_bp.transactions") }}'); }
+          if (res.ok){
+            try {
+              updateTxListFromURL(requireEndpoint(TX_LIST_URL, 'transactions.list'));
+            } catch (_) {}
+          }
         }catch(err){ console.error(err); }
       };
       inp.click();

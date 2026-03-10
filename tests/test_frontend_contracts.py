@@ -33,7 +33,7 @@ def _login(client, user_id: int, csrf_token: str = "frontend-contract-csrf") -> 
     return csrf_token
 
 
-def _seed_minimal_reporting_data(user_id: int) -> str:
+def _seed_minimal_reporting_data(user_id: int) -> dict[str, int | str]:
     ym = "2026-03"
 
     expense_cat = AccountCategory(user_id=user_id, name="Operating Expense", tb_group="expense")
@@ -79,7 +79,12 @@ def _seed_minimal_reporting_data(user_id: int) -> str:
         )
     )
     db.session.commit()
-    return ym
+    return {
+        "ym": ym,
+        "entry_id": int(entry.id),
+        "expense_account_id": int(expense_acc.id),
+        "income_account_id": int(income_acc.id),
+    }
 
 
 @pytest.fixture()
@@ -108,7 +113,7 @@ def frontend_contract_ctx(tmp_path, monkeypatch):
         db.session.add(user)
         db.session.commit()
         user_id = int(user.id)
-        ym = _seed_minimal_reporting_data(user_id)
+        seed = _seed_minimal_reporting_data(user_id)
 
     client = app.test_client()
     csrf_token = _login(client, user_id)
@@ -119,7 +124,10 @@ def frontend_contract_ctx(tmp_path, monkeypatch):
             "client": client,
             "user_id": user_id,
             "csrf_token": csrf_token,
-            "ym": ym,
+            "ym": str(seed["ym"]),
+            "entry_id": int(seed["entry_id"]),
+            "expense_account_id": int(seed["expense_account_id"]),
+            "income_account_id": int(seed["income_account_id"]),
         }
     finally:
         with app.app_context():
@@ -281,6 +289,83 @@ def test_frontend_contract_statement_data_envelope_and_shape(frontend_contract_c
     failure_payload = assert_json_envelope(failure_resp, endpoint="GET /accounting/statement/data (failure)")
     assert failure_payload["ok"] is False
     assert "error" in failure_payload and isinstance(failure_payload["error"], str)
+
+
+def test_frontend_contract_journal_list_shape(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    response = client.get("/accounting/journal/list?page=1&per_page=25")
+    payload = assert_json_envelope(response, endpoint="GET /accounting/journal/list (success)")
+    assert response.status_code == 200
+    assert payload["ok"] is True
+    for key in ("entries", "page", "pages", "total"):
+        assert key in payload
+
+
+def test_frontend_contract_journal_update_shape(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    csrf_token = frontend_contract_ctx["csrf_token"]
+    entry_id = frontend_contract_ctx["entry_id"]
+    expense_account_id = frontend_contract_ctx["expense_account_id"]
+    income_account_id = frontend_contract_ctx["income_account_id"]
+
+    response = client.put(
+        f"/accounting/journal/{entry_id}",
+        json={
+            "date": "2026-03-12",
+            "description": "phase1 contract update",
+            "reference": "REF-LOCK-1",
+            "lines": [
+                {"dc": "D", "account_id": expense_account_id, "amount": 80.0, "memo": "debit"},
+                {"dc": "C", "account_id": income_account_id, "amount": 80.0, "memo": "credit"},
+            ],
+        },
+        headers={"X-CSRF-Token": csrf_token},
+    )
+    payload = assert_json_envelope(response, endpoint="PUT /accounting/journal/<entry_id> (success)")
+    assert response.status_code == 200
+    assert payload["ok"] is True
+    assert "entry" in payload
+
+
+def test_frontend_contract_unbalanced_finalize_mapping(frontend_contract_ctx, monkeypatch):
+    client = frontend_contract_ctx["client"]
+    csrf_token = frontend_contract_ctx["csrf_token"]
+    entry_id = frontend_contract_ctx["entry_id"]
+    expense_account_id = frontend_contract_ctx["expense_account_id"]
+    income_account_id = frontend_contract_ctx["income_account_id"]
+
+    import blueprints.accounting as accounting_module
+
+    # Force DB-level finalization guard path by bypassing service-level balance precheck.
+    monkeypatch.setattr(accounting_module, "_validate_balanced", lambda *_args, **_kwargs: None)
+
+    response = client.put(
+        f"/accounting/journal/{entry_id}",
+        json={
+            "date": "2026-03-12",
+            "description": "phase1 unbalanced mapping drill",
+            "reference": "REF-LOCK-2",
+            "lines": [
+                {"dc": "D", "account_id": expense_account_id, "amount": 100.0},
+                {"dc": "C", "account_id": income_account_id, "amount": 60.0},
+            ],
+        },
+        headers={"X-CSRF-Token": csrf_token},
+    )
+    payload = assert_json_envelope(response, endpoint="PUT /accounting/journal/<entry_id> (unbalanced)")
+    assert 400 <= response.status_code < 500
+    assert payload["ok"] is False
+    assert "error" in payload and isinstance(payload["error"], str)
+    assert payload.get("error_code") == "JOURNAL_NOT_BALANCED"
+
+
+def test_frontend_contract_transactions_filter_param_stability(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    response = client.get(
+        "/transactions?q=test&category=expense&start_date=2026-03-01&end_date=2026-03-31&page=1&per_page=25"
+    )
+    assert response.status_code == 200
+    assert "text/html" in str(response.content_type or "")
 
 
 def test_frontend_contract_endpoint_registry_keys_present(frontend_contract_ctx):

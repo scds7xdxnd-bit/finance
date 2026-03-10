@@ -2874,7 +2874,7 @@ def journal_entries_list():
     from finance_app.services.journal_service import list_entries as journal_list
     user = current_user()
     if not user:
-        return ("Unauthorized", 401)
+        return {"ok": False, "error": "Unauthorized"}, 401
 
     search = (request.args.get('q') or '').strip()
     start = (request.args.get('start') or '').strip() or None
@@ -2903,7 +2903,7 @@ def journal_entries_list():
 @accounting_bp.route('/accounting/journal/<int:entry_id>', methods=['PUT'])
 def update_journal_entry(entry_id):
     if not _check_csrf():
-        return ("CSRF token missing or invalid", 400)
+        return {"ok": False, "error": "CSRF token missing or invalid"}, 400
     from finance_app import current_user, db, ensure_account
     try:
         from finance_app import Account, JournalEntry, JournalLine, _parse_date_tuple
@@ -2912,14 +2912,14 @@ def update_journal_entry(entry_id):
 
     user = current_user()
     if not user:
-        return ("Unauthorized", 401)
+        return {"ok": False, "error": "Unauthorized"}, 401
     ok_guard, payload, status = _guard_schema_caps(["journal_integrity"], user_id=user.id)
     if not ok_guard:
         return payload, status
 
     entry = JournalEntry.query.get_or_404(entry_id)
     if entry.user_id != user.id:
-        return ("Forbidden", 403)
+        return {"ok": False, "error": "Forbidden"}, 403
 
     data = request.get_json(force=True)
     date_raw = (data.get('date') or '').strip()
@@ -3021,6 +3021,8 @@ def update_journal_entry(entry_id):
         mapped = map_journal_db_exception(exc)
         if mapped:
             error_code, error_message, mapped_status = mapped
+            if str(error_code) in {"JOURNAL_ENTRY_NOT_BALANCED", "JOURNAL_NOT_BALANCED"}:
+                return journal_error_payload("JOURNAL_NOT_BALANCED", "Journal entry must be balanced before finalizing."), mapped_status
             return journal_error_payload(error_code, error_message), mapped_status
         current_app.logger.exception("journal_update_failed entry_id=%s user_id=%s", entry_id, user.id)
         return journal_error_payload(JOURNAL_ERROR_WRITE_FAILED, "Failed to update entry."), 500
@@ -3165,7 +3167,7 @@ def tb_pdf():
 def delete_journal_entry(entry_id):
     """Delete a journal entry belonging to the current user."""
     if not _check_csrf():
-        return ("CSRF token missing or invalid", 400)
+        return {"ok": False, "error": "CSRF token missing or invalid"}, 400
     from finance_app import current_user, db
     try:
         from finance_app import JournalEntry
@@ -3174,14 +3176,14 @@ def delete_journal_entry(entry_id):
 
     user = current_user()
     if not user:
-        return ("Unauthorized", 401)
+        return {"ok": False, "error": "Unauthorized"}, 401
     ok_guard, payload, status = _guard_schema_caps(["journal_integrity"], user_id=user.id)
     if not ok_guard:
         return payload, status
 
     entry = JournalEntry.query.get_or_404(entry_id)
     if entry.user_id != user.id:
-        return ("Forbidden", 403)
+        return {"ok": False, "error": "Forbidden"}, 403
 
     try:
         db.session.delete(entry)

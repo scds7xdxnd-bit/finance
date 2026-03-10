@@ -8,6 +8,10 @@
     }),
     accounting: Object.freeze({
       tbMonthly: "{{ url_for('accounting_bp.tb_monthly') }}",
+      journal: Object.freeze({
+        list: "{{ url_for('accounting_bp.journal_entries_list') }}",
+        updateTemplate: "{{ url_for('accounting_bp.update_journal_entry', entry_id=0).replace('0', '__ENTRY_ID__') }}"
+      }),
       statements: Object.freeze({
         data: "{{ url_for('accounting_bp.statement_data') }}",
         export: "{{ url_for('accounting_bp.statement_export') }}",
