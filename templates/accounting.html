@@ -1307,8 +1307,22 @@
         if (status) status.textContent = 'Loading balance sheet…';
         const ccySelect = document.getElementById('bs-ccy-select');
         const ccy = ccySelect ? (ccySelect.value || '') : '';
-        const url = ccy ? `/accounting/tb/monthly?ym=${encodeURIComponent(monthStr)}&ccy=${encodeURIComponent(ccy)}`
-                        : `/accounting/tb/monthly?ym=${encodeURIComponent(monthStr)}`;
+        const endpointRegistry = window.FINANCE_ENDPOINTS || {};
+        const accountingEndpoints = endpointRegistry.accounting || {};
+        const tbMonthlyBaseUrl = (accountingEndpoints.tbMonthly || '').trim();
+        if (!tbMonthlyBaseUrl) {
+          const errMsg = 'Configuration error: missing endpoint key accounting.tbMonthly.';
+          if (status) status.textContent = errMsg;
+          summary.innerHTML = '';
+          assetsContainer.innerHTML = '';
+          liabilitiesContainer.innerHTML = '';
+          if (note) note.textContent = '';
+          return;
+        }
+        const params = new URLSearchParams();
+        params.set('ym', monthStr);
+        if (ccy) params.set('ccy', ccy);
+        const url = `${tbMonthlyBaseUrl}?${params.toString()}`;
         fetch(url)
           .then(res => res.json().then(data => ({ ok: res.ok, data })))
           .then(({ ok, data }) => {
@@ -5521,11 +5535,21 @@ function bindReceivableRow(entry, baseRow, row){
     const ccySel = document.getElementById('tb-ccy-select');
     const ccy = ccySel ? (ccySel.value || '') : '';
     const balanceContext = { month: monthStr, monthName, currency: ccy };
-    const url = ccy ? `/accounting/tb/monthly?ym=${encodeURIComponent(monthStr)}&ccy=${encodeURIComponent(ccy)}` : `/accounting/tb/monthly?ym=${encodeURIComponent(monthStr)}`;
+    const endpointRegistry = window.FINANCE_ENDPOINTS || {};
+    const accountingEndpoints = endpointRegistry.accounting || {};
+    const tbMonthlyBaseUrl = (accountingEndpoints.tbMonthly || '').trim();
+    if (!tbMonthlyBaseUrl) {
+      box.innerHTML = '<div style="color:#b22222;">Configuration error: missing endpoint key accounting.tbMonthly.</div>';
+      return;
+    }
+    const params = new URLSearchParams();
+    params.set('ym', monthStr);
+    if (ccy) params.set('ccy', ccy);
+    const url = `${tbMonthlyBaseUrl}?${params.toString()}`;
     fetch(url)
-      .then(r => r.json())
-      .then(data => {
-        if (!data || data.ok === false) {
+      .then(r => r.json().catch(() => ({})).then(data => ({ ok: r.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok || !data || data.ok === false) {
           const errMsg = (data && data.error) || 'Unable to load trial balance.';
           box.innerHTML = `<div style="color:#b22222;">${errMsg}</div>`;
           return;

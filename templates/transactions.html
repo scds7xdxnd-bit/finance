@@ -478,8 +478,12 @@
     const ENTRY_TOTAL = document.getElementById('entry-total');
     const ENTRY_DIFF = document.getElementById('entry-diff');
     const ENTRY_FEEDBACK = document.getElementById('entry-feedback');
-    const ML_SUGGESTIONS_URL = "{{ url_for('core_bp.ml_suggestions') }}";
-    const ML_SUGGESTION_LOG_URL = "{{ url_for('core_bp.ml_suggestion_log') }}";
+    const endpointRegistry = window.FINANCE_ENDPOINTS || {};
+    const txEndpoints = endpointRegistry.transactions || {};
+    const mlEndpoints = endpointRegistry.ml || {};
+    const TX_ADD_URL = (txEndpoints.add || '').trim();
+    const ML_SUGGESTIONS_URL = (mlEndpoints.suggestions || '').trim();
+    const ML_SUGGESTION_LOG_URL = (mlEndpoints.suggestionLog || '').trim();
     const CONFIG_NODE = document.getElementById('tx-config');
     const DEFAULT_CURRENCY = (CONFIG_NODE?.dataset.defaultCurrency || 'KRW').toUpperCase();
     const ML_SUGGESTIONS_TOPK = Number(CONFIG_NODE?.dataset.topk || 3);
@@ -491,6 +495,14 @@
       if (tokenFromWindow) return tokenFromWindow;
       const meta = document.querySelector('meta[name="csrf-token"]');
       return ((meta && meta.getAttribute('content')) || '').trim();
+    }
+
+    function requireEndpoint(url, key){
+      const resolved = (url || '').trim();
+      if (resolved) return resolved;
+      const msg = `Configuration error: missing endpoint key ${key}.`;
+      showFeedback(msg, 'error');
+      throw new Error(msg);
     }
 
     function generateId(prefix){
@@ -698,7 +710,8 @@
       };
       row.dataset.mlContext = JSON.stringify(context);
 
-      if (!payload.predictions || !payload.predictions.length){
+      const predictions = Array.isArray(payload.predictions) ? payload.predictions : [];
+      if (!predictions.length){
         container.hidden = false;
         container.innerHTML = '<span class="suggestion-status">No suggestions available.</span>';
         return;
@@ -706,15 +719,23 @@
 
       container.hidden = false;
       container.innerHTML = '';
-      payload.predictions.forEach(prediction => {
+      predictions.forEach(rawPrediction => {
+        const accountName = ((rawPrediction && rawPrediction.account_name) || '').trim();
+        if (!accountName) return;
+        const probabilityRaw = Number(rawPrediction && rawPrediction.probability);
+        const probability = Number.isFinite(probabilityRaw) ? Math.max(0, Math.min(1, probabilityRaw)) : 0;
+        const prediction = { ...rawPrediction, account_name: accountName, probability };
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'suggestion-chip';
-        const pct = Math.round(((prediction.probability || 0) * 100));
+        const pct = Math.round(probability * 100);
         btn.textContent = `${prediction.account_name} (${pct}%)`;
         btn.addEventListener('click', () => applySuggestionOption(row, prediction, context, btn));
         container.appendChild(btn);
       });
+      if (!container.children.length){
+        container.innerHTML = '<span class="suggestion-status">No suggestions available.</span>';
+      }
     }
 
     function applySuggestionOption(row, prediction, context, button){
@@ -828,14 +849,15 @@
 
     async function logMlSelections(logs){
       if (!logs || !logs.length) return;
-      try {
-        await fetch(ML_SUGGESTION_LOG_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrfToken() },
-          body: JSON.stringify({ logs })
-        });
-      } catch (err) {
-        console.warn('Failed to log ML selections', err);
+      const suggestionLogUrl = requireEndpoint(ML_SUGGESTION_LOG_URL, 'ml.suggestionLog');
+      const res = await fetch(suggestionLogUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrfToken() },
+        body: JSON.stringify({ logs })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok){
+        throw new Error(data.error || 'Unable to record suggestion feedback.');
       }
     }
 
@@ -863,22 +885,23 @@
       const cr = lines.filter(l => l.dc === 'C').reduce((s,l) => s+l.amount, 0);
       if (Math.abs(dr - cr) > 0.005){ showFeedback('Debits and credits must balance before saving.', 'error'); return; }
       try{
+        const addUrl = requireEndpoint(TX_ADD_URL, 'transactions.add');
         const payload = { date, description, lines: lines.map(l => ({ dc:l.dc, account:l.account, amount:l.amount, memo:l.memo })) };
-        const res = await fetch('{{ url_for("transactions_bp.add_transaction") }}', {
+        const res = await fetch(addUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrfToken() },
           body: JSON.stringify(payload)
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.ok){ throw new Error(data.error || 'Failed to add entry.'); }
-        showFeedback('Entry saved successfully.', 'success');
+        let telemetryWarning = '';
         // Send positive feedback to the journal suggester: user accepted the suggested draft
         try{ sendJournalFeedback(true, { entries: lines.map(l => ({ account: l.account, dc: l.dc, amount: l.amount, memo: l.memo })) }); }catch(e){ console.warn('Feedback failed', e); }
         try {
           const logs = collectSuggestionFeedback({ description, date });
           await logMlSelections(logs);
         } catch (err){
-          console.warn('Suggestion logging failed', err);
+          telemetryWarning = err && err.message ? err.message : 'suggestion logging failed.';
         }
         resetEntry();
         const base = '{{ url_for("transactions_bp.transactions") }}';
@@ -887,6 +910,11 @@
         if (list) { list.style.display = 'block'; list.scrollIntoView({ behavior:'smooth', block:'start' }); }
         const btn = document.getElementById('toggle-tx-btn');
         if (btn) btn.innerHTML = '<i class="fa fa-list"></i> Hide Entries';
+        if (telemetryWarning){
+          showFeedback(`Entry saved, but ${telemetryWarning}`, 'error');
+        } else {
+          showFeedback('Entry saved successfully.', 'success');
+        }
       }catch(err){
         console.error(err);
         showFeedback(err.message || 'Failed to save entry.', 'error');
@@ -928,7 +956,8 @@
       }
       try{
         const started = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-        const res = await fetch(ML_SUGGESTIONS_URL, {
+        const suggestionsUrl = requireEndpoint(ML_SUGGESTIONS_URL, 'ml.suggestions');
+        const res = await fetch(suggestionsUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrfToken() },
           body: JSON.stringify(payload)
@@ -939,9 +968,11 @@
         data.client_latency_ms = clientLatency;
         if (!data.latency_ms) data.latency_ms = clientLatency;
         if (!res.ok || !data.ok){
+          const errMsg = data.error || 'Unable to load suggestions.';
           if (container){
-            container.innerHTML = `<span class="suggestion-error">${data.error || 'Unable to load suggestions.'}</span>`;
+            container.innerHTML = `<span class="suggestion-error">${errMsg}</span>`;
           }
+          showFeedback(errMsg, 'error');
           console.error('Suggestion error', data);
           return;
         }
@@ -950,6 +981,7 @@
         if (container){
           container.innerHTML = '<span class="suggestion-error">Suggestion service unavailable.</span>';
         }
+        showFeedback('Suggestion service unavailable.', 'error');
         console.error('Suggestion request failed', err);
       }
     }
