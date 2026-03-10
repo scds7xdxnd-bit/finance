@@ -1,5 +1,5 @@
 # Schema Capabilities Contract
-_Last updated: 2026-03-08_
+_Last updated: 2026-03-09_
 
 ## 60.1 Scope
 Capability-based schema guard contract for sensitive operations.
@@ -13,16 +13,19 @@ Capability-based schema guard contract for sensitive operations.
 | `tb_snapshot` | `tb_reset_snapshot` table, restore/checksum fields, required uniques/checks/index |
 | `admin_audit` | `admin_action_audit` table + actor/created index |
 | `journal_report_perf` | Journal report indexes on `journal_entry` and `journal_line` |
+| `journal_integrity` | `journal_line.dc` check + DB-level balance enforcement for finalized journal entries |
 
 ## 60.3 Non-Negotiable Contracts
 - Schema guard verdict is capability-based and artifact-based; migration revision string alone is insufficient.
 - `schema-status` must report all required capabilities and exit non-zero when capability checks fail.
 - Guarded operations must hard-fail (`503`) when required capabilities are missing and enforcement is enabled.
-- Required capability names are stable: `tx_linking`, `link_candidates`, `csv_idempotency`, `tb_snapshot`, `admin_audit`, `journal_report_perf`.
+- Required capability names are stable: `tx_linking`, `link_candidates`, `csv_idempotency`, `tb_snapshot`, `admin_audit`, `journal_report_perf`, `journal_integrity`.
 - Emergency schema-guard bypass is time-boxed to 7 days maximum and requires both `SCHEMA_GUARD_BYPASS_REASON` and `SCHEMA_GUARD_BYPASS_UNTIL`.
 
 ## 60.4 Hard-Fail Operation Map
-- `/upload_csv` requires `csv_idempotency`.
+- `/upload_csv` requires `csv_idempotency` and `journal_integrity`.
+- `/add_transaction` requires `journal_integrity`.
+- Journal mutation endpoints under `/accounting/journal/*` require `journal_integrity`.
 - `/accounting/tb/reset` requires `tb_snapshot` and `admin_audit`.
 - `/accounting/tb/monthly` requires `journal_report_perf`.
 - `/accounting/statement/data` requires `journal_report_perf`.
@@ -47,6 +50,7 @@ Capability-based schema guard contract for sensitive operations.
 - Release gate schema checks: `tests/test_vnext_gate.py`
 - Sensitive-route guard tests: `tests/test_security_sensitive_endpoints.py`
 - Migration smoke runner: `scripts/migration_smoke_vnext.py`
+- DB integrity gate tests: `tests/test_db_integrity_gate.py`
 
 ## 60.7 Verifier Parity (Release-Blocking)
 - `scripts/verify_schema_capabilities.sql` must assert exactly one check row per artifact in the deduplicated global `required_artifact_set` defined in `SSOT 61.3`.
@@ -112,3 +116,34 @@ Capability-based schema guard contract for sensitive operations.
 - Pass condition:
   - migration smoke exits `0` with `ok=true`
   - startup/migration contract suite exits `0`
+
+## 60.9 `journal_integrity` Capability Definition (SQLite Authoritative)
+
+### 60.9.1 Enforcement Strategy
+- Strategy is trigger-backed integrity enforcement with finalized-entry guard (`SSOT 20.6`):
+  - `journal_entry.posted_at` is the finalization signal.
+  - Draft entries (`posted_at IS NULL`) may be incrementally built.
+  - Finalized entries (`posted_at IS NOT NULL`) must be balanced on `amount_base`.
+
+### 60.9.2 Required Artifacts
+- DB check constraint:
+  - `ck_journal_line_dc` enforcing `journal_line.dc IN ('D','C')`.
+- Aggregate table:
+  - `journal_entry_balance` keyed by `journal_entry_id` with persisted `debit_total` and `credit_total` (base amount totals).
+- Required trigger set:
+  - `trg_journal_line_ai_balance` (insert maintenance)
+  - `trg_journal_line_au_balance` (update maintenance)
+  - `trg_journal_line_ad_balance` (delete maintenance)
+  - `trg_journal_entry_bi_post_balance_guard` (insert guard for finalized rows)
+  - `trg_journal_entry_bu_post_balance_guard` (update guard when finalizing)
+
+### 60.9.3 Capability-Present Verdict (SQLite)
+- `journal_integrity=true` only when all required artifacts in `60.9.2` exist.
+- Guard triggers must abort unbalanced finalization with stable message prefix:
+  - `journal_entry_not_balanced`
+- Any missing artifact or missing guard behavior yields `journal_integrity=false`.
+
+### 60.9.4 Verifier Parity Integration
+- `journal_integrity` artifacts are part of `_CAPABILITY_REQUIREMENTS`.
+- SQL verifier must emit canonical rows for all `journal_integrity` artifacts.
+- `required_artifact_count`/`total_checks` parity from `SSOT 60.7` includes this capability.

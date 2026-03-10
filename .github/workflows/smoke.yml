@@ -96,6 +96,24 @@ jobs:
           path: startup_migration_contract.log
           if-no-files-found: ignore
 
+      - name: DB integrity gate
+        shell: bash
+        run: |
+          set +e
+          : > db_integrity_gate.log
+          python3 -m pytest -q tests/test_db_integrity_gate.py | tee db_integrity_gate.log
+          cmd_status=${PIPESTATUS[0]}
+          set -e
+          exit "${cmd_status}"
+
+      - name: Upload DB integrity gate artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: db_integrity_gate.log
+          path: db_integrity_gate.log
+          if-no-files-found: ignore
+
       - name: Invariant catalog parity check
         shell: bash
         run: |

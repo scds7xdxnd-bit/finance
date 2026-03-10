@@ -29,6 +29,26 @@ def _check_csrf() -> bool:
     return csrf_token_valid()
 
 
+def _guard_write_capabilities(required_caps, *, user_id):
+    enforce_guard = bool(current_app.config.get("SCHEMA_GUARD_ENFORCE", True))
+    bypass_ok, bypass_meta = validate_schema_guard_bypass(current_app.config)
+    if not bypass_ok:
+        return False, bypass_meta, 503
+    if not enforce_guard:
+        current_app.logger.warning(
+            "schema_guard_bypass_enabled path=%s method=%s user_id=%s until=%s reason=%s",
+            request.path,
+            request.method,
+            user_id,
+            bypass_meta.get("until"),
+            bypass_meta.get("reason"),
+        )
+    ok_guard, payload, status = guard_capabilities(required_caps, enforce=enforce_guard)
+    if not ok_guard:
+        return False, payload, 503 if status < 500 else status
+    return True, payload, status
+
+
 @transactions_bp.route('/upload_csv', methods=['POST'])
 def upload_csv():
     user = current_user()
@@ -47,22 +67,9 @@ def upload_csv():
     if request.content_length and request.content_length > int(current_app.config.get("MAX_CONTENT_LENGTH") or 0):
         flash('File exceeds size limit.')
         return redirect(url_for('transactions_bp.transactions'))
-    enforce_guard = bool(current_app.config.get("SCHEMA_GUARD_ENFORCE", True))
-    bypass_ok, bypass_meta = validate_schema_guard_bypass(current_app.config)
-    if not bypass_ok:
-        return bypass_meta, 503
-    if not enforce_guard:
-        current_app.logger.warning(
-            "schema_guard_bypass_enabled path=%s method=%s user_id=%s until=%s reason=%s",
-            request.path,
-            request.method,
-            user.id,
-            bypass_meta.get("until"),
-            bypass_meta.get("reason"),
-        )
-    ok_guard, payload, _ = guard_capabilities(["csv_idempotency"], enforce=enforce_guard)
+    ok_guard, payload, status = _guard_write_capabilities(["csv_idempotency", "journal_integrity"], user_id=user.id)
     if not ok_guard:
-        return payload, 503
+        return payload, status
     try:
         upload_root = current_app.config.get("UPLOAD_FOLDER") or "instance/uploads"
         os.makedirs(upload_root, exist_ok=True)
@@ -111,8 +118,9 @@ def upload_csv():
                 reason_txt = ", ".join(f"{k}={v}" for k, v in sorted(error_reasons.items()))
                 extra += f" Error reasons: {reason_txt}."
         flash(f"Successfully imported {msg_summary}." + extra)
-    except Exception as e:
-        flash(f"Error importing CSV: {e}")
+    except Exception:
+        current_app.logger.exception("csv_import_failed path=%s user_id=%s", request.path, user.id)
+        flash("Error importing CSV. Please review the file and try again.")
     return redirect(url_for('transactions_bp.transactions'))
 
 
@@ -374,6 +382,9 @@ def add_transaction():
     if request.method == 'POST' and request.is_json:
         if not _check_csrf():
             return {'ok': False, 'error': 'CSRF token missing or invalid.'}, 400
+        ok_guard, payload, status = _guard_write_capabilities(["journal_integrity"], user_id=user.id)
+        if not ok_guard:
+            return payload, status
         data = request.get_json(silent=True) or {}
         ok, result, status = save_transaction(data)
         return (result, status)

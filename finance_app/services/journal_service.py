@@ -18,6 +18,11 @@ class JournalBalanceError(Exception):
     """Raised when journal lines are missing or not balanced."""
 
 
+JOURNAL_ERROR_UNBALANCED = "JOURNAL_ENTRY_NOT_BALANCED"
+JOURNAL_ERROR_INVALID_DC = "JOURNAL_LINE_INVALID_DC"
+JOURNAL_ERROR_WRITE_FAILED = "JOURNAL_WRITE_FAILED"
+
+
 @dataclass
 class JournalLinePayload:
     dc: str
@@ -39,6 +44,39 @@ def _validate_balanced(lines: Sequence[JournalLinePayload], tolerance: Decimal =
         raise JournalBalanceError("Debits and credits are not balanced.")
 
 
+def _exception_text(exc: BaseException) -> str:
+    if hasattr(exc, "orig") and getattr(exc, "orig") is not None:
+        return str(getattr(exc, "orig"))
+    return str(exc)
+
+
+def map_journal_db_exception(exc: BaseException) -> tuple[str, str, int] | None:
+    """Map low-level DB exceptions into deterministic app-safe journal errors."""
+    raw = _exception_text(exc)
+    lowered = raw.lower()
+    if "journal_entry_not_balanced" in lowered:
+        return (
+            JOURNAL_ERROR_UNBALANCED,
+            "Journal entry must be balanced before finalizing.",
+            400,
+        )
+    if (
+        "ck_journal_line_dc" in lowered
+        or ("check constraint failed" in lowered and "dc" in lowered)
+        or ("not null constraint failed" in lowered and "journal_line.dc" in lowered)
+    ):
+        return (
+            JOURNAL_ERROR_INVALID_DC,
+            "Journal line direction must be 'D' or 'C'.",
+            400,
+        )
+    return None
+
+
+def journal_error_payload(error_code: str, error: str) -> dict:
+    return {"ok": False, "error_code": error_code, "error": error}
+
+
 def create_journal_entry(
     *,
     user_id: int,
@@ -58,6 +96,7 @@ def create_journal_entry(
         date_parsed=date_parsed,
         description=description,
         reference=reference,
+        posted_at=None,
     )
     db.session.add(entry)
     db.session.flush()
@@ -74,6 +113,11 @@ def create_journal_entry(
             line_no=line_no,
         )
         db.session.add(jl)
+
+    # Finalize only after lines are present; DB trigger enforces balance at this point.
+    db.session.flush()
+    entry.posted_at = _dt.datetime.utcnow()
+    db.session.flush()
 
     return entry
 

@@ -1,5 +1,5 @@
 # Quality Gates
-_Last updated: 2026-03-08_
+_Last updated: 2026-03-09_
 
 ## 80.1 Scope
 Release-blocking invariants and required CI/local gate sequence for vNext correctness.
@@ -10,6 +10,7 @@ Release-blocking invariants and required CI/local gate sequence for vNext correc
 3. `python3 -m pytest -q tests/test_statement_export_contract.py`
 4. `python3 -m pytest -q tests/test_security_compliance_gate.py tests/test_security_sensitive_endpoints.py`
 5. `python3 -m pytest -q tests/test_startup_migration_contract.py`
+6. `python3 -m pytest -q tests/test_db_integrity_gate.py`
 - Command 2 is release-blocking only if unified gate assertions include invariant catalog parity per `SSOT 80.10` / `SSOT 81`.
 
 ## 80.3 Required Checks on `main` (Branch Protection)
@@ -30,6 +31,7 @@ Required checks must be enforced in GitHub branch protection and map to SSOT gat
 - unified gate must also enforce invariant catalog parity (`project/docs/qa_gate_invariants.md` vs asserted IDs in unified gate code).
 - release checks must execute statement export parity assertions (`tests/test_statement_export_contract.py`) directly or via unified gate.
 - release checks must execute security compliance gate assertions (`tests/test_security_compliance_gate.py` + `tests/test_security_sensitive_endpoints.py`).
+- release checks must execute DB integrity gate assertions (`tests/test_db_integrity_gate.py`) directly or via unified gate.
 
 If check names change, update branch protection and this SSOT section in the same PR.
 
@@ -40,6 +42,7 @@ If check names change, update branch protection and this SSOT section in the sam
 - Release is blocked if statement export parity fails (`/accounting/statement/export` vs `/accounting/statement/data`).
 - Release is blocked if security compliance gate fails (`GATE-SECURITY-COMPLIANCE`).
 - Release is blocked if startup/migration contract fails (`GATE-STARTUP-MIGRATION-CONTRACT`).
+- Release is blocked if DB integrity gate fails (`GATE-DB-INTEGRITY`).
 - Release is blocked if import idempotency or dedupe invariants fail.
 - Release is blocked if convergence reconcile or coverage gates fail.
 - Release is blocked if ranked report parity invariants fail.
@@ -63,6 +66,7 @@ If check names change, update branch protection and this SSOT section in the sam
 - `GATE-STATEMENT-EXPORT-PARITY`
 - `GATE-SECURITY-COMPLIANCE`
 - `GATE-STARTUP-MIGRATION-CONTRACT`
+- `GATE-DB-INTEGRITY`
 
 ## 80.7 How To Intentionally Test Failures
 - Schema failure drill:
@@ -94,6 +98,10 @@ If check names change, update branch protection and this SSOT section in the sam
   - preferred (non-destructive): run `python3 -m pytest -q tests/test_startup_migration_contract.py::test_startup_contract_empty_db_drill`.
   - required mismatch drill: run `python3 -m pytest -q tests/test_startup_migration_contract.py::test_startup_contract_db_url_mismatch_drill`.
   - confirm failure signal includes non-zero exit and message prefix `Startup/migration contract failed:`.
+- DB integrity drill:
+  - run `python3 -m pytest -q tests/test_db_integrity_gate.py::test_db_integrity_rejects_invalid_dc`.
+  - run `python3 -m pytest -q tests/test_db_integrity_gate.py::test_db_integrity_rejects_unbalanced_finalization`.
+  - confirm failure signal includes non-zero exit and message prefix `DB integrity gate failed:`.
 
 ## 80.8 Implementation Truth Pointers
 - Release gate test: `tests/test_vnext_gate.py`
@@ -108,6 +116,8 @@ If check names change, update branch protection and this SSOT section in the sam
 - Security model and exception register: `project/docs/ssot/70_security_model.md`
 - Startup/migration contract: `project/docs/ssot/60_schema_capabilities.md` (SSOT 60.8)
 - Startup/migration contract suite: `tests/test_startup_migration_contract.py`
+- DB integrity contract: `project/docs/ssot/20_domain_model.md` (SSOT 20.6), `project/docs/ssot/60_schema_capabilities.md` (SSOT 60.9)
+- DB integrity gate suite: `tests/test_db_integrity_gate.py`
 - PR checklist enforcement: `.github/pull_request_template.md`
 
 ## 80.9 `GATE-SCHEMA` Acceptance Criteria (Authoritative)
@@ -229,3 +239,29 @@ Required failure signal:
    - `capability_violation`
    - `db_url_mismatch_violation`
    - `create_all_drift_violation`
+
+## 80.14 `GATE-DB-INTEGRITY` Acceptance Criteria (Authoritative)
+Definitions are normative in `SSOT 20.6` and `SSOT 60.9`.
+
+`GATE-DB-INTEGRITY` passes only when all conditions below are true:
+1. `python3 -m pytest -q tests/test_db_integrity_gate.py` exits `0`.
+2. `journal_integrity` capability is present in schema capability output and evaluates true.
+3. Database rejects invalid direction values:
+   - inserts/updates with `journal_line.dc NOT IN ('D','C')` fail at DB layer.
+4. Database rejects unbalanced finalized entries:
+   - setting `journal_entry.posted_at` non-null when `debit_total != credit_total` fails at DB layer.
+5. Pre-migration detection path reports no existing invalid rows before constraints are applied.
+6. Verifier parity includes all `journal_integrity` artifacts in required/global check counts.
+
+`GATE-DB-INTEGRITY` fails when any condition above is false.
+
+Required failure signal:
+1. test/check command exits non-zero.
+2. failure output includes message prefix `DB integrity gate failed:`.
+3. failure output includes one or more mismatch sets:
+   - `missing_journal_integrity_capability`
+   - `missing_dc_constraint`
+   - `invalid_dc_insert_not_rejected`
+   - `unbalanced_finalize_not_rejected`
+   - `preexisting_invalid_rows_detected`
+   - `verifier_parity_missing_artifacts`

@@ -7,9 +7,13 @@ from typing import Any, Dict, List, Set
 from finance_app import LoanGroup, LoanGroupLink, current_user, db
 from finance_app.lib.auth import require_admin
 from finance_app.services.journal_service import (
+    JOURNAL_ERROR_UNBALANCED,
+    JOURNAL_ERROR_WRITE_FAILED,
     JournalBalanceError,
     JournalLinePayload,
     _validate_balanced,
+    journal_error_payload,
+    map_journal_db_exception,
 )
 from finance_app.services.loan_group_service import (
     create_group as loan_group_create,
@@ -2898,6 +2902,9 @@ def update_journal_entry(entry_id):
     user = current_user()
     if not user:
         return ("Unauthorized", 401)
+    ok_guard, payload, status = _guard_schema_caps(["journal_integrity"], user_id=user.id)
+    if not ok_guard:
+        return payload, status
 
     entry = JournalEntry.query.get_or_404(entry_id)
     if entry.user_id != user.id:
@@ -2968,30 +2975,44 @@ def update_journal_entry(entry_id):
     try:
         _validate_balanced(built)
     except JournalBalanceError as exc:
-        return {'ok': False, 'error': str(exc)}, 400
+        return journal_error_payload(JOURNAL_ERROR_UNBALANCED, str(exc)), 400
 
-    entry.date = date_str
-    entry.date_parsed = date_parsed
-    entry.description = description
-    entry.reference = reference or None
+    try:
+        entry.date = date_str
+        entry.date_parsed = date_parsed
+        entry.description = description
+        entry.reference = reference or None
+        # Keep as draft while line set is being rebuilt.
+        entry.posted_at = None
 
-    for existing in list(entry.lines):
-        db.session.delete(existing)
-    db.session.flush()
+        for existing in list(entry.lines):
+            db.session.delete(existing)
+        db.session.flush()
 
-    for payload in built:
-        db.session.add(
-            JournalLine(
-                journal_id=entry.id,
-                account_id=payload.account_id,
-                dc=payload.dc,
-                amount_base=payload.amount,
-                memo=payload.memo or None,
-                line_no=payload.line_no,
+        for payload in built:
+            db.session.add(
+                JournalLine(
+                    journal_id=entry.id,
+                    account_id=payload.account_id,
+                    dc=payload.dc,
+                    amount_base=payload.amount,
+                    memo=payload.memo or None,
+                    line_no=payload.line_no,
+                )
             )
-        )
 
-    db.session.commit()
+        # Finalize only after all lines exist.
+        db.session.flush()
+        entry.posted_at = _dt.datetime.utcnow()
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        mapped = map_journal_db_exception(exc)
+        if mapped:
+            error_code, error_message, mapped_status = mapped
+            return journal_error_payload(error_code, error_message), mapped_status
+        current_app.logger.exception("journal_update_failed entry_id=%s user_id=%s", entry_id, user.id)
+        return journal_error_payload(JOURNAL_ERROR_WRITE_FAILED, "Failed to update entry."), 500
 
     serialized = _format_journal_entries([entry])
     return {'ok': True, 'entry': serialized[0] if serialized else None}
@@ -3143,6 +3164,9 @@ def delete_journal_entry(entry_id):
     user = current_user()
     if not user:
         return ("Unauthorized", 401)
+    ok_guard, payload, status = _guard_schema_caps(["journal_integrity"], user_id=user.id)
+    if not ok_guard:
+        return payload, status
 
     entry = JournalEntry.query.get_or_404(entry_id)
     if entry.user_id != user.id:
@@ -3152,9 +3176,14 @@ def delete_journal_entry(entry_id):
         db.session.delete(entry)
         db.session.commit()
         return {'ok': True}
-    except Exception as e:
+    except Exception as exc:
         db.session.rollback()
-        return {'ok': False, 'error': f'Failed to delete entry: {e}'}, 500
+        mapped = map_journal_db_exception(exc)
+        if mapped:
+            error_code, error_message, mapped_status = mapped
+            return journal_error_payload(error_code, error_message), mapped_status
+        current_app.logger.exception("journal_delete_failed entry_id=%s user_id=%s", entry_id, user.id)
+        return journal_error_payload(JOURNAL_ERROR_WRITE_FAILED, "Failed to delete entry."), 500
 
 
 @accounting_bp.route('/first_tb_month', methods=['GET'])
