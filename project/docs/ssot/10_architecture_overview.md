@@ -186,3 +186,20 @@ Quality gates in `tests/test_vnext_gate.py` and related suites are release-block
   - redirect target must preserve active query/filter params required by SSOT 57.
 - Contract boundary:
   - no JSON response contract is introduced for `/upload_csv`; Phase 1.3 is HTML/session UX only (SSOT 59).
+
+## 10.11 Phase 1.2.1 Transaction Edit UX Hardening Integration Points
+- Open/preload flow:
+  - row-level edit action opens existing edit modal for a deterministic `entry_id` context.
+  - preload data comes from current list context; no new read endpoint is introduced.
+  - preload failures must produce visible editor error state (not console-only).
+- Save flow:
+  - updates submit only to `PUT /accounting/journal/<entry_id>`.
+  - list refresh calls only `GET /accounting/journal/list`.
+  - active query params (including `page` and `per_page`) remain preserved per SSOT 57.
+- UI state contract:
+  - live balance delta state is explicit (`balanced` vs `not_balanced`) and save gating is deterministic.
+  - deterministic error mapping remains required (`JOURNAL_NOT_BALANCED`).
+- Contract boundary:
+  - no new endpoints
+  - no `/upload_csv` JSON behavior changes
+  - no DB/schema changes in this phase (SSOT 58_1).

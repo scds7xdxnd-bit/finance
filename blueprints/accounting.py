@@ -2941,9 +2941,11 @@ def update_journal_entry(entry_id):
     if entry.user_id != user.id:
         return {"ok": False, "error": "Forbidden"}, 403
 
-    data = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True)
+    if data is None:
+        return {'ok': False, 'error': 'Malformed JSON payload'}, 400
     if not isinstance(data, dict):
-        return {'ok': False, 'error': 'Invalid JSON payload'}, 400
+        return {'ok': False, 'error': 'Malformed JSON payload'}, 400
     date_raw = (data.get('date') or '').strip()
     description = (data.get('description') or '').strip()
     reference = (data.get('reference') or '').strip()

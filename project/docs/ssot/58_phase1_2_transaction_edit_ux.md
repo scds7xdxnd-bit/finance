@@ -128,3 +128,10 @@ _Last updated: 2026-03-10_
 - Frontend contract lock: SSOT 55
 - Phase 1 baseline: SSOT 56
 - Phase 1.1 filters round-trip: SSOT 57
+
+## 58.11 Phase 1.2.1 Companion (Hardening, Non-Contradiction)
+- Phase 1.2.1 hardening details are defined in `SSOT 58_1`.
+- Phase 1.2 endpoint decisions in this file remain authoritative:
+  - `PUT /accounting/journal/<entry_id>` for updates
+  - `GET /accounting/journal/list` for list refresh.
+- Phase 1.2.1 introduces no new endpoint, no CSV JSON behavior, and no DB/migration requirement.

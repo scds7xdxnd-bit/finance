@@ -196,11 +196,13 @@
       border-radius: 999px;
       padding: 7px 12px;
     }
+    [data-role="balance-delta"][data-state="balanced"],
     [data-role="balance-delta"].balanced {
       color: #0f7b5f;
       border-color: #bde1c7;
       background: #f0fff4;
     }
+    [data-role="balance-delta"][data-state="not_balanced"],
     [data-role="balance-delta"].unbalanced {
       color: #b22222;
       border-color: #f3c2c2;
@@ -1235,7 +1237,7 @@
                 </section>
 
                 <div class="journal-edit-footer">
-                  <div data-role="balance-delta" aria-live="polite">Delta: 0.00</div>
+                  <div data-role="balance-delta" data-state="balanced" aria-live="polite">Balanced</div>
                   <button type="submit" class="icon-btn tb-summary-toggle" data-action="save-entry" disabled><i class="fa fa-save"></i> Save Entry</button>
                 </div>
               </form>
@@ -6339,13 +6341,14 @@ function bindReceivableRow(entry, baseRow, row){
       const dateLabel = escapeHtml(entry.date_iso || entry.date || '');
       const desc = escapeHtml(entry.description || '');
       const ref = entry.reference ? `<div class="journal-ref">Ref: ${escapeHtml(entry.reference)}</div>` : '';
-      html += `<div class="journal-row${active}" data-id="${entry.id}">
+      html += `<div class="journal-row${active}" data-id="${entry.id}" data-entry-id="${entry.id}">
                 <div class="journal-cell date">${dateLabel}</div>
                 <div class="journal-cell desc"><div>${desc || '(No description)'}</div>${ref}</div>
                 <div class="journal-cell amount">${formatCurrency(entry.debit_total || 0)}</div>
                 <div class="journal-cell amount">${formatCurrency(entry.credit_total || 0)}</div>
                 <div class="journal-cell lines" style="text-align:center;">${entry.line_count || 0}</div>
                 <div class="journal-cell actions">
+                  <button type="button" class="icon-btn journal-edit-btn" data-action="edit-entry" data-id="${entry.id}" data-entry-id="${entry.id}" title="Edit Entry"><i class="fa fa-pen"></i></button>
                   <button type="button" class="icon-btn journal-delete-btn" data-id="${entry.id}" title="Actions"><i class="fa fa-ellipsis-vertical"></i></button>
                 </div>
               </div>`;
@@ -6355,6 +6358,15 @@ function bindReceivableRow(entry, baseRow, row){
     table.querySelectorAll('.journal-row[data-id]').forEach(row => {
       const id = parseInt(row.dataset.id || '0', 10);
       row.addEventListener('click', () => openJournalEditor(id));
+    });
+    table.querySelectorAll('.journal-edit-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = parseInt(btn.dataset.entryId || btn.dataset.id || '0', 10);
+        if (!id) return;
+        openJournalEditor(id);
+      });
     });
     // Triple-dot actions menu (Delete)
     table.querySelectorAll('.journal-delete-btn').forEach(btn => {
@@ -6444,12 +6456,35 @@ function bindReceivableRow(entry, baseRow, row){
   }
 
   function openJournalEditor(entryId){
-    const entry = JOURNAL_STATE.byId.get(entryId);
+    const resolvedEntryId = parseInt(String(entryId || '0'), 10);
+    const entry = JOURNAL_STATE.byId.get(resolvedEntryId);
     if (!entry){
-      setJournalFeedback('Journal entry not found.', 'error');
+      openJournalEditModal({
+        id: Number.isInteger(resolvedEntryId) && resolvedEntryId > 0 ? resolvedEntryId : '',
+        date_iso: '',
+        description: '',
+        reference: '',
+        lines: [
+          { dc: 'D', amount: 0, account_name: '', memo: '' },
+          { dc: 'C', amount: 0, account_name: '', memo: '' }
+        ]
+      });
+      const form = getJournalEditForm();
+      if (form){
+        form.dataset.entryId = '';
+        const saveBtn = form.querySelector('[data-action="save-entry"]');
+        if (saveBtn) saveBtn.disabled = true;
+      }
+      const meta = document.getElementById('journal-edit-meta');
+      if (meta){
+        const label = Number.isInteger(resolvedEntryId) && resolvedEntryId > 0 ? `#${resolvedEntryId}` : 'in this view';
+        meta.textContent = `Entry ${label} is unavailable. Refresh the list and try again.`;
+      }
+      setJournalEditFieldError('lines', 'Unable to preload entry details from the current list.');
+      setJournalEditFormError('Journal entry could not be loaded. Refresh the journal list and try again.');
       return;
     }
-    JOURNAL_STATE.selectedId = entryId;
+    JOURNAL_STATE.selectedId = resolvedEntryId;
     renderJournalTable(JOURNAL_STATE.entries);
     renderJournalEditor(entry);
     openJournalEditModal(entry);
@@ -6569,10 +6604,13 @@ function bindReceivableRow(entry, baseRow, row){
     const debit = items.filter((line) => line.dc === 'D').reduce((sum, line) => sum + (Number(line.amount) || 0), 0);
     const credit = items.filter((line) => line.dc === 'C').reduce((sum, line) => sum + (Number(line.amount) || 0), 0);
     const delta = Number((debit - credit).toFixed(2));
+    const isBalanced = Math.abs(delta) < 0.005;
     deltaNode.classList.remove('balanced', 'unbalanced');
-    if (Math.abs(delta) < 0.005) deltaNode.classList.add('balanced');
-    else deltaNode.classList.add('unbalanced');
-    deltaNode.textContent = `Delta: ${formatCurrency(delta)}`;
+    deltaNode.classList.add(isBalanced ? 'balanced' : 'unbalanced');
+    deltaNode.dataset.state = isBalanced ? 'balanced' : 'not_balanced';
+    deltaNode.dataset.delta = delta.toFixed(2);
+    deltaNode.title = `Delta: ${delta.toFixed(2)}`;
+    deltaNode.textContent = isBalanced ? 'Balanced' : 'Not balanced';
     return delta;
   }
 
@@ -6707,8 +6745,22 @@ function bindReceivableRow(entry, baseRow, row){
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok){
+        clearJournalEditErrors();
+        const fieldErrors = data && typeof data.field_errors === 'object' && data.field_errors ? data.field_errors : {};
+        Object.entries(fieldErrors).forEach(([fieldName, rawMessage]) => {
+          const message = String(rawMessage || '').trim();
+          if (!message) return;
+          if (fieldName === 'date' || fieldName === 'description' || fieldName === 'reference' || fieldName === 'lines'){
+            setJournalEditFieldError(fieldName, message);
+            return;
+          }
+          if (fieldName.startsWith('lines')){
+            setJournalEditFieldError('lines', message);
+          }
+        });
         const errorCode = String((data && data.error_code) || '').toUpperCase();
         if (errorCode === 'JOURNAL_NOT_BALANCED'){
+          setJournalEditFieldError('lines', 'Journal entry must be balanced before finalizing.');
           setJournalEditFormError('Journal entry must be balanced before finalizing.');
           if (saveBtn) saveBtn.disabled = false;
           return;
