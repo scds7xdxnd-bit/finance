@@ -215,6 +215,9 @@ _Last updated: 2026-03-10_
   - `window.FINANCE_ENDPOINTS.accounting.journal.updateTemplate`
 - Registry values must resolve to the endpoint paths/methods locked in `55.4`.
 - For `accounting.journal.updateTemplate`, placeholder token `__ENTRY_ID__` is the stable replacement token for client substitution.
+- Phase 1.2.1 introduces no new registry keys; `accounting.journal.list` and `accounting.journal.updateTemplate` remain the only required edit/list keys.
+- Phase 1.2.2 introduces no new registry keys; preload/state-drift behavior must use existing edit/list keys and local UI state markers only.
+- Phase 1.2.3 introduces no new registry keys; refresh-safety behavior must use existing edit/list keys and editor session markers only.
 - Breaking registry change definition:
   - removing or renaming required keys
   - repointing required keys to incompatible endpoint contracts without SSOT/test updates.
@@ -228,4 +231,7 @@ _Last updated: 2026-03-10_
 - Phase 1 UX contract companion: `project/docs/ssot/56_phase1_ux_friction_removal.md`.
 - Phase 1.1 filters companion: `project/docs/ssot/57_phase1_1_filters_roundtrip.md` (no additional endpoint creation).
 - Phase 1.2 transaction edit UX companion: `project/docs/ssot/58_phase1_2_transaction_edit_ux.md` (no new endpoint creation; edit flow is locked to `PUT /accounting/journal/<entry_id>`).
+- Phase 1.2.1 transaction edit UX hardening companion: `project/docs/ssot/58_1_phase1_2_1_transaction_edit_ux_hardening.md` (no new endpoint or registry key creation).
+- Phase 1.2.2 transaction edit preload/state-drift companion: `project/docs/ssot/58_2_phase1_2_2_transaction_edit_state_drift.md` (no new endpoint, no new registry key, no new JSON contract).
+- Phase 1.2.3 transaction edit refresh-safety companion: `project/docs/ssot/58_3_phase1_2_3_transaction_edit_refresh_safety.md` (no new endpoint, no new registry key, no JSON expansion).
 - Phase 1.3 CSV import UX companion: `project/docs/ssot/59_phase1_3_csv_import_ux_no_json.md` (session/HTML UX only; no `/upload_csv` JSON contract and no registry-key churn required).

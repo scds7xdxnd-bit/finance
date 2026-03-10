@@ -196,11 +196,13 @@
       border-radius: 999px;
       padding: 7px 12px;
     }
+    [data-role="balance-delta"][data-state="balanced"],
     [data-role="balance-delta"].balanced {
       color: #0f7b5f;
       border-color: #bde1c7;
       background: #f0fff4;
     }
+    [data-role="balance-delta"][data-state="not_balanced"],
     [data-role="balance-delta"].unbalanced {
       color: #b22222;
       border-color: #f3c2c2;
@@ -1195,7 +1197,10 @@
             </div>
           </div>
 
-          <div id="journal-edit-modal" aria-hidden="true" hidden>
+          <div id="journal-edit-modal" aria-hidden="true" data-buffer-authority="local" hidden>
+            <div data-role="preload-state" data-state="loading" hidden></div>
+            <div data-role="edit-session" data-entry-id="" data-session="inactive" hidden></div>
+            <div data-role="stale-warning" hidden aria-live="polite"></div>
             <div class="journal-edit-backdrop" data-action="close-edit-modal"></div>
             <div class="journal-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="journal-edit-title">
               <div class="journal-edit-head">
@@ -1235,7 +1240,7 @@
                 </section>
 
                 <div class="journal-edit-footer">
-                  <div data-role="balance-delta" aria-live="polite">Delta: 0.00</div>
+                  <div data-role="balance-delta" data-state="balanced" aria-live="polite">Balanced</div>
                   <button type="submit" class="icon-btn tb-summary-toggle" data-action="save-entry" disabled><i class="fa fa-save"></i> Save Entry</button>
                 </div>
               </form>
@@ -5994,9 +5999,16 @@ function bindReceivableRow(entry, baseRow, row){
     total: 0,
     perPage: JOURNAL_DEFAULT_PER_PAGE,
     filters: {},
+    signature: '',
     selectedId: null,
     loading: false,
     loaded: false
+  };
+  const JOURNAL_EDIT_SESSION = {
+    entryId: null,
+    preloadSignature: '',
+    preloadSnapshot: '',
+    staleMessage: ''
   };
   const JOURNAL_ACCOUNT_INDEX = (() => {
     const list = (window.ACC_BOOT && window.ACC_BOOT.allAccounts) || [];
@@ -6025,6 +6037,47 @@ function bindReceivableRow(entry, baseRow, row){
       throw new Error('Configuration error: accounting.journal.updateTemplate must contain __ENTRY_ID__.');
     }
     return template.replace('__ENTRY_ID__', encodeURIComponent(String(entryId)));
+  }
+
+  function buildJournalListSignature(filters, page, perPage){
+    const normalizedPage = Number.isInteger(page) && page > 0 ? page : 1;
+    const normalizedPerPage = Number.isInteger(perPage) && perPage > 0 ? perPage : JOURNAL_DEFAULT_PER_PAGE;
+    const source = filters || {};
+    const params = new URLSearchParams();
+    JOURNAL_QUERY_KEYS.forEach((key) => {
+      if (key === 'page'){
+        params.set('page', String(normalizedPage));
+        return;
+      }
+      if (key === 'per_page'){
+        params.set('per_page', String(normalizedPerPage));
+        return;
+      }
+      const raw = String(source[key] ?? '').trim();
+      if (raw) params.set(key, raw);
+    });
+    return params.toString();
+  }
+
+  function snapshotJournalEntry(entry){
+    if (!entry || typeof entry !== 'object') return '';
+    const lines = Array.isArray(entry.lines)
+      ? entry.lines.map((line) => ({
+        dc: String((line && line.dc) || '').trim().toUpperCase(),
+        account_id: line && Number.isFinite(Number(line.account_id)) ? Number(line.account_id) : null,
+        account_name: String((line && (line.account_name || line.account)) || '').trim(),
+        amount: Number.isFinite(Number(line && line.amount)) ? Number(Number(line.amount).toFixed(2)) : 0,
+        memo: String((line && line.memo) || '').trim()
+      }))
+      : [];
+    return JSON.stringify({
+      id: Number.isFinite(Number(entry.id)) ? Number(entry.id) : null,
+      date: String(entry.date_iso || entry.date || '').trim(),
+      description: String(entry.description || '').trim(),
+      reference: String(entry.reference || '').trim(),
+      line_count: Number.isFinite(Number(entry.line_count)) ? Number(entry.line_count) : lines.length,
+      lines
+    });
   }
 
   function escapeHtml(value){
@@ -6299,6 +6352,7 @@ function bindReceivableRow(entry, baseRow, row){
       JOURNAL_STATE.page = Number.isInteger(pageFromPayload) && pageFromPayload > 0 ? pageFromPayload : requestedPage;
       JOURNAL_STATE.pages = Number.isInteger(pagesFromPayload) && pagesFromPayload > 0 ? pagesFromPayload : 1;
       JOURNAL_STATE.total = Number.isFinite(totalFromPayload) && totalFromPayload >= 0 ? totalFromPayload : JOURNAL_STATE.entries.length;
+      JOURNAL_STATE.signature = buildJournalListSignature(JOURNAL_STATE.filters, JOURNAL_STATE.page, JOURNAL_STATE.perPage);
       JOURNAL_STATE.loaded = true;
       applyJournalControlState(JOURNAL_STATE.filters, JOURNAL_STATE.perPage);
       if (pushHistory){
@@ -6310,6 +6364,7 @@ function bindReceivableRow(entry, baseRow, row){
       }
       renderJournalTable(JOURNAL_STATE.entries);
       renderJournalPagination(JOURNAL_STATE.page, JOURNAL_STATE.pages, JOURNAL_STATE.total);
+      reconcileJournalEditorWithListState();
       setJournalFilterFormError('');
       setJournalFeedback('', 'info');
       updateJournalStatusLabel();
@@ -6339,13 +6394,14 @@ function bindReceivableRow(entry, baseRow, row){
       const dateLabel = escapeHtml(entry.date_iso || entry.date || '');
       const desc = escapeHtml(entry.description || '');
       const ref = entry.reference ? `<div class="journal-ref">Ref: ${escapeHtml(entry.reference)}</div>` : '';
-      html += `<div class="journal-row${active}" data-id="${entry.id}">
+      html += `<div class="journal-row${active}" data-id="${entry.id}" data-entry-id="${entry.id}">
                 <div class="journal-cell date">${dateLabel}</div>
                 <div class="journal-cell desc"><div>${desc || '(No description)'}</div>${ref}</div>
                 <div class="journal-cell amount">${formatCurrency(entry.debit_total || 0)}</div>
                 <div class="journal-cell amount">${formatCurrency(entry.credit_total || 0)}</div>
                 <div class="journal-cell lines" style="text-align:center;">${entry.line_count || 0}</div>
                 <div class="journal-cell actions">
+                  <button type="button" class="icon-btn journal-edit-btn" data-action="edit-entry" data-id="${entry.id}" data-entry-id="${entry.id}" title="Edit Entry"><i class="fa fa-pen"></i></button>
                   <button type="button" class="icon-btn journal-delete-btn" data-id="${entry.id}" title="Actions"><i class="fa fa-ellipsis-vertical"></i></button>
                 </div>
               </div>`;
@@ -6353,8 +6409,17 @@ function bindReceivableRow(entry, baseRow, row){
     table.innerHTML = html;
     table.scrollTop = prevScroll;
     table.querySelectorAll('.journal-row[data-id]').forEach(row => {
-      const id = parseInt(row.dataset.id || '0', 10);
+      const id = parseInt(row.dataset.entryId || row.dataset.id || '0', 10);
       row.addEventListener('click', () => openJournalEditor(id));
+    });
+    table.querySelectorAll('.journal-edit-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = parseInt(btn.dataset.entryId || btn.dataset.id || '0', 10);
+        if (!id) return;
+        openJournalEditor(id);
+      });
     });
     // Triple-dot actions menu (Delete)
     table.querySelectorAll('.journal-delete-btn').forEach(btn => {
@@ -6443,16 +6508,195 @@ function bindReceivableRow(entry, baseRow, row){
     });
   }
 
-  function openJournalEditor(entryId){
-    const entry = JOURNAL_STATE.byId.get(entryId);
-    if (!entry){
-      setJournalFeedback('Journal entry not found.', 'error');
+  function getJournalPreloadStateNode(){
+    const modal = getJournalEditModal();
+    if (!modal) return null;
+    return modal.querySelector('[data-role="preload-state"]');
+  }
+
+  function getJournalEditSessionNode(){
+    const modal = getJournalEditModal();
+    if (!modal) return null;
+    return modal.querySelector('[data-role="edit-session"]');
+  }
+
+  function getJournalStaleWarningNode(){
+    const modal = getJournalEditModal();
+    if (!modal) return null;
+    return modal.querySelector('[data-role="stale-warning"]');
+  }
+
+  function setJournalEditSessionState(session, entryId){
+    const node = getJournalEditSessionNode();
+    if (!node) return;
+    const normalized = String(session || '').trim().toLowerCase() === 'active' ? 'active' : 'inactive';
+    node.dataset.session = normalized;
+    if (normalized === 'active' && Number.isInteger(entryId) && entryId > 0){
+      node.dataset.entryId = String(entryId);
+    } else {
+      node.dataset.entryId = '';
+    }
+  }
+
+  function syncJournalStaleWarning(){
+    const node = getJournalStaleWarningNode();
+    if (!node) return;
+    if (getJournalPreloadState() !== 'stale'){
+      node.hidden = true;
+      node.textContent = '';
       return;
     }
-    JOURNAL_STATE.selectedId = entryId;
+    node.hidden = false;
+    node.textContent = getJournalPreloadStateMessage('stale');
+  }
+
+  function getJournalPreloadStateMessage(state){
+    switch (String(state || '').trim().toLowerCase()){
+      case 'loading':
+        return 'Journal entry is still loading. Please wait and try again.';
+      case 'missing':
+        return 'Journal entry could not be loaded. Refresh the journal list and try again.';
+      case 'stale':
+        return JOURNAL_EDIT_SESSION.staleMessage || 'Journal list changed while editing. Your local edits are kept.';
+      default:
+        return '';
+    }
+  }
+
+  function getJournalPreloadState(){
+    const node = getJournalPreloadStateNode();
+    const state = String(node && node.dataset && node.dataset.state ? node.dataset.state : 'loading').trim().toLowerCase();
+    if (state === 'ready' || state === 'missing' || state === 'stale' || state === 'loading'){
+      return state;
+    }
+    return 'loading';
+  }
+
+  function setJournalPreloadState(state, message=''){
+    const normalized = String(state || 'loading').trim().toLowerCase();
+    const nextState = (normalized === 'ready' || normalized === 'missing' || normalized === 'stale' || normalized === 'loading')
+      ? normalized
+      : 'loading';
+    const node = getJournalPreloadStateNode();
+    if (!node) return;
+    node.dataset.state = nextState;
+    if (message){
+      node.dataset.message = String(message).trim();
+    } else {
+      delete node.dataset.message;
+    }
+    syncJournalStaleWarning();
+  }
+
+  function currentJournalListSignature(){
+    return buildJournalListSignature(JOURNAL_STATE.filters, JOURNAL_STATE.page, JOURNAL_STATE.perPage);
+  }
+
+  function resetJournalEditSession(){
+    JOURNAL_EDIT_SESSION.entryId = null;
+    JOURNAL_EDIT_SESSION.preloadSignature = '';
+    JOURNAL_EDIT_SESSION.preloadSnapshot = '';
+    JOURNAL_EDIT_SESSION.staleMessage = '';
+    const node = getJournalPreloadStateNode();
+    if (node){
+      node.dataset.state = 'loading';
+      delete node.dataset.message;
+    }
+    setJournalEditSessionState('inactive');
+    syncJournalStaleWarning();
+  }
+
+  function markJournalEditorStale(message){
+    const text = String(message || '').trim() || 'Journal list changed while editing. Your local edits are kept.';
+    if (!JOURNAL_EDIT_SESSION.staleMessage) JOURNAL_EDIT_SESSION.staleMessage = text;
+    setJournalPreloadState('stale', JOURNAL_EDIT_SESSION.staleMessage);
+    setJournalEditFormError('');
+    evaluateJournalEditForm(false);
+  }
+
+  function reconcileJournalEditorWithListState(){
+    const modal = getJournalEditModal();
+    if (!modal || modal.hidden) return;
+    const sessionNode = getJournalEditSessionNode();
+    const sessionState = String(sessionNode && sessionNode.dataset && sessionNode.dataset.session ? sessionNode.dataset.session : 'inactive').trim().toLowerCase();
+    if (sessionState !== 'active') return;
+    const activeEntryId = parseInt(String(JOURNAL_EDIT_SESSION.entryId || 0), 10);
+    if (!Number.isInteger(activeEntryId) || activeEntryId <= 0) return;
+    const state = getJournalPreloadState();
+    if (state === 'missing' || state === 'loading') return;
+    if (state === 'stale'){
+      syncJournalStaleWarning();
+      setJournalEditFormError('');
+      evaluateJournalEditForm(false);
+      return;
+    }
+    const currentSignature = JOURNAL_STATE.signature || currentJournalListSignature();
+    if (JOURNAL_EDIT_SESSION.preloadSignature && currentSignature !== JOURNAL_EDIT_SESSION.preloadSignature){
+      markJournalEditorStale('Journal filters or page changed while editing. Your local edits are kept.');
+      return;
+    }
+    const latestEntry = JOURNAL_STATE.byId.get(activeEntryId);
+    if (!latestEntry){
+      markJournalEditorStale('Entry is no longer present in the current list. Your local edits are kept.');
+      return;
+    }
+    const latestSnapshot = snapshotJournalEntry(latestEntry);
+    if (JOURNAL_EDIT_SESSION.preloadSnapshot && latestSnapshot && latestSnapshot !== JOURNAL_EDIT_SESSION.preloadSnapshot){
+      markJournalEditorStale('Entry data changed in the refreshed list. Your local edits are kept.');
+    }
+  }
+
+  function openJournalEditor(entryId){
+    const resolvedEntryId = parseInt(String(entryId || '0'), 10);
+    const entry = JOURNAL_STATE.byId.get(resolvedEntryId);
+    if (!entry){
+      openJournalEditModal({
+        id: Number.isInteger(resolvedEntryId) && resolvedEntryId > 0 ? resolvedEntryId : '',
+        date_iso: '',
+        description: '',
+        reference: '',
+        lines: [
+          { dc: 'D', amount: 0, account_name: '', memo: '' },
+          { dc: 'C', amount: 0, account_name: '', memo: '' }
+        ]
+      });
+      JOURNAL_EDIT_SESSION.entryId = Number.isInteger(resolvedEntryId) && resolvedEntryId > 0 ? resolvedEntryId : null;
+      JOURNAL_EDIT_SESSION.preloadSignature = JOURNAL_STATE.signature || currentJournalListSignature();
+      JOURNAL_EDIT_SESSION.preloadSnapshot = '';
+      JOURNAL_EDIT_SESSION.staleMessage = '';
+      setJournalEditSessionState('active', JOURNAL_EDIT_SESSION.entryId);
+      const modal = getJournalEditModal();
+      if (modal) modal.dataset.bufferAuthority = 'local';
+      setJournalPreloadState('missing');
+      const form = getJournalEditForm();
+      if (form){
+        form.dataset.entryId = '';
+        const saveBtn = form.querySelector('[data-action="save-entry"]');
+        if (saveBtn) saveBtn.disabled = true;
+      }
+      const meta = document.getElementById('journal-edit-meta');
+      if (meta){
+        const label = Number.isInteger(resolvedEntryId) && resolvedEntryId > 0 ? `#${resolvedEntryId}` : 'in this view';
+        meta.textContent = `Entry ${label} is unavailable. Refresh the list and try again.`;
+      }
+      setJournalEditFieldError('lines', 'Unable to preload entry details from the current list.');
+      setJournalEditFormError('');
+      return;
+    }
+    JOURNAL_STATE.selectedId = resolvedEntryId;
     renderJournalTable(JOURNAL_STATE.entries);
     renderJournalEditor(entry);
     openJournalEditModal(entry);
+    JOURNAL_EDIT_SESSION.entryId = resolvedEntryId;
+    JOURNAL_EDIT_SESSION.preloadSignature = JOURNAL_STATE.signature || currentJournalListSignature();
+    JOURNAL_EDIT_SESSION.preloadSnapshot = snapshotJournalEntry(entry);
+    JOURNAL_EDIT_SESSION.staleMessage = '';
+    setJournalEditSessionState('active', resolvedEntryId);
+    const modal = getJournalEditModal();
+    if (modal) modal.dataset.bufferAuthority = 'local';
+    setJournalPreloadState('ready');
+    clearJournalEditErrors();
+    evaluateJournalEditForm(false);
   }
 
   function renderJournalEditor(entry){
@@ -6479,7 +6723,18 @@ function bindReceivableRow(entry, baseRow, row){
     if (!form) return;
     const node = form.querySelector('[data-role="form-error"]');
     if (!node) return;
-    const text = String(message || '').trim();
+    const preloadState = getJournalPreloadState();
+    const preloadMessage = getJournalPreloadStateMessage(preloadState);
+    let text = String(message || '').trim();
+    if (preloadState === 'missing' || preloadState === 'loading'){
+      text = preloadMessage;
+    } else if (preloadState === 'stale' && preloadMessage){
+      if (!text){
+        text = preloadMessage;
+      } else if (!text.includes(preloadMessage)){
+        text = `${text} ${preloadMessage}`;
+      }
+    }
     if (!text){
       node.textContent = '';
       node.classList.remove('visible');
@@ -6569,10 +6824,13 @@ function bindReceivableRow(entry, baseRow, row){
     const debit = items.filter((line) => line.dc === 'D').reduce((sum, line) => sum + (Number(line.amount) || 0), 0);
     const credit = items.filter((line) => line.dc === 'C').reduce((sum, line) => sum + (Number(line.amount) || 0), 0);
     const delta = Number((debit - credit).toFixed(2));
+    const isBalanced = Math.abs(delta) < 0.005;
     deltaNode.classList.remove('balanced', 'unbalanced');
-    if (Math.abs(delta) < 0.005) deltaNode.classList.add('balanced');
-    else deltaNode.classList.add('unbalanced');
-    deltaNode.textContent = `Delta: ${formatCurrency(delta)}`;
+    deltaNode.classList.add(isBalanced ? 'balanced' : 'unbalanced');
+    deltaNode.dataset.state = isBalanced ? 'balanced' : 'not_balanced';
+    deltaNode.dataset.delta = delta.toFixed(2);
+    deltaNode.title = `Delta: ${delta.toFixed(2)}`;
+    deltaNode.textContent = isBalanced ? 'Balanced' : 'Not balanced';
     return delta;
   }
 
@@ -6630,6 +6888,13 @@ function bindReceivableRow(entry, baseRow, row){
       setJournalEditFieldError('lines', lineError);
     }
     updateJournalEditRemoveState();
+    const preloadState = getJournalPreloadState();
+    if (preloadState === 'missing' || preloadState === 'loading'){
+      valid = false;
+      if (showErrors){
+        setJournalEditFormError('');
+      }
+    }
     const saveBtn = form.querySelector('[data-action="save-entry"]');
     if (saveBtn) saveBtn.disabled = !valid;
     return { valid, lines, delta };
@@ -6666,6 +6931,22 @@ function bindReceivableRow(entry, baseRow, row){
   function closeJournalEditModal(){
     const modal = getJournalEditModal();
     if (!modal) return;
+    const form = getJournalEditForm();
+    if (form){
+      form.dataset.entryId = '';
+      const saveBtn = form.querySelector('[data-action="save-entry"]');
+      if (saveBtn) saveBtn.disabled = true;
+      form.querySelectorAll('[data-field-error]').forEach((node) => {
+        node.textContent = '';
+      });
+      const formErrorNode = form.querySelector('[data-role="form-error"]');
+      if (formErrorNode){
+        formErrorNode.textContent = '';
+        formErrorNode.classList.remove('visible');
+      }
+    }
+    resetJournalEditSession();
+    modal.dataset.bufferAuthority = 'local';
     modal.hidden = true;
     modal.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
@@ -6674,6 +6955,13 @@ function bindReceivableRow(entry, baseRow, row){
   async function submitJournalEdit(){
     const form = getJournalEditForm();
     if (!form) return;
+    const saveBtn = form.querySelector('[data-action="save-entry"]');
+    const preloadState = getJournalPreloadState();
+    if (preloadState === 'missing' || preloadState === 'loading'){
+      if (saveBtn) saveBtn.disabled = true;
+      setJournalEditFormError('');
+      return;
+    }
     const entryIdRaw = parseInt(String(form.dataset.entryId || '0'), 10);
     if (!Number.isInteger(entryIdRaw) || entryIdRaw <= 0){
       setJournalEditFormError('Unable to save: missing journal entry id.');
@@ -6696,7 +6984,6 @@ function bindReceivableRow(entry, baseRow, row){
         memo: line.memo
       }))
     };
-    const saveBtn = form.querySelector('[data-action="save-entry"]');
     if (saveBtn) saveBtn.disabled = true;
     try {
       const updateUrl = buildJournalUpdateUrl(entryIdRaw);
@@ -6707,8 +6994,22 @@ function bindReceivableRow(entry, baseRow, row){
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok){
+        clearJournalEditErrors();
+        const fieldErrors = data && typeof data.field_errors === 'object' && data.field_errors ? data.field_errors : {};
+        Object.entries(fieldErrors).forEach(([fieldName, rawMessage]) => {
+          const message = String(rawMessage || '').trim();
+          if (!message) return;
+          if (fieldName === 'date' || fieldName === 'description' || fieldName === 'reference' || fieldName === 'lines'){
+            setJournalEditFieldError(fieldName, message);
+            return;
+          }
+          if (fieldName.startsWith('lines')){
+            setJournalEditFieldError('lines', message);
+          }
+        });
         const errorCode = String((data && data.error_code) || '').toUpperCase();
         if (errorCode === 'JOURNAL_NOT_BALANCED'){
+          setJournalEditFieldError('lines', 'Journal entry must be balanced before finalizing.');
           setJournalEditFormError('Journal entry must be balanced before finalizing.');
           if (saveBtn) saveBtn.disabled = false;
           return;
@@ -6716,6 +7017,18 @@ function bindReceivableRow(entry, baseRow, row){
         setJournalEditFormError((data && data.error) || 'Unable to save journal entry right now. Please try again.');
         if (saveBtn) saveBtn.disabled = false;
         return;
+      }
+      if (data && data.entry && typeof data.entry === 'object'){
+        const current = JOURNAL_STATE.byId.get(entryIdRaw) || {};
+        const merged = { ...current, ...data.entry };
+        if (!Array.isArray(merged.lines) && Array.isArray(current.lines)){
+          merged.lines = current.lines;
+        }
+        JOURNAL_STATE.byId.set(entryIdRaw, merged);
+        JOURNAL_STATE.entries = JOURNAL_STATE.entries.map((entry) => {
+          if (Number(entry && entry.id) !== entryIdRaw) return entry;
+          return { ...entry, ...merged };
+        });
       }
       closeJournalEditModal();
       setJournalFeedback('Journal entry saved.', 'success');
@@ -6733,6 +7046,7 @@ function bindReceivableRow(entry, baseRow, row){
       JOURNAL_STATE.filters = urlState.filters;
       JOURNAL_STATE.page = urlState.page;
       JOURNAL_STATE.perPage = urlState.perPage;
+      JOURNAL_STATE.signature = buildJournalListSignature(JOURNAL_STATE.filters, JOURNAL_STATE.page, JOURNAL_STATE.perPage);
       applyJournalControlState(JOURNAL_STATE.filters, JOURNAL_STATE.perPage);
       loadJournalEntries(JOURNAL_STATE.page, { useControlState: true, replaceHistory: true });
     }
@@ -6744,6 +7058,7 @@ function bindReceivableRow(entry, baseRow, row){
     JOURNAL_STATE.filters = initialJournalState.filters;
     JOURNAL_STATE.page = initialJournalState.page;
     JOURNAL_STATE.perPage = initialJournalState.perPage;
+    JOURNAL_STATE.signature = buildJournalListSignature(JOURNAL_STATE.filters, JOURNAL_STATE.page, JOURNAL_STATE.perPage);
     applyJournalControlState(JOURNAL_STATE.filters, JOURNAL_STATE.perPage);
     updateJournalStatusLabel();
     const journalEditModal = getJournalEditModal();
@@ -6850,6 +7165,7 @@ function bindReceivableRow(entry, baseRow, row){
       JOURNAL_STATE.filters = stateFromUrl.filters;
       JOURNAL_STATE.page = stateFromUrl.page;
       JOURNAL_STATE.perPage = stateFromUrl.perPage;
+      JOURNAL_STATE.signature = buildJournalListSignature(JOURNAL_STATE.filters, JOURNAL_STATE.page, JOURNAL_STATE.perPage);
       applyJournalControlState(JOURNAL_STATE.filters, JOURNAL_STATE.perPage);
       const journalView = document.getElementById('journal-view');
       const isVisible = journalView && journalView.style.display !== 'none';

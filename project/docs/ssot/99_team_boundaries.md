@@ -61,6 +61,21 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
   - panel selector/data-role surface is stable
   - dismiss semantics are stable (`POST /transactions/import_result/dismiss`, auth+CSRF, redirect param preservation)
   - `/upload_csv` remains no-JSON contract surface
+- Phase 1.2.1 transaction edit UX hardening (`SSOT 58_1`):
+  - deterministic preload/render behavior for edit modal
+  - deterministic balance-state and save-gating behavior
+  - deterministic field-level vs form-level error placement rules
+  - post-save list refresh must preserve active query params (`page`/`per_page` included)
+- Phase 1.2.2 transaction edit state drift hardening (`SSOT 58_2`):
+  - preload source is JS state (`JOURNAL_STATE.byId`) from existing list endpoint
+  - preload-state marker and state values are stable (`ready|missing|stale|loading`)
+  - missing/stale state handling remains deterministic and visible
+  - no new preload endpoint or registry key is allowed in this phase
+- Phase 1.2.3 transaction edit refresh-safety hardening (`SSOT 58_3`):
+  - edit-session marker and stale-warning selector are stable interfaces
+  - local-buffer authority under active modal session is mandatory
+  - background refresh must preserve active query params and must not overwrite local editor buffer
+  - no new endpoint or registry key is allowed in this phase
 
 ### 99.3.1 Frontend Contract Surface Ownership
 - Architect owns SSOT definitions in `project/docs/ssot/55_frontend_contracts.md`.
@@ -84,6 +99,26 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Frontend owns panel rendering and deterministic selector usage from SSOT 59.
 - QA owns contract-shape checks for panel presence, dismiss form semantics, and filter-param preservation.
 
+### 99.3.4 Phase 1.2.1 Ownership
+- Architect owns `project/docs/ssot/58_1_phase1_2_1_transaction_edit_ux_hardening.md`.
+- Backend owns endpoint conformity and deterministic error mapping for existing edit/list endpoints:
+  - `PUT /accounting/journal/<entry_id>`
+  - `GET /accounting/journal/list`
+- Frontend owns deterministic preload/render UX, balance-state gating UX, and visible fallback errors.
+- QA owns contract-shape checks for selector surface, error mapping, and query-param preservation.
+
+### 99.3.5 Phase 1.2.2 Ownership
+- Architect owns `project/docs/ssot/58_2_phase1_2_2_transaction_edit_state_drift.md`.
+- Frontend owns preload/state lifecycle behavior and preload-state UI semantics.
+- Backend owns existing endpoint behavior only; no new endpoint introduction.
+- QA owns contract-shape checks for preload-state markers, missing-state handling, and entry-id action surface.
+
+### 99.3.6 Phase 1.2.3 Ownership
+- Architect owns `project/docs/ssot/58_3_phase1_2_3_transaction_edit_refresh_safety.md`.
+- Frontend owns edit-session marker, stale-warning rendering, and buffer-authority semantics.
+- Backend owns existing endpoint behavior only; no endpoint expansion.
+- QA owns contract-shape checks for refresh-safety markers and registry stability.
+
 ## 99.4 Forbidden Changes
 - Reporting code must not compute ranked totals from legacy `Transaction` rows.
 - Reporting code must not enable or silently emulate mixed mode aggregation.
@@ -102,6 +137,12 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Frontend must not bypass `window.FINANCE_ENDPOINTS.accounting.journal.list` and `window.FINANCE_ENDPOINTS.accounting.journal.updateTemplate` in Phase 1.2 flows.
 - Backend and Frontend must not introduce `/upload_csv` JSON response contracts without SSOT update and QA evidence.
 - Backend and Frontend must not rename `session["last_import_result_v1"]` or SSOT 59 locked panel selectors/data-role markers without SSOT update and QA evidence.
+- Backend and Frontend must not introduce new edit/list endpoints or new registry keys for Phase 1.2.1 without SSOT update and QA evidence.
+- Backend and Frontend must not break query-param preservation (`page`/`per_page`) on post-save list refresh in Phase 1.2.1 flows.
+- Backend and Frontend must not introduce new preload read endpoints for Phase 1.2.2 without SSOT update and QA evidence.
+- Frontend must not remove or rename preload-state marker contract (`[data-role="preload-state"]` with allowed `data-state` values) without SSOT update and QA evidence.
+- Backend and Frontend must not remove or rename Phase 1.2.3 refresh-safety markers (`[data-role="edit-session"]`, `[data-role="stale-warning"]`, `data-buffer-authority="local"`) without SSOT update and QA evidence.
+- Backend and Frontend must not drop `page`/`per_page` preservation on edit-list refresh flows in Phase 1.2.3.
 
 ## 99.5 SSOT Change Protocol (Mandatory)
 - Any PR that changes a stable interface or forbidden-change area must:
@@ -123,6 +164,15 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Any PR that changes Phase 1.3 CSV import UX contracts (`SSOT 59`) must include:
   - SSOT 59 section references
   - QA contract evidence for panel selectors, dismiss semantics, and filter-param preservation checks
+- Any PR that changes Phase 1.2.1 edit hardening contracts (`SSOT 58_1`) must include:
+  - SSOT 58_1 section references
+  - QA contract evidence for preload/render selectors, error mapping, and post-save query-param preservation checks
+- Any PR that changes Phase 1.2.2 edit preload/state-drift contracts (`SSOT 58_2`) must include:
+  - SSOT 58_2 section references
+  - QA contract evidence for preload-state markers, missing-state behavior, and action-surface entry-id checks
+- Any PR that changes Phase 1.2.3 edit refresh-safety contracts (`SSOT 58_3`) must include:
+  - SSOT 58_3 section references
+  - QA contract evidence for edit-session marker, stale-warning selector, buffer-authority marker, and refresh-param preservation checks
 - If behavior is intentionally transitional, PR must include:
   - explicit temporary rule
   - expiration date

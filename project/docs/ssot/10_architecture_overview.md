@@ -186,3 +186,59 @@ Quality gates in `tests/test_vnext_gate.py` and related suites are release-block
   - redirect target must preserve active query/filter params required by SSOT 57.
 - Contract boundary:
   - no JSON response contract is introduced for `/upload_csv`; Phase 1.3 is HTML/session UX only (SSOT 59).
+
+## 10.11 Phase 1.2.1 Transaction Edit UX Hardening Integration Points
+- Open/preload flow:
+  - row-level edit action opens existing edit modal for a deterministic `entry_id` context.
+  - preload data comes from current list context; no new read endpoint is introduced.
+  - preload failures must produce visible editor error state (not console-only).
+- Save flow:
+  - updates submit only to `PUT /accounting/journal/<entry_id>`.
+  - list refresh calls only `GET /accounting/journal/list`.
+  - active query params (including `page` and `per_page`) remain preserved per SSOT 57.
+- UI state contract:
+  - live balance delta state is explicit (`balanced` vs `not_balanced`) and save gating is deterministic.
+  - deterministic error mapping remains required (`JOURNAL_NOT_BALANCED`).
+- Contract boundary:
+  - no new endpoints
+  - no `/upload_csv` JSON behavior changes
+  - no DB/schema changes in this phase (SSOT 58_1).
+
+## 10.12 Phase 1.2.2 Transaction Edit Preload/State Drift Integration Points
+- Preload source:
+  - editor preload uses in-memory state only (`JOURNAL_STATE.byId`) derived from `GET /accounting/journal/list`.
+  - no new preload read endpoint is introduced.
+- Preload-state UI:
+  - editor exposes deterministic preload-state marker (`ready|missing|stale|loading`).
+  - non-ready states must produce visible UI errors and disabled save action.
+- Save and refresh:
+  - save remains `PUT /accounting/journal/<entry_id>`.
+  - refresh remains `GET /accounting/journal/list` via registry key.
+  - refresh preserves active query params (including `page` and `per_page`) per SSOT 57.
+- Reconciliation:
+  - on success, editor state reconciles `JOURNAL_STATE.byId[entry_id]` from response `entry` when present, else from next list refresh payload.
+- Contract boundary:
+  - no new endpoints
+  - no new registry keys
+  - no new JSON contracts
+  - no `/upload_csv` JSON behavior changes (SSOT 58_2).
+
+## 10.13 Phase 1.2.3 Transaction Edit Refresh Safety Integration Points
+- Active edit session contract:
+  - modal session uses explicit marker (`edit-session`) and local-buffer authority marker.
+  - local buffer is authoritative while modal session is active.
+- Background refresh behavior:
+  - list refresh may run while modal is open.
+  - refresh may update `JOURNAL_STATE.byId` but must not overwrite modal local buffer.
+  - stale warning surface remains deterministic and visible when backing entry diverges.
+- Refresh param preservation:
+  - refresh calls preserve active SSOT 57 selectors including `page` and `per_page`.
+- Save success sequencing:
+  - apply `response.entry` reconciliation when present
+  - then refresh list
+  - close modal only after successful save.
+- Contract boundary:
+  - no new endpoints
+  - no new registry keys
+  - no new JSON contracts
+  - no `/upload_csv` JSON behavior changes (SSOT 58_3).
