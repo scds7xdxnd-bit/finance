@@ -56,6 +56,11 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
   - deterministic unbalanced mapping (`error_code=JOURNAL_NOT_BALANCED`)
   - locked edit UI DOM selectors and save-gating behavior
   - mandatory registry-key usage for journal list/update paths
+- Phase 1.3 CSV import UX contract (`SSOT 59`):
+  - session summary key is stable (`last_import_result_v1`)
+  - panel selector/data-role surface is stable
+  - dismiss semantics are stable (`POST /transactions/import_result/dismiss`, auth+CSRF, redirect param preservation)
+  - `/upload_csv` remains no-JSON contract surface
 
 ### 99.3.1 Frontend Contract Surface Ownership
 - Architect owns SSOT definitions in `project/docs/ssot/55_frontend_contracts.md`.
@@ -70,6 +75,14 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
   - deterministic `JOURNAL_NOT_BALANCED` mapping.
 - Frontend owns editor implementation and required registry-key consumption.
 - QA owns contract-shape checks for edit failure mapping and registry token presence.
+
+### 99.3.3 Phase 1.3 Ownership
+- Architect owns `project/docs/ssot/59_phase1_3_csv_import_ux_no_json.md`.
+- Backend owns:
+  - session summary write semantics for `/upload_csv`
+  - dismiss endpoint semantics (`POST /transactions/import_result/dismiss`) including auth+CSRF and redirect param preservation.
+- Frontend owns panel rendering and deterministic selector usage from SSOT 59.
+- QA owns contract-shape checks for panel presence, dismiss form semantics, and filter-param preservation.
 
 ## 99.4 Forbidden Changes
 - Reporting code must not compute ranked totals from legacy `Transaction` rows.
@@ -87,6 +100,8 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Frontend must not drop active filter params during pagination or `per_page` changes when SSOT 57 requires round-trip preservation.
 - Backend and Frontend must not remove/rename/repurpose `error_code=JOURNAL_NOT_BALANCED` contract semantics without SSOT update and QA evidence.
 - Frontend must not bypass `window.FINANCE_ENDPOINTS.accounting.journal.list` and `window.FINANCE_ENDPOINTS.accounting.journal.updateTemplate` in Phase 1.2 flows.
+- Backend and Frontend must not introduce `/upload_csv` JSON response contracts without SSOT update and QA evidence.
+- Backend and Frontend must not rename `session["last_import_result_v1"]` or SSOT 59 locked panel selectors/data-role markers without SSOT update and QA evidence.
 
 ## 99.5 SSOT Change Protocol (Mandatory)
 - Any PR that changes a stable interface or forbidden-change area must:
@@ -105,6 +120,9 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Any PR that changes Phase 1.2 edit UX contracts (`SSOT 58`) must include:
   - SSOT 58 section references
   - QA contract evidence for deterministic error mapping and registry-key usage checks
+- Any PR that changes Phase 1.3 CSV import UX contracts (`SSOT 59`) must include:
+  - SSOT 59 section references
+  - QA contract evidence for panel selectors, dismiss semantics, and filter-param preservation checks
 - If behavior is intentionally transitional, PR must include:
   - explicit temporary rule
   - expiration date

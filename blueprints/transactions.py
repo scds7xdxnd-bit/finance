@@ -30,6 +30,63 @@ def _check_csrf() -> bool:
     return csrf_token_valid()
 
 
+TRANSACTIONS_FILTER_PARAM_KEYS = (
+    "q",
+    "account",
+    "category",
+    "min_amount",
+    "max_amount",
+    "start_date",
+    "end_date",
+    "page",
+    "per_page",
+)
+
+
+def _extract_preserved_filter_params(values) -> dict[str, str]:
+    preserved: dict[str, str] = {}
+    for key in TRANSACTIONS_FILTER_PARAM_KEYS:
+        if key in values:
+            preserved[key] = (values.get(key) or "").strip()
+    return preserved
+
+
+def _non_negative_int(value) -> int:
+    try:
+        return max(0, int(value))
+    except Exception:
+        return 0
+
+
+def _normalize_failure_samples(samples) -> list[dict[str, object]]:
+    normalized: list[dict[str, object]] = []
+    if not isinstance(samples, (list, tuple)):
+        return normalized
+    for sample in samples:
+        if not isinstance(sample, dict):
+            continue
+        line_number_raw = sample.get("line_number", sample.get("row"))
+        message = str(sample.get("message") or "").strip()
+        try:
+            line_number = int(line_number_raw)
+        except Exception:
+            line_number = 0
+        if line_number >= 1 and message:
+            normalized.append({"line_number": line_number, "message": message})
+    return normalized
+
+
+def _normalize_warnings(warnings) -> list[str]:
+    normalized: list[str] = []
+    if not isinstance(warnings, (list, tuple)):
+        return normalized
+    for warning in warnings:
+        text = str(warning or "").strip()
+        if text:
+            normalized.append(text)
+    return normalized
+
+
 def _normalize_filter_token(raw: str | None) -> str:
     token = (raw or "").strip()
     if token.lower() == "all":
@@ -117,15 +174,29 @@ def _record_last_import_result(
     failed_count: int,
     summary_text: str,
     source_filename: str | None = None,
+    failure_samples=None,
+    write_mode: str | None = None,
+    warnings=None,
 ) -> None:
-    session["last_import_result_v1"] = {
-        "imported_count": int(imported_count or 0),
-        "duplicate_count": int(duplicate_count or 0),
-        "failed_count": int(failed_count or 0),
-        "summary_text": (summary_text or "").strip(),
+    summary = (summary_text or "").strip() or "CSV import result recorded."
+    payload = {
+        "imported_count": _non_negative_int(imported_count),
+        "duplicate_count": _non_negative_int(duplicate_count),
+        "failed_count": _non_negative_int(failed_count),
+        "summary_text": summary,
         "source_filename": (source_filename or "").strip() or None,
-        "recorded_at": datetime.datetime.utcnow().isoformat(),
+        "recorded_at": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
     }
+    normalized_samples = _normalize_failure_samples(failure_samples)
+    if normalized_samples:
+        payload["failure_samples"] = normalized_samples
+    mode_token = (write_mode or "").strip()
+    if mode_token:
+        payload["write_mode"] = mode_token
+    normalized_warnings = _normalize_warnings(warnings)
+    if normalized_warnings:
+        payload["warnings"] = normalized_warnings
+    session["last_import_result_v1"] = payload
 
 
 def _guard_write_capabilities(required_caps, *, user_id):
@@ -154,20 +225,60 @@ def upload_csv():
     if not user:
         flash('Login required.')
         return redirect(url_for('auth_bp.login'))
-    if not _check_csrf():
-        return {"ok": False, "error": "CSRF token missing or invalid."}, 400
     file = request.files.get('csv_file')
+    source_filename = (getattr(file, "filename", None) or "").strip() or None
+    if not _check_csrf():
+        message = "CSRF token missing or invalid."
+        _record_last_import_result(
+            imported_count=0,
+            duplicate_count=0,
+            failed_count=1,
+            summary_text=message,
+            source_filename=source_filename,
+        )
+        flash(message)
+        return message, 400
     if not file or not file.filename:
+        _record_last_import_result(
+            imported_count=0,
+            duplicate_count=0,
+            failed_count=1,
+            summary_text="Please upload a valid CSV file.",
+            source_filename=source_filename,
+        )
         flash('Please upload a valid CSV file.')
         return redirect(url_for('transactions_bp.transactions'))
     if not _allowed_upload(file.filename):
+        _record_last_import_result(
+            imported_count=0,
+            duplicate_count=0,
+            failed_count=1,
+            summary_text="Please upload a valid CSV file.",
+            source_filename=source_filename,
+        )
         flash('Please upload a valid CSV file.')
         return redirect(url_for('transactions_bp.transactions'))
     if request.content_length and request.content_length > int(current_app.config.get("MAX_CONTENT_LENGTH") or 0):
+        _record_last_import_result(
+            imported_count=0,
+            duplicate_count=0,
+            failed_count=1,
+            summary_text="File exceeds size limit.",
+            source_filename=source_filename,
+        )
         flash('File exceeds size limit.')
         return redirect(url_for('transactions_bp.transactions'))
     ok_guard, payload, status = _guard_write_capabilities(["csv_idempotency", "journal_integrity"], user_id=user.id)
     if not ok_guard:
+        message = str((payload or {}).get("error") or "CSV import unavailable.")
+        _record_last_import_result(
+            imported_count=0,
+            duplicate_count=0,
+            failed_count=1,
+            summary_text=message,
+            source_filename=source_filename,
+        )
+        flash(message)
         return payload, status
     try:
         upload_root = current_app.config.get("UPLOAD_FOLDER") or "instance/uploads"
@@ -192,6 +303,7 @@ def upload_csv():
                 failed_count=0,
                 summary_text="CSV already imported previously; no new entries created.",
                 source_filename=file.filename,
+                write_mode=str(summary.get("write_mode") or ""),
             )
             flash("CSV already imported previously; no new entries created.")
             return redirect(url_for('transactions_bp.transactions'))
@@ -224,12 +336,23 @@ def upload_csv():
                 reason_txt = ", ".join(f"{k}={v}" for k, v in sorted(error_reasons.items()))
                 extra += f" Error reasons: {reason_txt}."
         full_summary = f"Successfully imported {msg_summary}." + extra
+        warning_messages: list[str] = []
+        if skipped_unbalanced:
+            warning_messages.append(
+                f"Skipped unbalanced transaction IDs: {', '.join(sorted(skipped_unbalanced))}"
+            )
+        if skipped_existing:
+            warning_messages.append(
+                f"Skipped existing transaction IDs: {', '.join(sorted(skipped_existing))}"
+            )
         _record_last_import_result(
             imported_count=int(summary.get("rows_new") or 0),
             duplicate_count=int(summary.get("rows_duplicate") or 0),
             failed_count=int(summary.get("rows_error") or 0),
             summary_text=full_summary,
             source_filename=file.filename,
+            write_mode=str(summary.get("write_mode") or ""),
+            warnings=warning_messages,
         )
         flash(full_summary)
     except Exception:
@@ -471,9 +594,14 @@ def transactions():
     accounts = sorted(accs, key=lambda x: x.lower())
     categories = sorted(category_names, key=lambda x: x.lower())
     last_import_result = session.get("last_import_result_v1")
+    dismiss_import_result_url = url_for(
+        "transactions_bp.dismiss_last_import_result",
+        **_extract_preserved_filter_params(request.args),
+    )
     now = datetime.datetime.now()
     return render_template('transactions.html', entries=paginated, user=user, accounts=accounts, categories=categories, now=now,
                            last_import_result=last_import_result,
+                           dismiss_import_result_url=dismiss_import_result_url,
                            filter_errors=filter_errors,
                            page=page, pages=pages, per_page=per_page, total_count=total_count,
                            filters={
@@ -749,9 +877,14 @@ def transaction_list():
     accounts = sorted(accs, key=lambda x: x.lower())
     categories = sorted(category_names, key=lambda x: x.lower())
     last_import_result = session.get("last_import_result_v1")
+    dismiss_import_result_url = url_for(
+        "transactions_bp.dismiss_last_import_result",
+        **_extract_preserved_filter_params(request.args),
+    )
     now = datetime.datetime.now()
     return render_template('transactions.html', entries=paginated, user=user, accounts=accounts, categories=categories, now=now,
                            last_import_result=last_import_result,
+                           dismiss_import_result_url=dismiss_import_result_url,
                            filter_errors=filter_errors,
                            page=page, pages=pages, per_page=per_page, total_count=total_count,
                            filters={

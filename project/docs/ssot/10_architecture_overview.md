@@ -175,3 +175,14 @@ Quality gates in `tests/test_vnext_gate.py` and related suites are release-block
   - DB trigger guard failures (for example `journal_entry_not_balanced`) must map to deterministic UI-facing error code contract from SSOT 55/58.
 - Endpoint registry:
   - UI integration must use `window.FINANCE_ENDPOINTS.accounting.journal.list` and `window.FINANCE_ENDPOINTS.accounting.journal.updateTemplate` (token `__ENTRY_ID__`).
+
+## 10.10 Phase 1.3 CSV Import UX Integration Points (No JSON)
+- Import flow remains:
+  - `POST /upload_csv` -> server computes summary -> write `session["last_import_result_v1"]` -> redirect to `/transactions`.
+- Render flow remains:
+  - `GET /transactions` reads session summary and renders `#last-import-result-panel` when present.
+- Dismiss flow remains:
+  - `POST /transactions/import_result/dismiss` clears session summary and redirects to `/transactions`.
+  - redirect target must preserve active query/filter params required by SSOT 57.
+- Contract boundary:
+  - no JSON response contract is introduced for `/upload_csv`; Phase 1.3 is HTML/session UX only (SSOT 59).
