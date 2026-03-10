@@ -1,5 +1,5 @@
 # vNext Architecture Overview
-_Last updated: 2026-03-08_
+_Last updated: 2026-03-10_
 
 ## 10.1 Scope
 This document defines the canonical runtime architecture for correctness-critical finance flows (ledger posting, CSV import, convergence, reporting, schema guard, and release gates).
@@ -134,3 +134,18 @@ Quality gates in `tests/test_vnext_gate.py` and related suites are release-block
   - non-health business endpoints must return HTTP `503` with the standard startup/migration payload from `SSOT 60.8.3`.
 - Non-test runtime must never create schema at boot (`db.create_all()` forbidden; Alembic-first only).
 - Any startup path that bypasses the preflight gate or emits non-standard error payloads is a contract violation.
+
+## 10.7 Phase 1 UX Integration Points
+- Quick Add modal flow:
+  - transactions page and accounting page both submit to `POST /add_transaction` (no alternate posting endpoint).
+- Journal edit flow:
+  - UI edit operations submit to `PUT /accounting/journal/<entry_id>`.
+  - mutation sequence must preserve draft-to-finalize behavior required by SSOT 20.6 and 56.8.
+- Transactions search/filter flow:
+  - canonical selectors use query params on `/transactions`.
+  - `/transactions/list` may be used for progressive enhancement HTML refresh.
+- Journal search/filter flow:
+  - existing `GET /accounting/journal/list` JSON endpoint remains the list/filter source for accounting UI.
+- CSV import UX flow:
+  - `/upload_csv` remains redirect/flash pipeline.
+  - Last Import Result panel uses server-side persistence; no new CSV JSON contract in Phase 1.

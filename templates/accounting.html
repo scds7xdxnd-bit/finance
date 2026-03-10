@@ -921,8 +921,26 @@
                     {% endfor %}
                   </select>
                 </label>
+                <label class="tb-filter-field">
+                  <i class="fa fa-layer-group"></i>
+                  <select id="journal-category" title="Filter by folder/category" class="tb-select">
+                    <option value="">All categories</option>
+                    {% for cat in categories %}
+                      <option value="{{ cat.id }}">{{ cat.name }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <label class="tb-filter-field">
+                  <i class="fa fa-arrow-down-wide-short"></i>
+                  <input id="journal-min-amount" type="number" step="0.01" min="0" class="tb-input" placeholder="Min amount" title="Minimum amount">
+                </label>
+                <label class="tb-filter-field">
+                  <i class="fa fa-arrow-up-wide-short"></i>
+                  <input id="journal-max-amount" type="number" step="0.01" min="0" class="tb-input" placeholder="Max amount" title="Maximum amount">
+                </label>
               </div>
               <div class="tb-toolbar-fields">
+                <button id="journal-quick-add" class="icon-btn"><i class="fa fa-bolt"></i> Quick Add</button>
                 <button id="journal-apply" class="icon-btn tb-summary-toggle"><i class="fa fa-rotate"></i> Apply</button>
                 <button id="journal-reset" class="icon-btn btn-danger-ghost"><i class="fa fa-eraser"></i> Reset</button>
               </div>
@@ -5717,6 +5735,24 @@ function bindReceivableRow(entry, baseRow, row){
     });
     return { list, map };
   })();
+  const accountingEndpointRegistry = (window.FINANCE_ENDPOINTS && window.FINANCE_ENDPOINTS.accounting) || {};
+  const accountingJournalEndpoints = accountingEndpointRegistry.journal || {};
+  const JOURNAL_LIST_URL = (accountingJournalEndpoints.list || '').trim();
+  const JOURNAL_UPDATE_TEMPLATE = (accountingJournalEndpoints.updateTemplate || '').trim();
+
+  function resolveJournalEndpoint(url, key){
+    const resolved = (url || '').trim();
+    if (resolved) return resolved;
+    throw new Error(`Configuration error: missing endpoint key ${key}.`);
+  }
+
+  function buildJournalUpdateUrl(entryId){
+    const template = resolveJournalEndpoint(JOURNAL_UPDATE_TEMPLATE, 'accounting.journal.updateTemplate');
+    if (!template.includes('__ENTRY_ID__')){
+      throw new Error('Configuration error: accounting.journal.updateTemplate must contain __ENTRY_ID__.');
+    }
+    return template.replace('__ENTRY_ID__', encodeURIComponent(String(entryId)));
+  }
 
   function escapeHtml(value){
     return String(value ?? '').replace(/[&<>"']/g, ch => {
@@ -5751,10 +5787,16 @@ function bindReceivableRow(entry, baseRow, row){
     const start = document.getElementById('journal-start');
     const end = document.getElementById('journal-end');
     const account = document.getElementById('journal-account');
+    const category = document.getElementById('journal-category');
+    const minAmount = document.getElementById('journal-min-amount');
+    const maxAmount = document.getElementById('journal-max-amount');
     if (search && search.value.trim()) filters.q = search.value.trim();
     if (start && start.value) filters.start = start.value;
     if (end && end.value) filters.end = end.value;
     if (account && account.value) filters.account_id = account.value;
+    if (category && category.value) filters.category_id = category.value;
+    if (minAmount && String(minAmount.value || '').trim() !== '') filters.min_amount = String(minAmount.value).trim();
+    if (maxAmount && String(maxAmount.value || '').trim() !== '') filters.max_amount = String(maxAmount.value).trim();
     return filters;
   }
 
@@ -5770,7 +5812,9 @@ function bindReceivableRow(entry, baseRow, row){
     params.set('page', String(page));
     params.set('per_page', String(JOURNAL_STATE.perPage));
     try {
-      const res = await fetch(`/accounting/journal/list?${params.toString()}`);
+      const journalListBase = resolveJournalEndpoint(JOURNAL_LIST_URL, 'accounting.journal.list');
+      const listUrl = params.toString() ? `${journalListBase}?${params.toString()}` : journalListBase;
+      const res = await fetch(listUrl);
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok){
         throw new Error(data.error || 'Failed to load journal entries.');
@@ -6093,13 +6137,21 @@ function bindReceivableRow(entry, baseRow, row){
     }
     if (Math.abs(debit - credit) > 0.005){ showMessage('Debits and credits must balance.'); return; }
     try {
-      const res = await fetch(`/accounting/journal/${entryId}`, {
+      const updateUrl = buildJournalUpdateUrl(entryId);
+      const res = await fetch(updateUrl, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': (window.ACC_BOOT && window.ACC_BOOT.csrfToken) || '' },
         body: JSON.stringify({ date: dateVal, description: descVal, reference: referenceVal, lines })
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok){
+        const errorCode = String((data && data.error_code) || '').toUpperCase();
+        if (errorCode === 'JOURNAL_NOT_BALANCED'){
+          const stableMessage = 'Journal entry must be balanced before finalizing.';
+          showMessage(stableMessage);
+          setJournalFeedback(stableMessage, 'error');
+          return;
+        }
         throw new Error(data.error || 'Failed to save journal entry.');
       }
       if (data.entry){
@@ -6132,6 +6184,23 @@ function bindReceivableRow(entry, baseRow, row){
   window.ensureJournalLoaded = ensureJournalLoaded;
 
   document.addEventListener('DOMContentLoaded', () => {
+    const quickAddBtn = document.getElementById('journal-quick-add');
+    if (window.QuickAddModal && typeof window.QuickAddModal.setOnSuccess === 'function'){
+      window.QuickAddModal.setOnSuccess(() => {
+        loadJournalEntries(JOURNAL_STATE.page || 1);
+        setJournalFeedback('Entry added.', 'success');
+      });
+    }
+    if (quickAddBtn){
+      quickAddBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (window.QuickAddModal && typeof window.QuickAddModal.open === 'function'){
+          window.QuickAddModal.open({});
+          return;
+        }
+        setJournalFeedback('Quick Add is unavailable.', 'error');
+      });
+    }
     const applyBtn = document.getElementById('journal-apply');
     if (applyBtn) applyBtn.addEventListener('click', (e) => { e.preventDefault(); loadJournalEntries(1); });
     const resetBtn = document.getElementById('journal-reset');
@@ -6141,6 +6210,9 @@ function bindReceivableRow(entry, baseRow, row){
       const start = document.getElementById('journal-start'); if (start) start.value = '';
       const end = document.getElementById('journal-end'); if (end) end.value = '';
       const account = document.getElementById('journal-account'); if (account) account.value = '';
+      const category = document.getElementById('journal-category'); if (category) category.value = '';
+      const minAmount = document.getElementById('journal-min-amount'); if (minAmount) minAmount.value = '';
+      const maxAmount = document.getElementById('journal-max-amount'); if (maxAmount) maxAmount.value = '';
       loadJournalEntries(1);
     });
     const search = document.getElementById('journal-search');
@@ -6186,9 +6258,11 @@ function bindReceivableRow(entry, baseRow, row){
   });
 </script>
 
+{% include "partials/quick_add_modal.html" %}
 </div> {# close .acc-shell #}
 {% endblock %}
 
 {% block scripts %}
   {{ super() }}
+  <script src="{{ url_for('static', filename='js/quick_add_modal.js') }}"></script>
 {% endblock %}

@@ -31,12 +31,22 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
     - `POST /api/suggestions/log`
     - `GET /accounting/tb/monthly`
     - `GET /accounting/statement/data`
+    - `GET /accounting/journal/list`
+    - `PUT /accounting/journal/<entry_id>`
   - locked endpoint-registry keys in `window.FINANCE_ENDPOINTS`:
+    - `transactions.list`
     - `transactions.add`
     - `ml.suggestions`
     - `ml.suggestionLog`
     - `accounting.tbMonthly`
     - `accounting.statements.data`
+    - `accounting.journal.list`
+    - `accounting.journal.updateTemplate`
+- Phase 1 UI interaction contract (`SSOT 56`):
+  - Quick Add modal DOM selectors and validation behavior
+  - Last Import Result panel persistence/render contract
+  - Search/filter query parameter names and defaults
+  - Journal edit sequencing and deterministic error mapping
 
 ### 99.3.1 Frontend Contract Surface Ownership
 - Architect owns SSOT definitions in `project/docs/ssot/55_frontend_contracts.md`.
@@ -55,6 +65,7 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Admin mutation flows must not bypass CSRF, confirmation cooldown, or audit logging.
 - Backend and Frontend must not remove or rename required frontend-contract keys (`SSOT 55`) without SSOT update and QA contract-test update.
 - Backend and Frontend must not remove or rename required `window.FINANCE_ENDPOINTS` keys (`SSOT 55.5`) without SSOT update and QA contract-test update.
+- Frontend must not hardcode locked endpoint paths when a registry key exists in `window.FINANCE_ENDPOINTS`.
 
 ## 99.5 SSOT Change Protocol (Mandatory)
 - Any PR that changes a stable interface or forbidden-change area must:
@@ -64,6 +75,9 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Any PR that changes frontend contract surface (`SSOT 55`) must include:
   - SSOT 55 section references
   - QA contract evidence from `tests/test_frontend_contracts.py` (once implemented)
+- Any PR that changes Phase 1 UX contract behavior (`SSOT 56`) must include:
+  - SSOT 56 section references
+  - QA contract evidence for key-presence/status handling
 - If behavior is intentionally transitional, PR must include:
   - explicit temporary rule
   - expiration date

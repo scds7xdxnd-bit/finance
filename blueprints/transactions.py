@@ -4,11 +4,11 @@ import os
 from finance_app.extensions import db
 from finance_app.lib.auth import csrf_token_valid, current_user
 from finance_app.lib.dates import _parse_date_tuple
-from finance_app.models.accounting_models import Account, JournalEntry, JournalLine, Transaction
+from finance_app.models.accounting_models import Account, AccountCategory, JournalEntry, JournalLine, Transaction
 from finance_app.services.schema_guard_service import guard_capabilities, validate_schema_guard_bypass
 from finance_app.services.transaction_import_service import import_csv_transactions
 from finance_app.services.transaction_service import delete_transaction_for_user
-from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
+from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 from sqlalchemy import and_, distinct, or_
 from werkzeug.utils import secure_filename
 
@@ -27,6 +27,24 @@ def _maybe_scan_file(path: str) -> None:
 
 def _check_csrf() -> bool:
     return csrf_token_valid()
+
+
+def _record_last_import_result(
+    *,
+    imported_count: int,
+    duplicate_count: int,
+    failed_count: int,
+    summary_text: str,
+    source_filename: str | None = None,
+) -> None:
+    session["last_import_result_v1"] = {
+        "imported_count": int(imported_count or 0),
+        "duplicate_count": int(duplicate_count or 0),
+        "failed_count": int(failed_count or 0),
+        "summary_text": (summary_text or "").strip(),
+        "source_filename": (source_filename or "").strip() or None,
+        "recorded_at": datetime.datetime.utcnow().isoformat(),
+    }
 
 
 def _guard_write_capabilities(required_caps, *, user_id):
@@ -87,6 +105,13 @@ def upload_csv():
             idempotency_enabled=bool(current_app.config.get("CSV_IDEMPOTENCY_ENABLED", True)),
         )
         if summary.get("skipped_duplicate_batch"):
+            _record_last_import_result(
+                imported_count=0,
+                duplicate_count=int(summary.get("rows_duplicate") or (summary.get("totals") or {}).get("rows_duplicate") or 0),
+                failed_count=0,
+                summary_text="CSV already imported previously; no new entries created.",
+                source_filename=file.filename,
+            )
             flash("CSV already imported previously; no new entries created.")
             return redirect(url_for('transactions_bp.transactions'))
         parts = []
@@ -117,9 +142,24 @@ def upload_csv():
             if error_reasons:
                 reason_txt = ", ".join(f"{k}={v}" for k, v in sorted(error_reasons.items()))
                 extra += f" Error reasons: {reason_txt}."
-        flash(f"Successfully imported {msg_summary}." + extra)
+        full_summary = f"Successfully imported {msg_summary}." + extra
+        _record_last_import_result(
+            imported_count=int(summary.get("rows_new") or 0),
+            duplicate_count=int(summary.get("rows_duplicate") or 0),
+            failed_count=int(summary.get("rows_error") or 0),
+            summary_text=full_summary,
+            source_filename=file.filename,
+        )
+        flash(full_summary)
     except Exception:
         current_app.logger.exception("csv_import_failed path=%s user_id=%s", request.path, user.id)
+        _record_last_import_result(
+            imported_count=0,
+            duplicate_count=0,
+            failed_count=1,
+            summary_text="Error importing CSV. Please review the file and try again.",
+            source_filename=file.filename,
+        )
         flash("Error importing CSV. Please review the file and try again.")
     return redirect(url_for('transactions_bp.transactions'))
 
@@ -137,6 +177,8 @@ def transactions():
         tx_query = tx_query.filter_by(user_id=user.id)
 
     # Filter inputs
+    q = (request.args.get('q') or '').strip()
+    category = (request.args.get('category') or '').strip()
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
     account = request.args.get('account')
@@ -229,6 +271,7 @@ def transactions():
     journal_entries = []
     journal_lines_by_entry = {}
     account_names = {}
+    account_category_ids = {}
     if JournalEntry and JournalLine and Account:
         je_query = JournalEntry.query.filter_by(user_id=user.id)
         if _sd:
@@ -255,13 +298,43 @@ def transactions():
             if account_ids:
                 for row in Account.query.filter(Account.id.in_(account_ids)).all():
                     account_names[row.id] = row.name
+                    account_category_ids[row.id] = row.category_id
                     if row.name:
                         accs.add(row.name)
             for ln in lines:
                 journal_lines_by_entry.setdefault(ln.journal_id, []).append(ln)
 
+    simple_rows = tx_query.all()
+    simple_account_ids = set()
+    for row in simple_rows:
+        if row.debit_account_id:
+            simple_account_ids.add(row.debit_account_id)
+        if row.credit_account_id:
+            simple_account_ids.add(row.credit_account_id)
+    if simple_account_ids:
+        for row in Account.query.filter(Account.id.in_(simple_account_ids)).all():
+            account_names.setdefault(row.id, row.name)
+            account_category_ids[row.id] = row.category_id
+            if row.name:
+                accs.add(row.name)
+
+    category_name_by_id = {}
+    category_names = set()
+    category_ids = {cid for cid in account_category_ids.values() if cid}
+    if category_ids:
+        for row in AccountCategory.query.filter(AccountCategory.user_id == user.id, AccountCategory.id.in_(category_ids)).all():
+            category_name_by_id[row.id] = row.name
+            if row.name:
+                category_names.add(row.name)
+    # Preserve available category filter options even when no rows match current filters.
+    for row in AccountCategory.query.filter(AccountCategory.user_id == user.id).all():
+        if row.name:
+            category_names.add(row.name)
+
     combined = []
-    for t in tx_query.all():
+    for t in simple_rows:
+        debit_category = category_name_by_id.get(account_category_ids.get(t.debit_account_id), '')
+        credit_category = category_name_by_id.get(account_category_ids.get(t.credit_account_id), '')
         combined.append({
             'kind': 'simple',
             'id': t.id,
@@ -270,16 +343,31 @@ def transactions():
             'description': t.description,
             'total_debit': float(t.debit_amount or 0.0),
             'lines': [
-                {'dc': 'D', 'account': t.debit_account, 'amount': float(t.debit_amount or 0.0)},
-                {'dc': 'C', 'account': t.credit_account, 'amount': float(t.credit_amount or 0.0)}
+                {'dc': 'D', 'account': t.debit_account, 'category': debit_category, 'amount': float(t.debit_amount or 0.0)},
+                {'dc': 'C', 'account': t.credit_account, 'category': credit_category, 'amount': float(t.credit_amount or 0.0)}
             ]
         })
 
+    q_filter = q.lower() if q else ''
     account_filter = (account or '').strip().lower() if account else ''
+    category_filter = (category or '').strip().lower() if category else ''
 
     def _entry_matches_filters(entry_dict):
+        if q_filter:
+            description_text = (entry_dict.get('description') or '').strip().lower()
+            reference_text = (entry_dict.get('reference') or '').strip().lower()
+            line_match = any(
+                q_filter in (ln.get('account') or '').strip().lower()
+                or q_filter in (ln.get('memo') or '').strip().lower()
+                for ln in entry_dict['lines']
+            )
+            if q_filter not in description_text and q_filter not in reference_text and not line_match:
+                return False
         if account_filter:
             if not any((ln.get('account') or '').strip().lower() == account_filter for ln in entry_dict['lines']):
+                return False
+        if category_filter:
+            if not any((ln.get('category') or '').strip().lower() == category_filter for ln in entry_dict['lines']):
                 return False
         if min_amount:
             try:
@@ -306,6 +394,7 @@ def transactions():
             formatted_lines.append({
                 'dc': (ln.dc or '').upper(),
                 'account': account_names.get(ln.account_id, ''),
+                'category': category_name_by_id.get(account_category_ids.get(ln.account_id), ''),
                 'amount': amt,
                 'memo': ln.memo or ''
             })
@@ -349,10 +438,15 @@ def transactions():
     paginated = filtered_combined[start_idx:end_idx]
 
     accounts = sorted(accs, key=lambda x: x.lower())
+    categories = sorted(category_names, key=lambda x: x.lower())
+    last_import_result = session.get("last_import_result_v1")
     now = datetime.datetime.now()
-    return render_template('transactions.html', entries=paginated, user=user, accounts=accounts, now=now,
+    return render_template('transactions.html', entries=paginated, user=user, accounts=accounts, categories=categories, now=now,
+                           last_import_result=last_import_result,
                            page=page, pages=pages, per_page=per_page, total_count=total_count,
                            filters={
+                               'q': q or '',
+                               'category': category or '',
                                'start_date': start_date or '',
                                'end_date': end_date or '',
                                'account': account or '',
@@ -411,6 +505,8 @@ def transaction_list():
         tx_query = tx_query.filter_by(user_id=user.id)
 
     # Filter inputs
+    q = (request.args.get('q') or '').strip()
+    category = (request.args.get('category') or '').strip()
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
     account = request.args.get('account')
@@ -503,6 +599,7 @@ def transaction_list():
     journal_entries = []
     journal_lines_by_entry = {}
     account_names = {}
+    account_category_ids = {}
     if JournalEntry and JournalLine and Account:
         je_query = JournalEntry.query.filter_by(user_id=user.id)
         if _sd:
@@ -529,13 +626,42 @@ def transaction_list():
             if account_ids:
                 for row in Account.query.filter(Account.id.in_(account_ids)).all():
                     account_names[row.id] = row.name
+                    account_category_ids[row.id] = row.category_id
                     if row.name:
                         accs.add(row.name)
             for ln in lines:
                 journal_lines_by_entry.setdefault(ln.journal_id, []).append(ln)
 
+    simple_rows = tx_query.all()
+    simple_account_ids = set()
+    for row in simple_rows:
+        if row.debit_account_id:
+            simple_account_ids.add(row.debit_account_id)
+        if row.credit_account_id:
+            simple_account_ids.add(row.credit_account_id)
+    if simple_account_ids:
+        for row in Account.query.filter(Account.id.in_(simple_account_ids)).all():
+            account_names.setdefault(row.id, row.name)
+            account_category_ids[row.id] = row.category_id
+            if row.name:
+                accs.add(row.name)
+
+    category_name_by_id = {}
+    category_names = set()
+    category_ids = {cid for cid in account_category_ids.values() if cid}
+    if category_ids:
+        for row in AccountCategory.query.filter(AccountCategory.user_id == user.id, AccountCategory.id.in_(category_ids)).all():
+            category_name_by_id[row.id] = row.name
+            if row.name:
+                category_names.add(row.name)
+    for row in AccountCategory.query.filter(AccountCategory.user_id == user.id).all():
+        if row.name:
+            category_names.add(row.name)
+
     combined = []
-    for t in tx_query.all():
+    for t in simple_rows:
+        debit_category = category_name_by_id.get(account_category_ids.get(t.debit_account_id), '')
+        credit_category = category_name_by_id.get(account_category_ids.get(t.credit_account_id), '')
         combined.append({
             'kind': 'simple',
             'id': t.id,
@@ -544,16 +670,31 @@ def transaction_list():
             'description': t.description,
             'total_debit': float(t.debit_amount or 0.0),
             'lines': [
-                {'dc': 'D', 'account': t.debit_account, 'amount': float(t.debit_amount or 0.0)},
-                {'dc': 'C', 'account': t.credit_account, 'amount': float(t.credit_amount or 0.0)}
+                {'dc': 'D', 'account': t.debit_account, 'category': debit_category, 'amount': float(t.debit_amount or 0.0)},
+                {'dc': 'C', 'account': t.credit_account, 'category': credit_category, 'amount': float(t.credit_amount or 0.0)}
             ]
         })
 
+    q_filter = q.lower() if q else ''
     account_filter = (account or '').strip().lower() if account else ''
+    category_filter = (category or '').strip().lower() if category else ''
 
     def _entry_matches_filters(entry_dict):
+        if q_filter:
+            description_text = (entry_dict.get('description') or '').strip().lower()
+            reference_text = (entry_dict.get('reference') or '').strip().lower()
+            line_match = any(
+                q_filter in (ln.get('account') or '').strip().lower()
+                or q_filter in (ln.get('memo') or '').strip().lower()
+                for ln in entry_dict['lines']
+            )
+            if q_filter not in description_text and q_filter not in reference_text and not line_match:
+                return False
         if account_filter:
             if not any((ln.get('account') or '').strip().lower() == account_filter for ln in entry_dict['lines']):
+                return False
+        if category_filter:
+            if not any((ln.get('category') or '').strip().lower() == category_filter for ln in entry_dict['lines']):
                 return False
         if min_amount:
             try:
@@ -580,6 +721,7 @@ def transaction_list():
             formatted_lines.append({
                 'dc': (ln.dc or '').upper(),
                 'account': account_names.get(ln.account_id, ''),
+                'category': category_name_by_id.get(account_category_ids.get(ln.account_id), ''),
                 'amount': amt,
                 'memo': ln.memo or ''
             })
@@ -623,10 +765,15 @@ def transaction_list():
     paginated = filtered_combined[start_idx:end_idx]
 
     accounts = sorted(accs, key=lambda x: x.lower())
+    categories = sorted(category_names, key=lambda x: x.lower())
+    last_import_result = session.get("last_import_result_v1")
     now = datetime.datetime.now()
-    return render_template('transactions.html', entries=paginated, user=user, accounts=accounts, now=now,
+    return render_template('transactions.html', entries=paginated, user=user, accounts=accounts, categories=categories, now=now,
+                           last_import_result=last_import_result,
                            page=page, pages=pages, per_page=per_page, total_count=total_count,
                            filters={
+                               'q': q or '',
+                               'category': category or '',
                                'start_date': start_date or '',
                                'end_date': end_date or '',
                                'account': account or '',

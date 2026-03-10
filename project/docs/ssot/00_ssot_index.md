@@ -24,6 +24,7 @@ Section IDs in this file and all SSOT files are stable citation anchors.
 - Startup/migration contract gate is release-blocking: boot/migration changes require gate evidence.
 - DB-level journal integrity is mandatory; release is blocked if `journal_integrity` capability or `GATE-DB-INTEGRITY` fails.
 - Frontend contract lock is authoritative; changes to frontend-consumed payload keys require SSOT update and QA contract test update.
+- Phase 1 UX friction removal contract is authoritative (`SSOT 56`): Quick Add reuses `POST /add_transaction`, and `/upload_csv` remains redirect/flash (no CSV JSON contract change in Phase 1).
 - Canonical ledger query API is the reporting contract surface.
 - CI vNext gate enforces schema, dedupe, convergence, reporting parity, scope invariants, invariant catalog parity, statement export parity, security compliance, startup/migration contract, and DB integrity.
 
@@ -58,6 +59,7 @@ Any change to locked decisions, contract surfaces, or gate thresholds must satis
 - For startup, app-factory preflight, migration, or DB URL precedence changes, include gate evidence from `SSOT 80.13` and operator impact notes from `SSOT 90.7`.
 - For journal schema, posting finalization semantics, or DB integrity enforcement changes, include gate evidence from `SSOT 80.14` and operator remediation notes from `SSOT 90.8`.
 - For frontend-consumed endpoint payloads or endpoint-registry key changes, include SSOT references from `SSOT 55` and QA contract evidence from `tests/test_frontend_contracts.py` once implemented.
+- For Phase 1 UX behavior or DOM/query contract changes, include SSOT references from `SSOT 56` and QA contract evidence for key-presence/status handling.
 
 ## 00.6 Document Map
 | File | Purpose |
@@ -69,6 +71,7 @@ Any change to locked decisions, contract surfaces, or gate thresholds must satis
 | `40_import_contracts.md` | CSV normalization/dedupe/provenance contracts and summary schema. |
 | `50_reporting_contracts.md` | Canonical query API, ranked endpoint mapping, journal-only totals rule. |
 | `55_frontend_contracts.md` | Frontend-facing endpoint payload lock and endpoint registry contract. |
+| `56_phase1_ux_friction_removal.md` | Phase 1 UX behavior, DOM/query contracts, and implementation boundaries. |
 | `60_schema_capabilities.md` | Capability matrix and hard-fail guard behavior. |
 | `61_schema_verifier_parity_playbook.md` | Formal verifier parity definition, release rule, and implementation checklists. |
 | `70_security_model.md` | AuthN/AuthZ, CSRF, admin safety, audit requirements, endpoint sensitivity classes. |

@@ -1,0 +1,242 @@
+{# Shared Quick Add modal (SSOT 56.5) #}
+<style>
+  #quick-add-modal[hidden] { display: none !important; }
+  .qa-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .qa-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 20, 30, 0.42);
+  }
+  .qa-dialog {
+    position: relative;
+    width: min(860px, 94vw);
+    max-height: 90vh;
+    overflow: auto;
+    background: #fff;
+    border: 1px solid var(--border, #d9e4d9);
+    border-radius: 14px;
+    box-shadow: 0 18px 50px rgba(10, 20, 30, 0.24);
+    padding: 18px 18px 16px;
+  }
+  .qa-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .qa-header h3 {
+    margin: 0;
+    color: var(--text-strong, #14202b);
+    font-size: 1.1rem;
+  }
+  .qa-close {
+    border: 1px solid var(--border, #d9e4d9);
+    background: #fff;
+    border-radius: 10px;
+    padding: 6px 10px;
+    cursor: pointer;
+    color: var(--text-muted, #5b6470);
+  }
+  .qa-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .qa-field label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-muted, #5b6470);
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .qa-field input {
+    width: 100%;
+    border: 1px solid var(--border, #d9e4d9);
+    border-radius: 10px;
+    padding: 9px 10px;
+    font-size: 0.95rem;
+    box-sizing: border-box;
+  }
+  .qa-field-error {
+    min-height: 16px;
+    margin-top: 4px;
+    color: #b22222;
+    font-size: 0.8rem;
+  }
+  .qa-form-error {
+    display: none;
+    margin: 4px 0 10px;
+    padding: 9px 10px;
+    border-radius: 10px;
+    border: 1px solid #f1c1c1;
+    background: #fff5f5;
+    color: #b22222;
+    font-size: 0.88rem;
+  }
+  .qa-lines-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 4px 0 8px;
+  }
+  .qa-lines-head h4 {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--text-strong, #14202b);
+  }
+  .qa-lines-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .qa-btn {
+    border: 1px solid var(--border, #d9e4d9);
+    background: #fff;
+    border-radius: 10px;
+    padding: 8px 11px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-strong, #14202b);
+  }
+  .qa-btn.primary {
+    background: var(--accent, #0f7b5f);
+    border-color: var(--accent, #0f7b5f);
+    color: #fff;
+  }
+  .qa-btn.primary[disabled] {
+    cursor: wait;
+    opacity: 0.72;
+  }
+  .qa-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .qa-line-row {
+    display: grid;
+    grid-template-columns: 95px 1.4fr 130px 1fr 44px;
+    gap: 8px;
+    align-items: center;
+    border: 1px solid var(--border, #d9e4d9);
+    border-radius: 10px;
+    padding: 8px;
+    background: #fdfefe;
+  }
+  .qa-line-row select,
+  .qa-line-row input {
+    width: 100%;
+    border: 1px solid var(--border, #d9e4d9);
+    border-radius: 8px;
+    padding: 8px 9px;
+    box-sizing: border-box;
+    font-size: 0.9rem;
+    background: #fff;
+  }
+  .qa-line-remove {
+    border: 1px solid #f1c1c1;
+    background: #fff;
+    color: #b22222;
+    border-radius: 8px;
+    width: 34px;
+    height: 34px;
+    cursor: pointer;
+  }
+  .qa-line-remove[disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .qa-balance {
+    margin-top: 8px;
+    font-size: 0.85rem;
+    color: var(--text-muted, #5b6470);
+  }
+  .qa-balance .ok { color: #1a7f37; font-weight: 700; }
+  .qa-balance .bad { color: #b22222; font-weight: 700; }
+  .qa-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  @media (max-width: 760px) {
+    .qa-line-row {
+      grid-template-columns: 1fr;
+    }
+    .qa-footer {
+      justify-content: stretch;
+    }
+    .qa-footer .qa-btn {
+      flex: 1;
+    }
+  }
+</style>
+
+<div id="quick-add-modal" class="qa-modal" aria-hidden="true" hidden>
+  <div class="qa-backdrop" data-action="quick-add-close"></div>
+  <div class="qa-dialog" role="dialog" aria-modal="true" aria-labelledby="quick-add-title">
+    <div class="qa-header">
+      <h3 id="quick-add-title">Quick Add Journal Entry</h3>
+      <button type="button" class="qa-close" data-action="quick-add-close" aria-label="Close">Close</button>
+    </div>
+    <form id="quick-add-form" novalidate>
+      <div data-role="form-error" class="qa-form-error" aria-live="polite"></div>
+
+      <div class="qa-grid">
+        <div class="qa-field">
+          <label for="quick-add-date">Date</label>
+          <input id="quick-add-date" name="date" type="date">
+          <div class="qa-field-error" data-field-error="date" aria-live="polite"></div>
+        </div>
+        <div class="qa-field">
+          <label for="quick-add-description">Description</label>
+          <input id="quick-add-description" name="description" type="text" maxlength="255" placeholder="Describe this entry">
+          <div class="qa-field-error" data-field-error="description" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <div class="qa-lines-head">
+        <h4>Lines</h4>
+        <div class="qa-lines-actions">
+          <button type="button" class="qa-btn" data-action="quick-add-add-debit">+ Debit</button>
+          <button type="button" class="qa-btn" data-action="quick-add-add-credit">+ Credit</button>
+        </div>
+      </div>
+
+      <div id="quick-add-lines" class="qa-lines"></div>
+      <div class="qa-field-error" data-field-error="lines" aria-live="polite"></div>
+      <div id="quick-add-balance" class="qa-balance"></div>
+
+      <div class="qa-footer">
+        <button type="button" class="qa-btn" data-action="quick-add-close">Cancel</button>
+        <button type="submit" class="qa-btn primary" data-action="quick-add-submit">Save Entry</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<datalist id="quick-add-account-options">
+  {% if all_accounts is defined %}
+    {% for acc in all_accounts %}
+      <option value="{{ acc.name }}"></option>
+    {% endfor %}
+  {% elif accounts is defined %}
+    {% for acc in accounts %}
+      {% if acc is string %}
+        <option value="{{ acc }}"></option>
+      {% else %}
+        <option value="{{ acc.name }}"></option>
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+</datalist>

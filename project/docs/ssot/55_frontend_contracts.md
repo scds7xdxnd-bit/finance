@@ -149,15 +149,71 @@ _Last updated: 2026-03-10_
 - Breaking change definition:
   - removing any required success key, incompatible `coverage` object shape when present, or replacing failure `error` with an incompatible key.
 
+### 55.4.6 `GET /accounting/journal/list`
+- Auth requirement:
+  - logged-in user required
+- Required query selectors:
+  - `q` optional
+  - `account_id` optional
+  - `category_id` optional
+  - `min_amount` optional
+  - `max_amount` optional
+  - `start` optional
+  - `end` optional
+  - `page` optional
+  - `per_page` optional
+- Required response keys:
+  - always: `ok`
+  - on success (`ok=true`): `entries`, `page`, `pages`, `total`
+  - on failure (`ok=false`): `error` (optional `error_code`)
+- Status classes:
+  - `200` success
+  - `4xx` request/auth/validation errors
+  - `503` schema/capability/startup not-ready
+- Allowed differences:
+  - extra entry fields are allowed
+  - key ordering is irrelevant
+- Breaking change definition:
+  - removing required pagination/list keys, or removing `error` on failure.
+
+### 55.4.7 `PUT /accounting/journal/<entry_id>`
+- Auth requirement:
+  - logged-in user required
+  - CSRF required
+- Required request keys:
+  - `date`
+  - `description`
+  - `lines` (array, minimum 2)
+  - optional: `reference`
+- Required response keys:
+  - always: `ok`
+  - on success (`ok=true`): `entry`
+  - on failure (`ok=false`): `error` (optional `error_code`)
+- Required error mapping:
+  - unbalanced finalize failures must expose stable `error_code=JOURNAL_NOT_BALANCED`
+- Status classes:
+  - `200` success
+  - `4xx` request/auth/validation/forbidden errors
+  - `503` schema/capability/startup not-ready
+- Allowed differences:
+  - extra keys are allowed
+  - key ordering is irrelevant
+- Breaking change definition:
+  - removing `entry` on success, removing deterministic unbalanced error mapping, or removing `error` on failure.
+
 ## 55.5 Frontend Endpoint Registry Contract (`window.FINANCE_ENDPOINTS`)
 - Registry source file: `templates/partials/frontend_endpoints.html`.
 - Required registry keys that must exist:
+  - `window.FINANCE_ENDPOINTS.transactions.list`
   - `window.FINANCE_ENDPOINTS.transactions.add`
   - `window.FINANCE_ENDPOINTS.ml.suggestions`
   - `window.FINANCE_ENDPOINTS.ml.suggestionLog`
   - `window.FINANCE_ENDPOINTS.accounting.tbMonthly`
   - `window.FINANCE_ENDPOINTS.accounting.statements.data`
+  - `window.FINANCE_ENDPOINTS.accounting.journal.list`
+  - `window.FINANCE_ENDPOINTS.accounting.journal.updateTemplate`
 - Registry values must resolve to the endpoint paths/methods locked in `55.4`.
+- For `accounting.journal.updateTemplate`, placeholder token `__ENTRY_ID__` is the stable replacement token for client substitution.
 - Breaking registry change definition:
   - removing or renaming required keys
   - repointing required keys to incompatible endpoint contracts without SSOT/test updates.
@@ -168,3 +224,4 @@ _Last updated: 2026-03-10_
 - Optional shared assertion helper:
   - `tests/helpers/contract_assertions.py`
 - This PR is docs-only; test implementation is follow-up work owned by QA/Backend/Frontend coordination.
+- Phase 1 UX contract companion: `project/docs/ssot/56_phase1_ux_friction_removal.md`.

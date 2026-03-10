@@ -9,10 +9,13 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 
 REQUIRED_ENDPOINT_REGISTRY_KEYS = (
+    "window.FINANCE_ENDPOINTS.transactions.list",
     "window.FINANCE_ENDPOINTS.transactions.add",
     "window.FINANCE_ENDPOINTS.ml.suggestions",
     "window.FINANCE_ENDPOINTS.ml.suggestionLog",
     "window.FINANCE_ENDPOINTS.accounting.tbMonthly",
+    "window.FINANCE_ENDPOINTS.accounting.journal.list",
+    "window.FINANCE_ENDPOINTS.accounting.journal.updateTemplate",
     "window.FINANCE_ENDPOINTS.accounting.statements.data",
 )
 
@@ -47,10 +50,13 @@ def assert_json_envelope(response, *, endpoint: str) -> dict[str, Any]:
 
 def find_missing_endpoint_registry_keys(html_text: str) -> list[str]:
     patterns = {
+        "window.FINANCE_ENDPOINTS.transactions.list": r"transactions\s*:\s*Object\.freeze\(\{[\s\S]*?\blist\s*:",
         "window.FINANCE_ENDPOINTS.transactions.add": r"transactions\s*:\s*Object\.freeze\(\{[\s\S]*?\badd\s*:",
         "window.FINANCE_ENDPOINTS.ml.suggestions": r"ml\s*:\s*Object\.freeze\(\{[\s\S]*?\bsuggestions\s*:",
         "window.FINANCE_ENDPOINTS.ml.suggestionLog": r"ml\s*:\s*Object\.freeze\(\{[\s\S]*?\bsuggestionLog\s*:",
         "window.FINANCE_ENDPOINTS.accounting.tbMonthly": r"accounting\s*:\s*Object\.freeze\(\{[\s\S]*?\btbMonthly\s*:",
+        "window.FINANCE_ENDPOINTS.accounting.journal.list": r"accounting\s*:\s*Object\.freeze\(\{[\s\S]*?journal\s*:\s*Object\.freeze\(\{[\s\S]*?\blist\s*:",
+        "window.FINANCE_ENDPOINTS.accounting.journal.updateTemplate": r"accounting\s*:\s*Object\.freeze\(\{[\s\S]*?journal\s*:\s*Object\.freeze\(\{[\s\S]*?\bupdateTemplate\s*:[\s\S]*?__ENTRY_ID__",
         "window.FINANCE_ENDPOINTS.accounting.statements.data": r"accounting\s*:\s*Object\.freeze\(\{[\s\S]*?statements\s*:\s*Object\.freeze\(\{[\s\S]*?\bdata\s*:",
     }
     missing: list[str] = []
