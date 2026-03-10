@@ -15,7 +15,14 @@ from finance_app.extensions import db
 from finance_app.lib.dates import _parse_date_tuple
 from finance_app.models.accounting_models import CsvImportBatch, CsvImportRow, Transaction, TransactionJournalLink
 from finance_app.services.account_service import ensure_account
-from finance_app.services.journal_service import JournalBalanceError, JournalLinePayload, create_journal_entry
+from finance_app.services.journal_service import (
+    JOURNAL_ERROR_INVALID_DC,
+    JOURNAL_ERROR_UNBALANCED,
+    JournalBalanceError,
+    JournalLinePayload,
+    create_journal_entry,
+    map_journal_db_exception,
+)
 from finance_app.services.ml_service import record_suggestion_hint
 
 ROW_DUPLICATE_BATCH = "duplicate_batch_file_sha256"
@@ -24,6 +31,7 @@ ROW_ERROR_NO_POSTABLE_LINES = "no_postable_lines"
 ROW_ERROR_PARTIAL_DUPLICATE_GROUP = "partial_duplicate_group"
 ROW_ERROR_UNBALANCED_JOURNAL = "unbalanced_journal"
 ROW_ERROR_LEGACY_UNSUPPORTED_SHAPE = "legacy_unsupported_shape"
+ROW_ERROR_INVALID_DC = "invalid_dc"
 
 DEDUPE_VERSION = "v1"
 
@@ -480,120 +488,141 @@ def import_csv_transactions(
                 skipped_unbalanced.append(str(key))
                 continue
 
-            if mode == "legacy":
-                # Legacy mode only supports simple two-line records.
-                if len(built_lines) != 2:
-                    rows_error += len(items)
-                    error_reasons[ROW_ERROR_LEGACY_UNSUPPORTED_SHAPE] += len(items)
-                    continue
-                debit_line = next((ln for ln in built_lines if ln.direction == "D"), None)
-                credit_line = next((ln for ln in built_lines if ln.direction == "C"), None)
-                if not debit_line or not credit_line:
-                    rows_error += len(items)
-                    error_reasons[ROW_ERROR_LEGACY_UNSUPPORTED_SHAPE] += len(items)
-                    continue
-                tx = Transaction(
-                    date=first_item.date_str,
-                    description=first_item.description,
-                    debit_account=ensure_account(user_id, first_item.debit_account or "").name,
-                    debit_amount=float(debit_line.amount),
-                    credit_account=ensure_account(user_id, first_item.credit_account or "").name,
-                    credit_amount=float(credit_line.amount),
-                    user_id=user_id,
-                    debit_account_id=debit_line.account_id,
-                    credit_account_id=credit_line.account_id,
-                    date_parsed=first_item.date_parsed,
-                )
-                db.session.add(tx)
-                db.session.flush()
-                for line in built_lines:
-                    db.session.add(
-                        CsvImportRow(
-                            batch_id=batch.id,
-                            user_id=user_id,
-                            row_number=line.row_number,
-                            row_sha256=line.row_sha256,
-                            row_dedupe_key=line.row_dedupe_key,
-                            external_txn_id=line.external_txn_id,
-                            account_id=line.account_id,
-                            direction=line.direction,
-                            amount=line.amount,
-                            currency=line.currency,
-                            effective_date=line.effective_date,
-                            counterparty_norm=line.counterparty_norm,
-                            status="imported",
-                        )
-                    )
-                count_simple += 1
-                rows_new += len(items)
-                continue
-
+            group_rows_new = 0
+            group_journal_count = 0
+            group_simple_count = 0
             try:
-                entry = create_journal_entry(
-                    user_id=user_id,
-                    date=first_item.date_str,
-                    date_parsed=first_item.date_parsed,
-                    description=first_item.description or key,
-                    reference=reference,
-                    lines=[ln.payload for ln in built_lines],
-                )
-                db.session.flush()
+                with db.session.begin_nested():
+                    if mode == "legacy":
+                        # Legacy mode only supports simple two-line records.
+                        if len(built_lines) != 2:
+                            rows_error += len(items)
+                            error_reasons[ROW_ERROR_LEGACY_UNSUPPORTED_SHAPE] += len(items)
+                            continue
+                        debit_line = next((ln for ln in built_lines if ln.direction == "D"), None)
+                        credit_line = next((ln for ln in built_lines if ln.direction == "C"), None)
+                        if not debit_line or not credit_line:
+                            rows_error += len(items)
+                            error_reasons[ROW_ERROR_LEGACY_UNSUPPORTED_SHAPE] += len(items)
+                            continue
+                        tx = Transaction(
+                            date=first_item.date_str,
+                            description=first_item.description,
+                            debit_account=ensure_account(user_id, first_item.debit_account or "").name,
+                            debit_amount=float(debit_line.amount),
+                            credit_account=ensure_account(user_id, first_item.credit_account or "").name,
+                            credit_amount=float(credit_line.amount),
+                            user_id=user_id,
+                            debit_account_id=debit_line.account_id,
+                            credit_account_id=credit_line.account_id,
+                            date_parsed=first_item.date_parsed,
+                        )
+                        db.session.add(tx)
+                        db.session.flush()
+                        for line in built_lines:
+                            db.session.add(
+                                CsvImportRow(
+                                    batch_id=batch.id,
+                                    user_id=user_id,
+                                    row_number=line.row_number,
+                                    row_sha256=line.row_sha256,
+                                    row_dedupe_key=line.row_dedupe_key,
+                                    external_txn_id=line.external_txn_id,
+                                    account_id=line.account_id,
+                                    direction=line.direction,
+                                    amount=line.amount,
+                                    currency=line.currency,
+                                    effective_date=line.effective_date,
+                                    counterparty_norm=line.counterparty_norm,
+                                    status="imported",
+                                )
+                            )
+                        group_simple_count = 1
+                        group_rows_new = len(items)
+                    else:
+                        entry = create_journal_entry(
+                            user_id=user_id,
+                            date=first_item.date_str,
+                            date_parsed=first_item.date_parsed,
+                            description=first_item.description or key,
+                            reference=reference,
+                            lines=[ln.payload for ln in built_lines],
+                        )
+                        db.session.flush()
+
+                        # Dual mode mirrors simple two-line records into legacy table.
+                        if mode == "dual" and len(built_lines) == 2:
+                            debit_line = next((ln for ln in built_lines if ln.direction == "D"), None)
+                            credit_line = next((ln for ln in built_lines if ln.direction == "C"), None)
+                            if debit_line and credit_line:
+                                tx = Transaction(
+                                    date=first_item.date_str,
+                                    description=first_item.description,
+                                    debit_account=ensure_account(user_id, first_item.debit_account or "").name,
+                                    debit_amount=float(debit_line.amount),
+                                    credit_account=ensure_account(user_id, first_item.credit_account or "").name,
+                                    credit_amount=float(credit_line.amount),
+                                    user_id=user_id,
+                                    debit_account_id=debit_line.account_id,
+                                    credit_account_id=credit_line.account_id,
+                                    date_parsed=first_item.date_parsed,
+                                )
+                                db.session.add(tx)
+                                db.session.flush()
+                                db.session.add(
+                                    TransactionJournalLink(
+                                        user_id=user_id,
+                                        transaction_id=tx.id,
+                                        journal_entry_id=entry.id,
+                                        source="strong_dual_write",
+                                    )
+                                )
+                                group_simple_count = 1
+
+                        for line in built_lines:
+                            db.session.add(
+                                CsvImportRow(
+                                    batch_id=batch.id,
+                                    user_id=user_id,
+                                    row_number=line.row_number,
+                                    row_sha256=line.row_sha256,
+                                    row_dedupe_key=line.row_dedupe_key,
+                                    external_txn_id=line.external_txn_id,
+                                    account_id=line.account_id,
+                                    direction=line.direction,
+                                    amount=line.amount,
+                                    currency=line.currency,
+                                    effective_date=line.effective_date,
+                                    counterparty_norm=line.counterparty_norm,
+                                    status="imported",
+                                    journal_entry_id=entry.id,
+                                )
+                            )
+                        group_journal_count = 1
+                        group_rows_new = len(items)
             except JournalBalanceError:
                 rows_error += len(items)
                 error_reasons[ROW_ERROR_UNBALANCED_JOURNAL] += len(items)
                 skipped_unbalanced.append(str(key))
                 continue
+            except Exception as exc:
+                mapped = map_journal_db_exception(exc)
+                if mapped:
+                    error_code, _, _ = mapped
+                    rows_error += len(items)
+                    if error_code == JOURNAL_ERROR_UNBALANCED:
+                        error_reasons[ROW_ERROR_UNBALANCED_JOURNAL] += len(items)
+                        skipped_unbalanced.append(str(key))
+                    elif error_code == JOURNAL_ERROR_INVALID_DC:
+                        error_reasons[ROW_ERROR_INVALID_DC] += len(items)
+                    else:
+                        error_reasons[ROW_ERROR_UNBALANCED_JOURNAL] += len(items)
+                    continue
+                raise
 
-            # Dual mode mirrors simple two-line records into legacy table.
-            if mode == "dual" and len(built_lines) == 2:
-                debit_line = next((ln for ln in built_lines if ln.direction == "D"), None)
-                credit_line = next((ln for ln in built_lines if ln.direction == "C"), None)
-                if debit_line and credit_line:
-                    tx = Transaction(
-                        date=first_item.date_str,
-                        description=first_item.description,
-                        debit_account=ensure_account(user_id, first_item.debit_account or "").name,
-                        debit_amount=float(debit_line.amount),
-                        credit_account=ensure_account(user_id, first_item.credit_account or "").name,
-                        credit_amount=float(credit_line.amount),
-                        user_id=user_id,
-                        debit_account_id=debit_line.account_id,
-                        credit_account_id=credit_line.account_id,
-                        date_parsed=first_item.date_parsed,
-                    )
-                    db.session.add(tx)
-                    db.session.flush()
-                    db.session.add(
-                        TransactionJournalLink(
-                            user_id=user_id,
-                            transaction_id=tx.id,
-                            journal_entry_id=entry.id,
-                            source="strong_dual_write",
-                        )
-                    )
-                    count_simple += 1
-
-            for line in built_lines:
-                db.session.add(
-                    CsvImportRow(
-                        batch_id=batch.id,
-                        user_id=user_id,
-                        row_number=line.row_number,
-                        row_sha256=line.row_sha256,
-                        row_dedupe_key=line.row_dedupe_key,
-                        external_txn_id=line.external_txn_id,
-                        account_id=line.account_id,
-                        direction=line.direction,
-                        amount=line.amount,
-                        currency=line.currency,
-                        effective_date=line.effective_date,
-                        counterparty_norm=line.counterparty_norm,
-                        status="imported",
-                        journal_entry_id=entry.id,
-                    )
-                )
-            count_journal += 1
-            rows_new += len(items)
+            count_journal += group_journal_count
+            count_simple += group_simple_count
+            rows_new += group_rows_new
 
         batch.row_count = len(parsed_rows)
         batch.status = "applied"

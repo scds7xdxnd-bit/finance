@@ -1,5 +1,5 @@
 # Finance App SSOT Index
-_Last updated: 2026-03-08_
+_Last updated: 2026-03-09_
 
 ## 00.1 Purpose
 This directory is the Single Source of Truth (SSOT) for vNext financial correctness.
@@ -22,8 +22,9 @@ Section IDs in this file and all SSOT files are stable citation anchors.
 - Security compliance gate with exception expiry is release-blocking: expired security exceptions fail release.
 - Alembic-first schema management is mandatory; `db.create_all()` is forbidden outside isolated test harnesses.
 - Startup/migration contract gate is release-blocking: boot/migration changes require gate evidence.
+- DB-level journal integrity is mandatory; release is blocked if `journal_integrity` capability or `GATE-DB-INTEGRITY` fails.
 - Canonical ledger query API is the reporting contract surface.
-- CI vNext gate enforces schema, dedupe, convergence, reporting parity, scope invariants, invariant catalog parity, statement export parity, and security compliance.
+- CI vNext gate enforces schema, dedupe, convergence, reporting parity, scope invariants, invariant catalog parity, statement export parity, security compliance, startup/migration contract, and DB integrity.
 
 ## 00.3 Source Precedence (Anti-Shadow-Truth Rule)
 When sources disagree, precedence is:
@@ -54,6 +55,7 @@ Any change to locked decisions, contract surfaces, or gate thresholds must satis
 - For statement export or statement data contract changes, include parity evidence from `SSOT 50.7` and gate evidence from `SSOT 80.11`.
 - For sensitive endpoint changes, include security gate evidence from `SSOT 80.12` and exception-register updates from `SSOT 70.5` (if applicable).
 - For startup, app-factory preflight, migration, or DB URL precedence changes, include gate evidence from `SSOT 80.13` and operator impact notes from `SSOT 90.7`.
+- For journal schema, posting finalization semantics, or DB integrity enforcement changes, include gate evidence from `SSOT 80.14` and operator remediation notes from `SSOT 90.8`.
 
 ## 00.6 Document Map
 | File | Purpose |

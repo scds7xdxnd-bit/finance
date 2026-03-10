@@ -266,9 +266,16 @@ def test_tb_reset_requires_admin(app_ctx):
     assert resp.status_code == 403
 
 
-def test_journal_delete_enforces_csrf_and_scope(app_ctx):
+def test_journal_delete_enforces_csrf_and_scope(app_ctx, monkeypatch):
     # SSOT 70 class-B route: journal deletion must enforce CSRF and owner scope.
     app = app_ctx
+    import blueprints.accounting as accounting_module
+
+    monkeypatch.setattr(
+        accounting_module,
+        "_guard_schema_caps",
+        lambda *_args, **_kwargs: (True, {"ok": True}, 200),
+    )
     with app.app_context():
         owner = User(username="journal_owner", password_hash="pw")
         other = User(username="journal_other", password_hash="pw")

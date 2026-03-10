@@ -52,6 +52,8 @@ def _required_artifact_set() -> set[str]:
             artifact_ids.add(f"unique:{table_name}.{unique_name}")
         for table_name, check_name in req.get("checks", []):
             artifact_ids.add(f"check:{table_name}.{check_name}")
+        for trigger_name in req.get("triggers", []):
+            artifact_ids.add(f"trigger:{trigger_name}")
     return artifact_ids
 
 

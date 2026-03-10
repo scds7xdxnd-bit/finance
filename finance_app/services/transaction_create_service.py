@@ -12,8 +12,12 @@ from finance_app.models.accounting_models import Transaction, TransactionJournal
 from finance_app.services.account_service import ensure_account
 from finance_app.services.journal_service import (
     JournalBalanceError,
+    JOURNAL_ERROR_UNBALANCED,
+    JOURNAL_ERROR_WRITE_FAILED,
     JournalLinePayload,
     create_journal_entry,
+    journal_error_payload,
+    map_journal_db_exception,
 )
 from flask import current_app
 
@@ -151,7 +155,11 @@ def save_transaction_payload(user_id: int, data: dict) -> Tuple[bool, dict, int]
         return True, {"ok": True, "entry_id": entry.id, "mode": write_mode, "transaction_id": (tx.id if tx else None)}, 200
     except JournalBalanceError as e:
         db.session.rollback()
-        return False, {"ok": False, "error": str(e)}, 400
+        return False, journal_error_payload(JOURNAL_ERROR_UNBALANCED, str(e)), 400
     except Exception as e:
         db.session.rollback()
-        return False, {"ok": False, "error": f"Failed to save entry: {e}"}, 500
+        mapped = map_journal_db_exception(e)
+        if mapped:
+            error_code, error_message, status = mapped
+            return False, journal_error_payload(error_code, error_message), status
+        return False, journal_error_payload(JOURNAL_ERROR_WRITE_FAILED, "Failed to save entry."), 500

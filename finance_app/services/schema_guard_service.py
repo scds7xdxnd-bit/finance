@@ -79,6 +79,18 @@ _CAPABILITY_REQUIREMENTS = {
             ("journal_line", "ix_journal_line_account_dc_journal"),
         ],
     },
+    "journal_integrity": {
+        "tables": ["journal_entry_balance"],
+        "columns": {"journal_entry": ["posted_at"]},
+        "checks": [("journal_line", "ck_journal_line_dc")],
+        "triggers": [
+            "trg_journal_line_ai_balance",
+            "trg_journal_line_au_balance",
+            "trg_journal_line_ad_balance",
+            "trg_journal_entry_bi_post_balance_guard",
+            "trg_journal_entry_bu_post_balance_guard",
+        ],
+    },
 }
 
 
@@ -137,6 +149,18 @@ def _table_checks(insp, table_name: str) -> List[str]:
     return sorted(names)
 
 
+def _trigger_names() -> List[str]:
+    if db.engine.dialect.name != "sqlite":
+        return []
+    try:
+        rows = db.session.execute(
+            text("SELECT name FROM sqlite_master WHERE type='trigger'"),
+        ).fetchall()
+    except Exception:
+        return []
+    return sorted({str(row[0]) for row in rows if row and row[0]})
+
+
 def required_capabilities() -> List[str]:
     return list(_CAPABILITY_REQUIREMENTS.keys())
 
@@ -144,6 +168,7 @@ def required_capabilities() -> List[str]:
 def capability_report() -> Dict[str, object]:
     insp = inspect(db.engine)
     tables = set(insp.get_table_names())
+    trigger_names = set(_trigger_names())
     caps: Dict[str, bool] = {}
     details: Dict[str, List[str]] = {}
 
@@ -179,6 +204,10 @@ def capability_report() -> Dict[str, object]:
                 continue
             if check_name not in _table_checks(insp, table_name):
                 missing.append(f"check:{table_name}.{check_name}")
+
+        for trigger_name in req.get("triggers", []):
+            if trigger_name not in trigger_names:
+                missing.append(f"trigger:{trigger_name}")
 
         caps[capability] = len(missing) == 0
         if missing:
