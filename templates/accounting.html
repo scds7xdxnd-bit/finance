@@ -20,6 +20,201 @@
       color: var(--text-strong);
       margin: 0;
     }
+    .journal-filter-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 200px;
+    }
+    .journal-filter-wrap .tb-filter-field {
+      width: 100%;
+    }
+    .journal-filter-wrap.has-error .tb-filter-field {
+      border-color: #f3c2c2;
+      box-shadow: 0 0 0 1px rgba(179, 34, 34, 0.16) inset;
+    }
+    .journal-filter-field-error {
+      display: block;
+      min-height: 14px;
+      padding-left: 4px;
+      font-size: 11px;
+      color: #b22222;
+      line-height: 1.2;
+    }
+    .journal-filter-errors {
+      display: none;
+      margin-top: 10px;
+      border: 1px solid #f3c2c2;
+      background: #fff5f5;
+      color: #b22222;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 12px;
+    }
+    .journal-filter-errors.visible {
+      display: block;
+    }
+    #journal-edit-modal[hidden] {
+      display: none !important;
+    }
+    #journal-edit-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 1200;
+      display: grid;
+      place-items: center;
+    }
+    .journal-edit-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(10, 20, 30, 0.56);
+    }
+    .journal-edit-dialog {
+      position: relative;
+      z-index: 1;
+      width: min(980px, calc(100vw - 32px));
+      max-height: calc(100vh - 32px);
+      overflow: auto;
+      border-radius: 14px;
+      background: #fff;
+      border: 1px solid #dbe8e0;
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.2);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .journal-edit-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .journal-edit-head h4 {
+      margin: 0;
+      color: #1a4d2e;
+      font-size: 18px;
+    }
+    .journal-edit-meta {
+      margin: 4px 0 0;
+      color: #1a4d2e;
+      opacity: 0.75;
+      font-size: 12px;
+    }
+    .journal-edit-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
+    .journal-edit-grid label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      color: #1a4d2e;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .journal-edit-grid input {
+      border: 1px solid #b2d8b2;
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: #1a4d2e;
+      font-size: 13px;
+    }
+    .journal-edit-field-error {
+      min-height: 14px;
+      color: #b22222;
+      font-size: 11px;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+    .journal-edit-form-error {
+      display: none;
+      border: 1px solid #f3c2c2;
+      background: #fff5f5;
+      color: #b22222;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .journal-edit-form-error.visible {
+      display: block;
+    }
+    .journal-edit-lines {
+      border: 1px solid #dfeade;
+      border-radius: 10px;
+      background: #fcfffc;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .journal-edit-lines-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: #1a4d2e;
+    }
+    .journal-edit-lines-head strong {
+      font-size: 14px;
+    }
+    .journal-edit-line {
+      display: grid;
+      grid-template-columns: 90px minmax(180px, 1fr) 120px minmax(160px, 1fr) 50px;
+      gap: 8px;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid #e6f3e6;
+      border-radius: 8px;
+      background: #fff;
+    }
+    .journal-edit-line select,
+    .journal-edit-line input {
+      width: 100%;
+      border: 1px solid #b2d8b2;
+      border-radius: 8px;
+      padding: 6px 8px;
+      color: #1a4d2e;
+      font-size: 12px;
+      box-sizing: border-box;
+    }
+    .journal-edit-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    [data-role="balance-delta"] {
+      font-size: 12px;
+      font-weight: 700;
+      color: #1a4d2e;
+      background: #f5faf6;
+      border: 1px solid #dce9dd;
+      border-radius: 999px;
+      padding: 7px 12px;
+    }
+    [data-role="balance-delta"].balanced {
+      color: #0f7b5f;
+      border-color: #bde1c7;
+      background: #f0fff4;
+    }
+    [data-role="balance-delta"].unbalanced {
+      color: #b22222;
+      border-color: #f3c2c2;
+      background: #fff5f5;
+    }
+    @media (max-width: 860px) {
+      .journal-edit-line {
+        grid-template-columns: 1fr;
+      }
+      .journal-edit-dialog {
+        width: calc(100vw - 20px);
+        max-height: calc(100vh - 20px);
+      }
+    }
   </style>
 {% endblock %}
 
@@ -89,6 +284,9 @@
         viewLabelEl.textContent = labels[view] || 'Folders';
       }
       localStorage.setItem('accountingView', view);
+      if (isJournal && typeof ensureJournalLoaded === 'function') {
+        ensureJournalLoaded();
+      }
       if (isReceivables && typeof window.initReceivableDebtUI === 'function') {
         window.initReceivableDebtUI();
       }
@@ -904,14 +1102,20 @@
                   <i class="fa fa-magnifying-glass"></i>
                   <input id="journal-search" type="text" class="tb-input" placeholder="Search description or reference" autocomplete="off">
                 </label>
-                <label class="tb-filter-field">
-                  <i class="fa fa-calendar-day"></i>
-                  <input id="journal-start" type="date" title="Start date" class="tb-input">
-                </label>
-                <label class="tb-filter-field">
-                  <i class="fa fa-calendar-day"></i>
-                  <input id="journal-end" type="date" title="End date" class="tb-input">
-                </label>
+                <div class="journal-filter-wrap" data-journal-filter-field="start">
+                  <label class="tb-filter-field">
+                    <i class="fa fa-calendar-day"></i>
+                    <input id="journal-start" type="date" title="Start date" class="tb-input">
+                  </label>
+                  <small class="journal-filter-field-error" data-journal-filter-error="start"></small>
+                </div>
+                <div class="journal-filter-wrap" data-journal-filter-field="end">
+                  <label class="tb-filter-field">
+                    <i class="fa fa-calendar-day"></i>
+                    <input id="journal-end" type="date" title="End date" class="tb-input">
+                  </label>
+                  <small class="journal-filter-field-error" data-journal-filter-error="end"></small>
+                </div>
                 <label class="tb-filter-field">
                   <i class="fa fa-folder-open"></i>
                   <select id="journal-account" title="Filter by account" class="tb-select">
@@ -930,14 +1134,32 @@
                     {% endfor %}
                   </select>
                 </label>
-                <label class="tb-filter-field">
-                  <i class="fa fa-arrow-down-wide-short"></i>
-                  <input id="journal-min-amount" type="number" step="0.01" min="0" class="tb-input" placeholder="Min amount" title="Minimum amount">
-                </label>
-                <label class="tb-filter-field">
-                  <i class="fa fa-arrow-up-wide-short"></i>
-                  <input id="journal-max-amount" type="number" step="0.01" min="0" class="tb-input" placeholder="Max amount" title="Maximum amount">
-                </label>
+                <div class="journal-filter-wrap" data-journal-filter-field="min_amount">
+                  <label class="tb-filter-field">
+                    <i class="fa fa-arrow-down-wide-short"></i>
+                    <input id="journal-min-amount" type="number" step="0.01" min="0" class="tb-input" placeholder="Min amount" title="Minimum amount">
+                  </label>
+                  <small class="journal-filter-field-error" data-journal-filter-error="min_amount"></small>
+                </div>
+                <div class="journal-filter-wrap" data-journal-filter-field="max_amount">
+                  <label class="tb-filter-field">
+                    <i class="fa fa-arrow-up-wide-short"></i>
+                    <input id="journal-max-amount" type="number" step="0.01" min="0" class="tb-input" placeholder="Max amount" title="Maximum amount">
+                  </label>
+                  <small class="journal-filter-field-error" data-journal-filter-error="max_amount"></small>
+                </div>
+                <div class="journal-filter-wrap" data-journal-filter-field="per_page">
+                  <label class="tb-filter-field">
+                    <i class="fa fa-list-ol"></i>
+                    <select id="journal-per-page" title="Rows per page" class="tb-select">
+                      <option value="10">10 / page</option>
+                      <option value="25" selected>25 / page</option>
+                      <option value="50">50 / page</option>
+                      <option value="100">100 / page</option>
+                    </select>
+                  </label>
+                  <small class="journal-filter-field-error" data-journal-filter-error="per_page"></small>
+                </div>
               </div>
               <div class="tb-toolbar-fields">
                 <button id="journal-quick-add" class="icon-btn"><i class="fa fa-bolt"></i> Quick Add</button>
@@ -946,6 +1168,7 @@
               </div>
             </div>
           </div>
+          <div id="journal-filter-form-error" class="journal-filter-errors" aria-live="polite"></div>
           <div id="journal-feedback" class="journal-feedback" style="display:none;"></div>
         </div>
 
@@ -968,7 +1191,54 @@
               </div>
             </div>
             <div class="journal-editor" id="journal-editor">
-              <div class="journal-editor-empty"><i class="fa fa-circle-info"></i> Select a journal entry to review or edit.</div>
+              <div class="journal-editor-empty"><i class="fa fa-circle-info"></i> Select a journal entry to open the edit modal.</div>
+            </div>
+          </div>
+
+          <div id="journal-edit-modal" aria-hidden="true" hidden>
+            <div class="journal-edit-backdrop" data-action="close-edit-modal"></div>
+            <div class="journal-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="journal-edit-title">
+              <div class="journal-edit-head">
+                <div>
+                  <h4 id="journal-edit-title">Edit Journal Entry</h4>
+                  <p id="journal-edit-meta" class="journal-edit-meta">Update header and lines, then save balanced totals.</p>
+                </div>
+                <button type="button" class="icon-btn" data-action="close-edit-modal"><i class="fa fa-xmark"></i> Close</button>
+              </div>
+
+              <form id="journal-edit-form" novalidate>
+                <div data-role="form-error" class="journal-edit-form-error" aria-live="polite"></div>
+                <div class="journal-edit-grid">
+                  <div>
+                    <label for="journal-edit-date">Date</label>
+                    <input id="journal-edit-date" name="date" type="date" required>
+                    <div class="journal-edit-field-error" data-field-error="date" aria-live="polite"></div>
+                  </div>
+                  <div>
+                    <label for="journal-edit-description">Description</label>
+                    <input id="journal-edit-description" name="description" type="text" maxlength="255" required>
+                    <div class="journal-edit-field-error" data-field-error="description" aria-live="polite"></div>
+                  </div>
+                  <div>
+                    <label for="journal-edit-reference">Reference (optional)</label>
+                    <input id="journal-edit-reference" name="reference" type="text">
+                  </div>
+                </div>
+
+                <section class="journal-edit-lines">
+                  <div class="journal-edit-lines-head">
+                    <strong>Lines</strong>
+                    <button type="button" class="icon-btn" data-action="add-line"><i class="fa fa-plus"></i> Add line</button>
+                  </div>
+                  <div data-role="lines"></div>
+                  <div class="journal-edit-field-error" data-field-error="lines" aria-live="polite"></div>
+                </section>
+
+                <div class="journal-edit-footer">
+                  <div data-role="balance-delta" aria-live="polite">Delta: 0.00</div>
+                  <button type="submit" class="icon-btn tb-summary-toggle" data-action="save-entry" disabled><i class="fa fa-save"></i> Save Entry</button>
+                </div>
+              </form>
             </div>
           </div>
       </div>
@@ -5713,13 +5983,16 @@ function bindReceivableRow(entry, baseRow, row){
       });
   }
 
+  const JOURNAL_DEFAULT_PER_PAGE = 25;
+  const JOURNAL_QUERY_KEYS = ['q', 'account_id', 'category_id', 'min_amount', 'max_amount', 'start', 'end', 'page', 'per_page'];
+
   const JOURNAL_STATE = {
     entries: [],
     byId: new Map(),
     page: 1,
     pages: 1,
     total: 0,
-    perPage: 25,
+    perPage: JOURNAL_DEFAULT_PER_PAGE,
     filters: {},
     selectedId: null,
     loading: false,
@@ -5781,6 +6054,55 @@ function bindReceivableRow(entry, baseRow, row){
     el.dataset.tone = tone;
   }
 
+  function setJournalFilterFormError(message){
+    const el = document.getElementById('journal-filter-form-error');
+    if (!el) return;
+    const text = String(message || '').trim();
+    if (!text){
+      el.textContent = '';
+      el.classList.remove('visible');
+      return;
+    }
+    el.textContent = text;
+    el.classList.add('visible');
+  }
+
+  function setJournalFilterFieldError(fieldName, message){
+    const text = String(message || '').trim();
+    const fieldNode = document.querySelector(`[data-journal-filter-error="${fieldName}"]`);
+    if (fieldNode) fieldNode.textContent = text;
+    const wrapNode = document.querySelector(`[data-journal-filter-field="${fieldName}"]`);
+    if (wrapNode){
+      if (text) wrapNode.classList.add('has-error');
+      else wrapNode.classList.remove('has-error');
+    }
+  }
+
+  function clearJournalFilterErrors(){
+    document.querySelectorAll('[data-journal-filter-error]').forEach((node) => {
+      node.textContent = '';
+    });
+    document.querySelectorAll('[data-journal-filter-field]').forEach((node) => {
+      node.classList.remove('has-error');
+    });
+    setJournalFilterFormError('');
+  }
+
+  function journalIsValidIsoDate(value){
+    const raw = String(value || '').trim();
+    if (!raw) return true;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return false;
+    const [yy, mm, dd] = raw.split('-').map(Number);
+    const dt = new Date(Date.UTC(yy, mm - 1, dd));
+    return !Number.isNaN(dt.getTime()) && dt.getUTCFullYear() === yy && dt.getUTCMonth() + 1 === mm && dt.getUTCDate() === dd;
+  }
+
+  function journalIsValidDecimal(value){
+    const raw = String(value || '').trim();
+    if (!raw) return true;
+    return /^-?\d+(\.\d+)?$/.test(raw);
+  }
+
   function getJournalFilters(){
     const filters = {};
     const search = document.getElementById('journal-search');
@@ -5800,45 +6122,206 @@ function bindReceivableRow(entry, baseRow, row){
     return filters;
   }
 
-  async function loadJournalEntries(page=1){
+  function getJournalPerPage(){
+    const perPageNode = document.getElementById('journal-per-page');
+    const raw = String(perPageNode && perPageNode.value ? perPageNode.value : '').trim();
+    const parsed = parseInt(raw || String(JOURNAL_DEFAULT_PER_PAGE), 10);
+    if (!Number.isInteger(parsed) || parsed <= 0) return JOURNAL_DEFAULT_PER_PAGE;
+    return parsed;
+  }
+
+  function applyJournalControlState(filters, perPage){
+    const values = filters || {};
+    const search = document.getElementById('journal-search'); if (search) search.value = values.q || '';
+    const start = document.getElementById('journal-start'); if (start) start.value = values.start || '';
+    const end = document.getElementById('journal-end'); if (end) end.value = values.end || '';
+    const account = document.getElementById('journal-account'); if (account) account.value = values.account_id || '';
+    const category = document.getElementById('journal-category'); if (category) category.value = values.category_id || '';
+    const minAmount = document.getElementById('journal-min-amount'); if (minAmount) minAmount.value = values.min_amount || '';
+    const maxAmount = document.getElementById('journal-max-amount'); if (maxAmount) maxAmount.value = values.max_amount || '';
+    const perPageNode = document.getElementById('journal-per-page');
+    if (perPageNode){
+      const normalized = String(perPage || JOURNAL_DEFAULT_PER_PAGE);
+      const hasOption = Array.from(perPageNode.options).some((opt) => opt.value === normalized);
+      if (!hasOption){
+        const option = document.createElement('option');
+        option.value = normalized;
+        option.textContent = `${normalized} / page`;
+        perPageNode.appendChild(option);
+      }
+      perPageNode.value = normalized;
+    }
+  }
+
+  function readJournalStateFromUrl(urlValue){
+    const url = new URL(urlValue || window.location.href, window.location.origin);
+    const filters = {};
+    const q = String(url.searchParams.get('q') || '').trim();
+    const accountId = String(url.searchParams.get('account_id') || '').trim();
+    const categoryId = String(url.searchParams.get('category_id') || '').trim();
+    const minAmount = String(url.searchParams.get('min_amount') || '').trim();
+    const maxAmount = String(url.searchParams.get('max_amount') || '').trim();
+    const start = String(url.searchParams.get('start') || '').trim();
+    const end = String(url.searchParams.get('end') || '').trim();
+    if (q) filters.q = q;
+    if (accountId) filters.account_id = accountId;
+    if (categoryId) filters.category_id = categoryId;
+    if (minAmount) filters.min_amount = minAmount;
+    if (maxAmount) filters.max_amount = maxAmount;
+    if (start) filters.start = start;
+    if (end) filters.end = end;
+    const pageRaw = parseInt(String(url.searchParams.get('page') || '1'), 10);
+    const perPageRaw = parseInt(String(url.searchParams.get('per_page') || JOURNAL_DEFAULT_PER_PAGE), 10);
+    const page = Number.isInteger(pageRaw) && pageRaw > 0 ? pageRaw : 1;
+    const perPage = Number.isInteger(perPageRaw) && perPageRaw > 0 ? perPageRaw : JOURNAL_DEFAULT_PER_PAGE;
+    return { filters, page, perPage };
+  }
+
+  function writeJournalStateToUrl(filters, page, perPage, replaceState=false){
+    const url = new URL(window.location.href);
+    JOURNAL_QUERY_KEYS.forEach((key) => {
+      url.searchParams.delete(key);
+    });
+    Object.entries(filters || {}).forEach(([key, value]) => {
+      const raw = String(value || '').trim();
+      if (raw) url.searchParams.set(key, raw);
+    });
+    const normalizedPage = Number.isInteger(page) && page > 0 ? page : 1;
+    const normalizedPerPage = Number.isInteger(perPage) && perPage > 0 ? perPage : JOURNAL_DEFAULT_PER_PAGE;
+    url.searchParams.set('page', String(normalizedPage));
+    url.searchParams.set('per_page', String(normalizedPerPage));
+    const nextUrl = `${url.pathname}${url.search}${url.hash || ''}`;
+    if (replaceState) window.history.replaceState({}, '', nextUrl);
+    else window.history.pushState({}, '', nextUrl);
+  }
+
+  function validateJournalFilters(filters, perPage){
+    clearJournalFilterErrors();
+    let valid = true;
+    const start = String(filters && filters.start ? filters.start : '').trim();
+    const end = String(filters && filters.end ? filters.end : '').trim();
+    const minAmount = String(filters && filters.min_amount ? filters.min_amount : '').trim();
+    const maxAmount = String(filters && filters.max_amount ? filters.max_amount : '').trim();
+
+    if (!journalIsValidIsoDate(start)){
+      setJournalFilterFieldError('start', 'Use YYYY-MM-DD.');
+      valid = false;
+    }
+    if (!journalIsValidIsoDate(end)){
+      setJournalFilterFieldError('end', 'Use YYYY-MM-DD.');
+      valid = false;
+    }
+    if (!journalIsValidDecimal(minAmount)){
+      setJournalFilterFieldError('min_amount', 'Enter a valid decimal amount.');
+      valid = false;
+    }
+    if (!journalIsValidDecimal(maxAmount)){
+      setJournalFilterFieldError('max_amount', 'Enter a valid decimal amount.');
+      valid = false;
+    }
+    if (start && end && journalIsValidIsoDate(start) && journalIsValidIsoDate(end) && start > end){
+      setJournalFilterFieldError('end', 'End date must be on or after start date.');
+      valid = false;
+    }
+    if (minAmount && maxAmount && journalIsValidDecimal(minAmount) && journalIsValidDecimal(maxAmount) && parseFloat(minAmount) > parseFloat(maxAmount)){
+      setJournalFilterFieldError('max_amount', 'Max amount must be >= min amount.');
+      valid = false;
+    }
+    if (!Number.isInteger(perPage) || perPage <= 0){
+      setJournalFilterFieldError('per_page', 'Per page must be a positive integer.');
+      valid = false;
+    }
+    if (!valid){
+      setJournalFilterFormError('Please fix invalid filter values before applying.');
+    }
+    return valid;
+  }
+
+  function buildJournalParams(filters, page, perPage){
+    const params = new URLSearchParams();
+    Object.entries(filters || {}).forEach(([k,v]) => { if (v) params.set(k, v); });
+    params.set('page', String(page));
+    params.set('per_page', String(perPage));
+    return params;
+  }
+
+  function updateJournalStatusLabel(){
+    const statusNode = document.getElementById('journal-status');
+    if (!statusNode) return;
+    if (JOURNAL_STATE.loading){
+      statusNode.textContent = 'Loading journal entries…';
+      return;
+    }
+    if (!JOURNAL_STATE.loaded){
+      statusNode.textContent = 'Select filters to load journal entries.';
+      return;
+    }
+    if (!JOURNAL_STATE.total){
+      statusNode.textContent = 'No entries matched your filters.';
+      return;
+    }
+    statusNode.textContent = `Showing page ${JOURNAL_STATE.page} of ${JOURNAL_STATE.pages} (${JOURNAL_STATE.total} entries).`;
+  }
+
+  async function loadJournalEntries(page=1, options={}){
+    const useControlState = options.useControlState !== false;
+    const pushHistory = options.pushHistory !== false;
+    const replaceHistory = !!options.replaceHistory;
+    const skipValidation = !!options.skipValidation;
+    const requestedPageRaw = parseInt(String(page || 1), 10);
+    const requestedPage = Number.isInteger(requestedPageRaw) && requestedPageRaw > 0 ? requestedPageRaw : 1;
+    const filters = useControlState ? getJournalFilters() : { ...(JOURNAL_STATE.filters || {}) };
+    const perPage = useControlState ? getJournalPerPage() : (Number.isInteger(JOURNAL_STATE.perPage) && JOURNAL_STATE.perPage > 0 ? JOURNAL_STATE.perPage : JOURNAL_DEFAULT_PER_PAGE);
+    if (!skipValidation && !validateJournalFilters(filters, perPage)){
+      return;
+    }
     if (JOURNAL_STATE.loading) return;
     JOURNAL_STATE.loading = true;
+    JOURNAL_STATE.filters = { ...filters };
+    JOURNAL_STATE.perPage = perPage;
+    updateJournalStatusLabel();
     const table = document.getElementById('journal-table');
     if (table) table.innerHTML = '<div class="journal-placeholder">Loading journal entries…</div>';
-    const filters = getJournalFilters();
-    JOURNAL_STATE.filters = filters;
-    const params = new URLSearchParams();
-    Object.entries(filters).forEach(([k,v]) => { if (v) params.set(k, v); });
-    params.set('page', String(page));
-    params.set('per_page', String(JOURNAL_STATE.perPage));
+    const params = buildJournalParams(JOURNAL_STATE.filters, requestedPage, JOURNAL_STATE.perPage);
     try {
       const journalListBase = resolveJournalEndpoint(JOURNAL_LIST_URL, 'accounting.journal.list');
       const listUrl = params.toString() ? `${journalListBase}?${params.toString()}` : journalListBase;
-      const res = await fetch(listUrl);
+      const res = await fetch(listUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok){
         throw new Error(data.error || 'Failed to load journal entries.');
       }
-      JOURNAL_STATE.entries = data.entries || [];
+      JOURNAL_STATE.entries = Array.isArray(data.entries) ? data.entries : [];
       JOURNAL_STATE.byId = new Map(JOURNAL_STATE.entries.map(e => [e.id, e]));
-      JOURNAL_STATE.page = data.page || page;
-      JOURNAL_STATE.pages = data.pages || 1;
-      JOURNAL_STATE.total = data.total || JOURNAL_STATE.entries.length;
+      const pageFromPayload = parseInt(String(data.page || requestedPage), 10);
+      const pagesFromPayload = parseInt(String(data.pages || 1), 10);
+      const totalFromPayload = Number(data.total);
+      JOURNAL_STATE.page = Number.isInteger(pageFromPayload) && pageFromPayload > 0 ? pageFromPayload : requestedPage;
+      JOURNAL_STATE.pages = Number.isInteger(pagesFromPayload) && pagesFromPayload > 0 ? pagesFromPayload : 1;
+      JOURNAL_STATE.total = Number.isFinite(totalFromPayload) && totalFromPayload >= 0 ? totalFromPayload : JOURNAL_STATE.entries.length;
       JOURNAL_STATE.loaded = true;
+      applyJournalControlState(JOURNAL_STATE.filters, JOURNAL_STATE.perPage);
+      if (pushHistory){
+        writeJournalStateToUrl(JOURNAL_STATE.filters, JOURNAL_STATE.page, JOURNAL_STATE.perPage, replaceHistory);
+      }
       if (!JOURNAL_STATE.selectedId || !JOURNAL_STATE.byId.has(JOURNAL_STATE.selectedId)){
         JOURNAL_STATE.selectedId = null;
         renderJournalEditor(null);
       }
       renderJournalTable(JOURNAL_STATE.entries);
       renderJournalPagination(JOURNAL_STATE.page, JOURNAL_STATE.pages, JOURNAL_STATE.total);
+      setJournalFilterFormError('');
       setJournalFeedback('', 'info');
+      updateJournalStatusLabel();
     } catch (err){
       console.error(err);
       if (table) table.innerHTML = '<div class="journal-placeholder">Failed to load journal entries.</div>';
       const pag = document.getElementById('journal-pagination'); if (pag) pag.innerHTML = '';
       setJournalFeedback(err && err.message ? err.message : 'Failed to load journal entries.', 'error');
+      updateJournalStatusLabel();
     } finally {
       JOURNAL_STATE.loading = false;
+      updateJournalStatusLabel();
     }
   }
 
@@ -5933,7 +6416,7 @@ function bindReceivableRow(entry, baseRow, row){
         renderJournalEditor(null);
       }
       renderJournalTable(JOURNAL_STATE.entries);
-      loadJournalEntries(JOURNAL_STATE.page);
+      loadJournalEntries(JOURNAL_STATE.page, { useControlState: false });
       setJournalFeedback('Entry deleted.', 'success');
     } catch (err){
       console.error(err);
@@ -5954,8 +6437,8 @@ function bindReceivableRow(entry, baseRow, row){
     container.querySelectorAll('.journal-page-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const dir = btn.dataset.dir;
-        if (dir === 'prev' && page > 1) loadJournalEntries(page - 1);
-        if (dir === 'next' && page < pages) loadJournalEntries(page + 1);
+        if (dir === 'prev' && page > 1) loadJournalEntries(page - 1, { useControlState: false });
+        if (dir === 'next' && page < pages) loadJournalEntries(page + 1, { useControlState: false });
       });
     });
   }
@@ -5969,225 +6452,361 @@ function bindReceivableRow(entry, baseRow, row){
     JOURNAL_STATE.selectedId = entryId;
     renderJournalTable(JOURNAL_STATE.entries);
     renderJournalEditor(entry);
+    openJournalEditModal(entry);
   }
 
   function renderJournalEditor(entry){
     const editor = document.getElementById('journal-editor');
     if (!editor) return;
     if (!entry){
-      editor.innerHTML = '<div class="journal-editor-empty"><i class="fa fa-circle-info"></i> Select a journal entry to review or edit.</div>';
+      editor.innerHTML = '<div class="journal-editor-empty"><i class="fa fa-circle-info"></i> Select a journal entry to open the edit modal.</div>';
       return;
     }
-    const iso = entry.date_iso || '';
-    editor.innerHTML = `
-      <div class="journal-editor-form">
-        <div class="journal-field">
-          <label for="journal-edit-date">Date</label>
-          <input type="date" id="journal-edit-date" value="${iso}">
-        </div>
-        <div class="journal-field">
-          <label for="journal-edit-description">Description</label>
-          <input type="text" id="journal-edit-description" value="${escapeHtml(entry.description || '')}" placeholder="Entry description">
-        </div>
-        <div class="journal-field">
-          <label for="journal-edit-reference">Reference</label>
-          <input type="text" id="journal-edit-reference" value="${escapeHtml(entry.reference || '')}" placeholder="Optional reference">
-        </div>
-        <div class="journal-lines-box">
-          <div class="journal-line-header"><div>Account</div><div>Type</div><div>Amount</div><div>Memo</div><div></div></div>
-          <div id="journal-lines-body"></div>
-          <div id="journal-lines-total" class="journal-lines-total"></div>
-        </div>
-        <div id="journal-editor-message" class="journal-editor-message"></div>
-        <div class="journal-editor-actions">
-          <button type="button" class="icon-btn" id="journal-add-line"><i class="fa fa-plus"></i> Add line</button>
-          <div style="flex:1"></div>
-          <button type="button" class="icon-btn" id="journal-save"><i class="fa fa-save"></i> Save Changes</button>
-          <button type="button" class="icon-btn" id="journal-cancel"><i class="fa fa-circle-xmark"></i> Cancel</button>
-        </div>
-      </div>
-    `;
-    const body = editor.querySelector('#journal-lines-body');
-    const lines = (entry.lines && entry.lines.length ? entry.lines : [{ dc: 'D', amount: 0, account_name: '', memo: '' }, { dc: 'C', amount: 0, account_name: '', memo: '' }]);
-    lines.forEach(line => body.appendChild(createJournalLineRow(line)));
-    refreshJournalLineControls();
-    const addBtn = editor.querySelector('#journal-add-line');
-    if (addBtn) addBtn.addEventListener('click', () => {
-      body.appendChild(createJournalLineRow({ dc: 'D', amount: 0, account_name: '', memo: '' }));
-      refreshJournalLineControls();
-    });
-    const saveBtn = editor.querySelector('#journal-save');
-    if (saveBtn) saveBtn.addEventListener('click', () => submitJournalEdit(entry.id));
-    const cancelBtn = editor.querySelector('#journal-cancel');
-    if (cancelBtn) cancelBtn.addEventListener('click', () => {
-      JOURNAL_STATE.selectedId = null;
-      renderJournalTable(JOURNAL_STATE.entries);
-      renderJournalEditor(null);
-    });
+    const lineCount = Array.isArray(entry.lines) ? entry.lines.length : 0;
+    editor.innerHTML = `<div class="journal-editor-empty"><i class="fa fa-pen"></i> Editing entry #${escapeHtml(entry.id)} in modal (${lineCount} lines).</div>`;
   }
 
-  function createJournalLineRow(line){
-    const row = document.createElement('div');
-    row.className = 'journal-line-row';
-    const hasAmount = line.amount != null && Math.abs(Number(line.amount)) > 0;
-    const amt = hasAmount ? Number(line.amount).toFixed(2) : '';
-    row.innerHTML = `
-      <div><input type="text" class="journal-line-account" value="${escapeHtml(line.account_name || '')}" list="journal-account-options" placeholder="Account"></div>
-      <div><select class="journal-line-dc"><option value="D">Debit</option><option value="C">Credit</option></select></div>
-      <div><input type="number" class="journal-line-amount" step="0.01" min="0" value="${amt}"></div>
-      <div><input type="text" class="journal-line-memo" value="${escapeHtml(line.memo || '')}" placeholder="Memo (optional)"></div>
-      <div style="text-align:right;"><button type="button" class="icon-btn journal-line-remove"><i class="fa fa-trash"></i></button></div>
-    `;
-    const dcSelect = row.querySelector('.journal-line-dc');
-    dcSelect.value = (line.dc === 'C') ? 'C' : 'D';
-    const removeBtn = row.querySelector('.journal-line-remove');
-    removeBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      row.remove();
-      refreshJournalLineControls();
+  function getJournalEditModal(){
+    return document.getElementById('journal-edit-modal');
+  }
+
+  function getJournalEditForm(){
+    return document.getElementById('journal-edit-form');
+  }
+
+  function setJournalEditFormError(message){
+    const form = getJournalEditForm();
+    if (!form) return;
+    const node = form.querySelector('[data-role="form-error"]');
+    if (!node) return;
+    const text = String(message || '').trim();
+    if (!text){
+      node.textContent = '';
+      node.classList.remove('visible');
+      return;
+    }
+    node.textContent = text;
+    node.classList.add('visible');
+  }
+
+  function setJournalEditFieldError(field, message){
+    const form = getJournalEditForm();
+    if (!form) return;
+    const node = form.querySelector(`[data-field-error="${field}"]`);
+    if (!node) return;
+    node.textContent = String(message || '').trim();
+  }
+
+  function clearJournalEditErrors(){
+    const form = getJournalEditForm();
+    if (!form) return;
+    form.querySelectorAll('[data-field-error]').forEach((node) => {
+      node.textContent = '';
     });
-    const amountInput = row.querySelector('.journal-line-amount');
-    amountInput.addEventListener('input', updateJournalTotals);
-    dcSelect.addEventListener('change', updateJournalTotals);
+    setJournalEditFormError('');
+  }
+
+  function createJournalEditLineRow(line){
+    const row = document.createElement('div');
+    row.className = 'journal-edit-line';
+    const amountRaw = Number(line && line.amount);
+    const amountValue = Number.isFinite(amountRaw) && amountRaw > 0 ? amountRaw.toFixed(2) : '';
+    row.innerHTML = `
+      <select data-line-field="dc" aria-label="Debit or credit">
+        <option value="D">Debit</option>
+        <option value="C">Credit</option>
+      </select>
+      <input type="text" data-line-field="account" list="journal-account-options" placeholder="Account" aria-label="Account" value="${escapeHtml((line && line.account_name) || (line && line.account) || '')}">
+      <input type="number" data-line-field="amount" step="0.01" min="0" placeholder="0.00" aria-label="Amount" value="${escapeHtml(amountValue)}">
+      <input type="text" data-line-field="memo" placeholder="Memo (optional)" aria-label="Memo" value="${escapeHtml((line && line.memo) || '')}">
+      <button type="button" class="icon-btn" data-action="remove-line" aria-label="Remove line"><i class="fa fa-trash"></i></button>
+    `;
+    const dcInput = row.querySelector('[data-line-field="dc"]');
+    if (dcInput) dcInput.value = ((line && line.dc) === 'C') ? 'C' : 'D';
     return row;
   }
 
-  function refreshJournalLineControls(){
-    updateJournalTotals();
-    const body = document.getElementById('journal-lines-body');
-    if (!body) return;
-    const rows = Array.from(body.querySelectorAll('.journal-line-row'));
-    const allowRemove = rows.length > 2;
-    rows.forEach(row => {
-      const btn = row.querySelector('.journal-line-remove');
-      if (btn){
-        btn.disabled = !allowRemove;
-        btn.title = allowRemove ? 'Remove line' : 'At least two lines are required';
-      }
+  function getJournalEditLinesContainer(){
+    const form = getJournalEditForm();
+    if (!form) return null;
+    return form.querySelector('[data-role="lines"]');
+  }
+
+  function collectJournalEditLines(){
+    const container = getJournalEditLinesContainer();
+    if (!container) return [];
+    const rows = Array.from(container.querySelectorAll('.journal-edit-line'));
+    return rows.map((row) => {
+      const dc = String((row.querySelector('[data-line-field="dc"]') || {}).value || 'D').trim().toUpperCase();
+      const account = String((row.querySelector('[data-line-field="account"]') || {}).value || '').trim();
+      const amountRaw = parseFloat(String((row.querySelector('[data-line-field="amount"]') || {}).value || '0'));
+      const memo = String((row.querySelector('[data-line-field="memo"]') || {}).value || '').trim();
+      const amount = Number.isFinite(amountRaw) ? Number(amountRaw.toFixed(2)) : 0;
+      const accountId = account ? JOURNAL_ACCOUNT_INDEX.map.get(account.toLowerCase()) : null;
+      return { dc, account, account_id: accountId || null, amount, memo };
     });
   }
 
-  function updateJournalTotals(){
-    const body = document.getElementById('journal-lines-body');
-    const totalsEl = document.getElementById('journal-lines-total');
-    if (!body || !totalsEl) return;
-    let debit = 0;
-    let credit = 0;
-    body.querySelectorAll('.journal-line-row').forEach(row => {
-      const amountInput = row.querySelector('.journal-line-amount');
-      const dcSelect = row.querySelector('.journal-line-dc');
-      const val = parseFloat(amountInput.value || '0');
-      if (!Number.isFinite(val) || val <= 0) return;
-      if ((dcSelect.value || 'D') === 'C') credit += val;
-      else debit += val;
-    });
-    const diff = debit - credit;
-    const diffClass = Math.abs(diff) < 0.005 ? 'balanced' : 'journal-total-mismatch';
-    totalsEl.innerHTML = `<span>Debits: ${formatCurrency(debit)}</span><span>Credits: ${formatCurrency(credit)}</span><span class="${diffClass}">Difference: ${formatCurrency(diff)}</span>`;
-  }
-
-  function collectJournalLines(){
-    const body = document.getElementById('journal-lines-body');
-    if (!body) return [];
-    const rows = Array.from(body.querySelectorAll('.journal-line-row'));
-    return rows.map(row => {
-      const accountInput = row.querySelector('.journal-line-account');
-      const amountInput = row.querySelector('.journal-line-amount');
-      const memoInput = row.querySelector('.journal-line-memo');
-      const dcSelect = row.querySelector('.journal-line-dc');
-      const accountName = (accountInput.value || '').trim();
-      const amountVal = parseFloat(amountInput.value || '0');
-      const accountId = accountName ? JOURNAL_ACCOUNT_INDEX.map.get(accountName.toLowerCase()) : null;
-      return {
-        account: accountName,
-        account_id: accountId,
-        dc: (dcSelect.value || 'D'),
-        amount: Number.isFinite(amountVal) ? Number(amountVal.toFixed(2)) : 0,
-        memo: (memoInput.value || '').trim()
-      };
+  function updateJournalEditRemoveState(){
+    const container = getJournalEditLinesContainer();
+    if (!container) return;
+    const rows = Array.from(container.querySelectorAll('.journal-edit-line'));
+    const canRemove = rows.length > 2;
+    rows.forEach((row) => {
+      const btn = row.querySelector('[data-action="remove-line"]');
+      if (!btn) return;
+      btn.disabled = !canRemove;
+      btn.title = canRemove ? 'Remove line' : 'At least two lines are required';
     });
   }
 
-  async function submitJournalEdit(entryId){
-    const messageEl = document.getElementById('journal-editor-message');
-    if (messageEl){ messageEl.textContent = ''; messageEl.dataset.tone = ''; }
-    const dateInput = document.getElementById('journal-edit-date');
-    const descInput = document.getElementById('journal-edit-description');
-    const refInput = document.getElementById('journal-edit-reference');
-    const dateVal = (dateInput && dateInput.value) ? dateInput.value.trim() : '';
-    const descVal = (descInput && descInput.value) ? descInput.value.trim() : '';
-    const referenceVal = refInput ? refInput.value.trim() : '';
-    const lines = collectJournalLines();
-    const showMessage = (text, tone='error') => {
-      if (messageEl){
-        messageEl.textContent = text;
-        messageEl.dataset.tone = tone;
-      }
-    };
-    if (!dateVal){ showMessage('Date is required.'); return; }
-    if (!descVal){ showMessage('Description is required.'); return; }
-    if (!lines || lines.length < 2){ showMessage('At least two lines are required.'); return; }
-    let debit = 0;
-    let credit = 0;
-    for (const ln of lines){
-      if (!ln.account){ showMessage('Account name is required for each line.'); return; }
-      if (!Number.isFinite(ln.amount) || ln.amount <= 0){ showMessage('Amounts must be greater than zero.'); return; }
-      if ((ln.dc || 'D') === 'C') credit += ln.amount;
-      else debit += ln.amount;
+  function updateJournalEditDelta(lines){
+    const form = getJournalEditForm();
+    if (!form) return 0;
+    const deltaNode = form.querySelector('[data-role="balance-delta"]');
+    if (!deltaNode) return 0;
+    const items = Array.isArray(lines) ? lines : [];
+    const debit = items.filter((line) => line.dc === 'D').reduce((sum, line) => sum + (Number(line.amount) || 0), 0);
+    const credit = items.filter((line) => line.dc === 'C').reduce((sum, line) => sum + (Number(line.amount) || 0), 0);
+    const delta = Number((debit - credit).toFixed(2));
+    deltaNode.classList.remove('balanced', 'unbalanced');
+    if (Math.abs(delta) < 0.005) deltaNode.classList.add('balanced');
+    else deltaNode.classList.add('unbalanced');
+    deltaNode.textContent = `Delta: ${formatCurrency(delta)}`;
+    return delta;
+  }
+
+  function journalEditDateValid(value){
+    const raw = String(value || '').trim();
+    if (!raw) return false;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return false;
+    const [yy, mm, dd] = raw.split('-').map(Number);
+    const dt = new Date(Date.UTC(yy, mm - 1, dd));
+    return !Number.isNaN(dt.getTime()) && dt.getUTCFullYear() === yy && dt.getUTCMonth() + 1 === mm && dt.getUTCDate() === dd;
+  }
+
+  function evaluateJournalEditForm(showErrors){
+    const form = getJournalEditForm();
+    if (!form) return { valid: false, lines: [], delta: 0 };
+    if (showErrors) clearJournalEditErrors();
+    const dateVal = String(form.date ? form.date.value : '').trim();
+    const descVal = String(form.description ? form.description.value : '').trim();
+    const lines = collectJournalEditLines();
+    let valid = true;
+    let lineError = '';
+
+    if (!journalEditDateValid(dateVal)){
+      if (showErrors) setJournalEditFieldError('date', 'Date is required in YYYY-MM-DD format.');
+      valid = false;
     }
-    if (Math.abs(debit - credit) > 0.005){ showMessage('Debits and credits must balance.'); return; }
+    if (!descVal){
+      if (showErrors) setJournalEditFieldError('description', 'Description is required.');
+      valid = false;
+    }
+    if (lines.length < 2){
+      lineError = 'At least two lines are required.';
+      valid = false;
+    }
+    lines.forEach((line) => {
+      if (line.dc !== 'D' && line.dc !== 'C'){
+        lineError = lineError || 'Each line must be debit or credit.';
+        valid = false;
+      }
+      if (!line.account){
+        lineError = lineError || 'Account is required for each line.';
+        valid = false;
+      }
+      if (!Number.isFinite(line.amount) || line.amount <= 0){
+        lineError = lineError || 'Amount must be greater than zero for each line.';
+        valid = false;
+      }
+    });
+    const delta = updateJournalEditDelta(lines);
+    if (Math.abs(delta) >= 0.005){
+      lineError = lineError || 'Debits and credits must balance before saving.';
+      valid = false;
+    }
+    if (showErrors && lineError){
+      setJournalEditFieldError('lines', lineError);
+    }
+    updateJournalEditRemoveState();
+    const saveBtn = form.querySelector('[data-action="save-entry"]');
+    if (saveBtn) saveBtn.disabled = !valid;
+    return { valid, lines, delta };
+  }
+
+  function openJournalEditModal(entry){
+    const modal = getJournalEditModal();
+    const form = getJournalEditForm();
+    if (!modal || !form || !entry) return;
+    form.dataset.entryId = String(entry.id);
+    if (form.date) form.date.value = String(entry.date_iso || entry.date || '').trim();
+    if (form.description) form.description.value = String(entry.description || '').trim();
+    if (form.reference) form.reference.value = String(entry.reference || '').trim();
+    const meta = document.getElementById('journal-edit-meta');
+    if (meta){
+      const lineCount = Array.isArray(entry.lines) ? entry.lines.length : 0;
+      meta.textContent = `Entry #${entry.id} • ${lineCount} lines`;
+    }
+    const linesNode = getJournalEditLinesContainer();
+    if (linesNode){
+      linesNode.innerHTML = '';
+      const sourceLines = (Array.isArray(entry.lines) && entry.lines.length)
+        ? entry.lines
+        : [{ dc: 'D', amount: 0, account_name: '', memo: '' }, { dc: 'C', amount: 0, account_name: '', memo: '' }];
+      sourceLines.forEach((line) => linesNode.appendChild(createJournalEditLineRow(line)));
+    }
+    clearJournalEditErrors();
+    evaluateJournalEditForm(false);
+    modal.hidden = false;
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeJournalEditModal(){
+    const modal = getJournalEditModal();
+    if (!modal) return;
+    modal.hidden = true;
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  async function submitJournalEdit(){
+    const form = getJournalEditForm();
+    if (!form) return;
+    const entryIdRaw = parseInt(String(form.dataset.entryId || '0'), 10);
+    if (!Number.isInteger(entryIdRaw) || entryIdRaw <= 0){
+      setJournalEditFormError('Unable to save: missing journal entry id.');
+      return;
+    }
+    const evaluated = evaluateJournalEditForm(true);
+    if (!evaluated.valid){
+      setJournalEditFormError('Please fix the highlighted issues before saving.');
+      return;
+    }
+    const payload = {
+      date: String(form.date ? form.date.value : '').trim(),
+      description: String(form.description ? form.description.value : '').trim(),
+      reference: String(form.reference ? form.reference.value : '').trim(),
+      lines: evaluated.lines.map((line) => ({
+        dc: line.dc,
+        account: line.account,
+        account_id: line.account_id || undefined,
+        amount: line.amount,
+        memo: line.memo
+      }))
+    };
+    const saveBtn = form.querySelector('[data-action="save-entry"]');
+    if (saveBtn) saveBtn.disabled = true;
     try {
-      const updateUrl = buildJournalUpdateUrl(entryId);
+      const updateUrl = buildJournalUpdateUrl(entryIdRaw);
       const res = await fetch(updateUrl, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': (window.ACC_BOOT && window.ACC_BOOT.csrfToken) || '' },
-        body: JSON.stringify({ date: dateVal, description: descVal, reference: referenceVal, lines })
+        body: JSON.stringify(payload)
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok){
         const errorCode = String((data && data.error_code) || '').toUpperCase();
         if (errorCode === 'JOURNAL_NOT_BALANCED'){
-          const stableMessage = 'Journal entry must be balanced before finalizing.';
-          showMessage(stableMessage);
-          setJournalFeedback(stableMessage, 'error');
+          setJournalEditFormError('Journal entry must be balanced before finalizing.');
+          if (saveBtn) saveBtn.disabled = false;
           return;
         }
-        throw new Error(data.error || 'Failed to save journal entry.');
+        setJournalEditFormError((data && data.error) || 'Unable to save journal entry right now. Please try again.');
+        if (saveBtn) saveBtn.disabled = false;
+        return;
       }
-      if (data.entry){
-        JOURNAL_STATE.byId.set(data.entry.id, data.entry);
-        const idx = JOURNAL_STATE.entries.findIndex(e => e.id === data.entry.id);
-        if (idx !== -1){
-          JOURNAL_STATE.entries[idx] = data.entry;
-        } else {
-          JOURNAL_STATE.entries.unshift(data.entry);
-        }
-        JOURNAL_STATE.selectedId = data.entry.id;
-        renderJournalTable(JOURNAL_STATE.entries);
-        renderJournalEditor(data.entry);
-      }
-      showMessage('Journal entry saved.', 'success');
+      closeJournalEditModal();
       setJournalFeedback('Journal entry saved.', 'success');
+      await loadJournalEntries(JOURNAL_STATE.page || 1, { useControlState: false, pushHistory: false });
     } catch (err){
       console.error(err);
-      const msg = err && err.message ? err.message : 'Failed to save journal entry.';
-      showMessage(msg);
-      setJournalFeedback(msg, 'error');
+      setJournalEditFormError('Unable to save journal entry right now. Please try again.');
+      if (saveBtn) saveBtn.disabled = false;
     }
   }
 
   function ensureJournalLoaded(){
     if (!JOURNAL_STATE.loaded && !JOURNAL_STATE.loading){
-      loadJournalEntries(1);
+      const urlState = readJournalStateFromUrl(window.location.href);
+      JOURNAL_STATE.filters = urlState.filters;
+      JOURNAL_STATE.page = urlState.page;
+      JOURNAL_STATE.perPage = urlState.perPage;
+      applyJournalControlState(JOURNAL_STATE.filters, JOURNAL_STATE.perPage);
+      loadJournalEntries(JOURNAL_STATE.page, { useControlState: true, replaceHistory: true });
     }
   }
   window.ensureJournalLoaded = ensureJournalLoaded;
 
   document.addEventListener('DOMContentLoaded', () => {
+    const initialJournalState = readJournalStateFromUrl(window.location.href);
+    JOURNAL_STATE.filters = initialJournalState.filters;
+    JOURNAL_STATE.page = initialJournalState.page;
+    JOURNAL_STATE.perPage = initialJournalState.perPage;
+    applyJournalControlState(JOURNAL_STATE.filters, JOURNAL_STATE.perPage);
+    updateJournalStatusLabel();
+    const journalEditModal = getJournalEditModal();
+    const journalEditForm = getJournalEditForm();
+    if (journalEditModal && journalEditForm){
+      journalEditModal.addEventListener('click', (evt) => {
+        const actionNode = evt.target && evt.target.closest ? evt.target.closest('[data-action]') : null;
+        if (!actionNode) return;
+        const action = String(actionNode.getAttribute('data-action') || '').trim();
+        if (action === 'close-edit-modal'){
+          evt.preventDefault();
+          closeJournalEditModal();
+          return;
+        }
+        if (action === 'add-line'){
+          evt.preventDefault();
+          const linesNode = getJournalEditLinesContainer();
+          if (!linesNode) return;
+          linesNode.appendChild(createJournalEditLineRow({ dc: 'D', amount: 0, account_name: '', memo: '' }));
+          clearJournalEditErrors();
+          evaluateJournalEditForm(false);
+          return;
+        }
+        if (action === 'remove-line'){
+          evt.preventDefault();
+          const linesNode = getJournalEditLinesContainer();
+          if (!linesNode) return;
+          const rows = Array.from(linesNode.querySelectorAll('.journal-edit-line'));
+          if (rows.length <= 2){
+            setJournalEditFieldError('lines', 'At least two lines are required.');
+            setJournalEditFormError('At least two lines are required.');
+            evaluateJournalEditForm(false);
+            return;
+          }
+          const row = actionNode.closest('.journal-edit-line');
+          if (row) row.remove();
+          clearJournalEditErrors();
+          evaluateJournalEditForm(false);
+        }
+      });
+      journalEditForm.addEventListener('input', () => {
+        clearJournalEditErrors();
+        evaluateJournalEditForm(false);
+      });
+      journalEditForm.addEventListener('change', () => {
+        clearJournalEditErrors();
+        evaluateJournalEditForm(false);
+      });
+      journalEditForm.addEventListener('submit', (evt) => {
+        evt.preventDefault();
+        submitJournalEdit();
+      });
+      document.addEventListener('keydown', (evt) => {
+        if (evt.key === 'Escape' && !journalEditModal.hidden){
+          closeJournalEditModal();
+        }
+      });
+    }
+
     const quickAddBtn = document.getElementById('journal-quick-add');
     if (window.QuickAddModal && typeof window.QuickAddModal.setOnSuccess === 'function'){
       window.QuickAddModal.setOnSuccess(() => {
-        loadJournalEntries(JOURNAL_STATE.page || 1);
+        loadJournalEntries(JOURNAL_STATE.page || 1, { useControlState: false });
         setJournalFeedback('Entry added.', 'success');
       });
     }
@@ -6202,7 +6821,7 @@ function bindReceivableRow(entry, baseRow, row){
       });
     }
     const applyBtn = document.getElementById('journal-apply');
-    if (applyBtn) applyBtn.addEventListener('click', (e) => { e.preventDefault(); loadJournalEntries(1); });
+    if (applyBtn) applyBtn.addEventListener('click', (e) => { e.preventDefault(); loadJournalEntries(1, { useControlState: true }); });
     const resetBtn = document.getElementById('journal-reset');
     if (resetBtn) resetBtn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -6213,11 +6832,32 @@ function bindReceivableRow(entry, baseRow, row){
       const category = document.getElementById('journal-category'); if (category) category.value = '';
       const minAmount = document.getElementById('journal-min-amount'); if (minAmount) minAmount.value = '';
       const maxAmount = document.getElementById('journal-max-amount'); if (maxAmount) maxAmount.value = '';
-      loadJournalEntries(1);
+      const perPage = document.getElementById('journal-per-page'); if (perPage) perPage.value = String(JOURNAL_DEFAULT_PER_PAGE);
+      clearJournalFilterErrors();
+      loadJournalEntries(1, { useControlState: true });
     });
     const search = document.getElementById('journal-search');
     if (search) search.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter'){ e.preventDefault(); loadJournalEntries(1); }
+      if (e.key === 'Enter'){ e.preventDefault(); loadJournalEntries(1, { useControlState: true }); }
+    });
+    const perPage = document.getElementById('journal-per-page');
+    if (perPage) perPage.addEventListener('change', (e) => {
+      e.preventDefault();
+      loadJournalEntries(1, { useControlState: true });
+    });
+    window.addEventListener('popstate', () => {
+      const stateFromUrl = readJournalStateFromUrl(window.location.href);
+      JOURNAL_STATE.filters = stateFromUrl.filters;
+      JOURNAL_STATE.page = stateFromUrl.page;
+      JOURNAL_STATE.perPage = stateFromUrl.perPage;
+      applyJournalControlState(JOURNAL_STATE.filters, JOURNAL_STATE.perPage);
+      const journalView = document.getElementById('journal-view');
+      const isVisible = journalView && journalView.style.display !== 'none';
+      if (isVisible || JOURNAL_STATE.loaded){
+        loadJournalEntries(JOURNAL_STATE.page, { useControlState: true, pushHistory: false });
+      } else {
+        updateJournalStatusLabel();
+      }
     });
     // Initialize Trial Balance UI when switching to the tab or when stored view is 'trial'
     const trialBtn = document.getElementById('btn-view-trial');

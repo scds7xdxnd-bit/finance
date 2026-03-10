@@ -47,12 +47,29 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
   - Last Import Result panel persistence/render contract
   - Search/filter query parameter names and defaults
   - Journal edit sequencing and deterministic error mapping
+- Phase 1.1 filters round-trip contract (`SSOT 57`):
+  - stable filter parameter names
+  - transactions and journal round-trip/pagination preservation rules
+  - measurement-first performance posture trigger
+- Phase 1.2 transaction edit UX contract (`SSOT 58`):
+  - edit UX uses `PUT /accounting/journal/<entry_id>` only (no new edit endpoint)
+  - deterministic unbalanced mapping (`error_code=JOURNAL_NOT_BALANCED`)
+  - locked edit UI DOM selectors and save-gating behavior
+  - mandatory registry-key usage for journal list/update paths
 
 ### 99.3.1 Frontend Contract Surface Ownership
 - Architect owns SSOT definitions in `project/docs/ssot/55_frontend_contracts.md`.
 - QA owns contract tests in `tests/test_frontend_contracts.py`.
 - Backend owns endpoint conformity with locked request/response keys and status semantics.
 - Frontend owns UI consumption of locked contracts and registry keys.
+
+### 99.3.2 Phase 1.2 Ownership
+- Architect owns `project/docs/ssot/58_phase1_2_transaction_edit_ux.md`.
+- Backend owns conformity for:
+  - `PUT /accounting/journal/<entry_id>` request/response shape
+  - deterministic `JOURNAL_NOT_BALANCED` mapping.
+- Frontend owns editor implementation and required registry-key consumption.
+- QA owns contract-shape checks for edit failure mapping and registry token presence.
 
 ## 99.4 Forbidden Changes
 - Reporting code must not compute ranked totals from legacy `Transaction` rows.
@@ -66,6 +83,10 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Backend and Frontend must not remove or rename required frontend-contract keys (`SSOT 55`) without SSOT update and QA contract-test update.
 - Backend and Frontend must not remove or rename required `window.FINANCE_ENDPOINTS` keys (`SSOT 55.5`) without SSOT update and QA contract-test update.
 - Frontend must not hardcode locked endpoint paths when a registry key exists in `window.FINANCE_ENDPOINTS`.
+- Backend and Frontend must not rename or repurpose locked filter query parameter names from SSOT 57 without SSOT update and QA evidence.
+- Frontend must not drop active filter params during pagination or `per_page` changes when SSOT 57 requires round-trip preservation.
+- Backend and Frontend must not remove/rename/repurpose `error_code=JOURNAL_NOT_BALANCED` contract semantics without SSOT update and QA evidence.
+- Frontend must not bypass `window.FINANCE_ENDPOINTS.accounting.journal.list` and `window.FINANCE_ENDPOINTS.accounting.journal.updateTemplate` in Phase 1.2 flows.
 
 ## 99.5 SSOT Change Protocol (Mandatory)
 - Any PR that changes a stable interface or forbidden-change area must:
@@ -78,6 +99,12 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Any PR that changes Phase 1 UX contract behavior (`SSOT 56`) must include:
   - SSOT 56 section references
   - QA contract evidence for key-presence/status handling
+- Any PR that changes Phase 1.1 filter contracts (`SSOT 57`) must include:
+  - SSOT 57 section references
+  - QA contract evidence for round-trip parameter preservation/status handling
+- Any PR that changes Phase 1.2 edit UX contracts (`SSOT 58`) must include:
+  - SSOT 58 section references
+  - QA contract evidence for deterministic error mapping and registry-key usage checks
 - If behavior is intentionally transitional, PR must include:
   - explicit temporary rule
   - expiration date

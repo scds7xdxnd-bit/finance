@@ -149,3 +149,29 @@ Quality gates in `tests/test_vnext_gate.py` and related suites are release-block
 - CSV import UX flow:
   - `/upload_csv` remains redirect/flash pipeline.
   - Last Import Result panel uses server-side persistence; no new CSV JSON contract in Phase 1.
+
+## 10.8 Phase 1.1 Filters Round-Trip Integration
+- Transactions filtering:
+  - canonical query params flow through `/transactions`.
+  - `/transactions/list` accepts identical params for progressive HTML refresh.
+  - no new JSON endpoint is introduced for transactions filtering.
+- Accounting journal filtering:
+  - existing `GET /accounting/journal/list` remains the filter/list JSON endpoint.
+- UI round-trip behavior:
+  - filter params persist through pagination and `per_page` changes.
+  - clear action resets to base route with no filter params.
+- Performance posture:
+  - measurement-first thresholding is defined in SSOT 57; indexing changes require separate evidence-backed DB PR.
+
+## 10.9 Phase 1.2 Transaction Edit Integration Points
+- Edit submission path:
+  - accounting journal editor submits to `PUT /accounting/journal/<entry_id>` only.
+  - no new edit endpoint is introduced in Phase 1.2.
+- List refresh path:
+  - post-save refresh uses existing `GET /accounting/journal/list` endpoint.
+  - refresh calls must preserve active query/filter params per SSOT 57 round-trip contract.
+- Integrity sequencing:
+  - edit mutation sequencing remains bound to SSOT 20.6 and SSOT 60.9 (`posted_at` draft-to-finalize with balance enforcement).
+  - DB trigger guard failures (for example `journal_entry_not_balanced`) must map to deterministic UI-facing error code contract from SSOT 55/58.
+- Endpoint registry:
+  - UI integration must use `window.FINANCE_ENDPOINTS.accounting.journal.list` and `window.FINANCE_ENDPOINTS.accounting.journal.updateTemplate` (token `__ENTRY_ID__`).

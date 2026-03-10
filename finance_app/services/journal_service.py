@@ -11,7 +11,7 @@ from sqlalchemy import and_, func, or_
 
 from finance_app import _parse_date_tuple
 from finance_app.extensions import db
-from finance_app.models.accounting_models import JournalEntry, JournalLine
+from finance_app.models.accounting_models import Account, JournalEntry, JournalLine
 
 
 class JournalBalanceError(Exception):
@@ -205,11 +205,16 @@ def list_entries(
     start: str | None = None,
     end: str | None = None,
     account_id: int | None = None,
+    category_id: int | None = None,
+    min_amount: str | float | Decimal | None = None,
+    max_amount: str | float | Decimal | None = None,
     page: int = 1,
     per_page: int = 25,
 ) -> dict:
     """List journal entries with optional filters and pagination."""
     query = JournalEntry.query.filter(JournalEntry.user_id == user_id)
+    joined_lines = False
+    joined_accounts = False
 
     if q:
         like = f"%{q.lower()}%"
@@ -238,9 +243,52 @@ def list_entries(
     if account_id:
         try:
             aid = int(account_id)
-            query = query.join(JournalLine).filter(JournalLine.account_id == aid).distinct()
+            query = query.join(JournalLine)
+            joined_lines = True
+            query = query.filter(JournalLine.account_id == aid)
         except Exception:
             pass
+
+    if category_id:
+        try:
+            cid = int(category_id)
+            if not joined_lines:
+                query = query.join(JournalLine)
+                joined_lines = True
+            query = query.join(Account, JournalLine.account_id == Account.id)
+            joined_accounts = True
+            query = query.filter(Account.category_id == cid)
+        except Exception:
+            pass
+
+    if min_amount not in (None, "", "null"):
+        try:
+            min_amt = Decimal(str(min_amount))
+            debit_total_subquery = (
+                db.session.query(func.coalesce(func.sum(JournalLine.amount_base), 0))
+                .filter(JournalLine.journal_id == JournalEntry.id, JournalLine.dc == "D")
+                .correlate(JournalEntry)
+                .scalar_subquery()
+            )
+            query = query.filter(debit_total_subquery >= min_amt)
+        except Exception:
+            pass
+
+    if max_amount not in (None, "", "null"):
+        try:
+            max_amt = Decimal(str(max_amount))
+            debit_total_subquery = (
+                db.session.query(func.coalesce(func.sum(JournalLine.amount_base), 0))
+                .filter(JournalLine.journal_id == JournalEntry.id, JournalLine.dc == "D")
+                .correlate(JournalEntry)
+                .scalar_subquery()
+            )
+            query = query.filter(debit_total_subquery <= max_amt)
+        except Exception:
+            pass
+
+    if joined_lines or joined_accounts:
+        query = query.distinct()
 
     if page < 1:
         page = 1
