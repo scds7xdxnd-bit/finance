@@ -28,6 +28,8 @@ Section IDs in this file and all SSOT files are stable citation anchors.
 - Phase 1.1 filters round-trip contract is authoritative (`SSOT 57`): no new endpoints, no transactions filter JSON endpoint, and no `/upload_csv` JSON behavior change.
 - Phase 1.2 transaction edit UX contract is authoritative (`SSOT 58`): edit flow must reuse `PUT /accounting/journal/<entry_id>` and unbalanced finalize failures must map deterministically to `error_code=JOURNAL_NOT_BALANCED`.
 - Phase 1.2.1 transaction edit UX hardening contract is authoritative (`SSOT 58_1`): edit preload/render, balance-state gating, and post-save query-param preservation are machine-checkable and endpoint-stable.
+- Phase 1.2.2 transaction edit preload/state-drift contract is authoritative (`SSOT 58_2`): preload source, preload-state marker behavior, and state reconciliation are machine-checkable and endpoint-stable.
+- Phase 1.2.3 transaction edit refresh-safety contract is authoritative (`SSOT 58_3`): active edit sessions retain local buffer authority, stale warning visibility is mandatory, and refresh params remain preserved.
 - Phase 1.3 CSV import UX contract is authoritative (`SSOT 59`): import summary remains session-backed (`last_import_result_v1`), dismiss remains POST-based, and `/upload_csv` remains no-JSON.
 - Canonical ledger query API is the reporting contract surface.
 - CI vNext gate enforces schema, dedupe, convergence, reporting parity, scope invariants, invariant catalog parity, statement export parity, security compliance, startup/migration contract, and DB integrity.
@@ -67,6 +69,8 @@ Any change to locked decisions, contract surfaces, or gate thresholds must satis
 - For Phase 1.1 filter/query round-trip changes, include SSOT references from `SSOT 57` and QA contract evidence for parameter preservation/status handling.
 - For Phase 1.2 transaction edit UX contract changes, include SSOT references from `SSOT 58` and QA contract evidence for deterministic error mapping and registry-key usage checks.
 - For Phase 1.2.1 transaction edit hardening changes, include SSOT references from `SSOT 58_1` and QA contract evidence for preload/render selectors, error mapping, and query-param preservation checks.
+- For Phase 1.2.2 transaction edit preload/state-drift changes, include SSOT references from `SSOT 58_2` and QA contract evidence for preload-state markers, missing-state behavior, and entry-id action-surface checks.
+- For Phase 1.2.3 transaction edit refresh-safety changes, include SSOT references from `SSOT 58_3` and QA contract evidence for edit-session marker, stale-warning selector, and buffer-authority semantics.
 - For Phase 1.3 CSV import UX contract changes, include SSOT references from `SSOT 59` and QA contract evidence for panel selectors, dismiss semantics, and filter-param preservation checks.
 
 ## 00.6 Document Map
@@ -83,6 +87,8 @@ Any change to locked decisions, contract surfaces, or gate thresholds must satis
 | `57_phase1_1_filters_roundtrip.md` | Phase 1.1 filter/query round-trip contract and measurement-first performance posture. |
 | `58_phase1_2_transaction_edit_ux.md` | Phase 1.2 transaction edit UX contract, edit DOM surface, error mapping, and registry touchpoints. |
 | `58_1_phase1_2_1_transaction_edit_ux_hardening.md` | Phase 1.2.1 transaction edit UX hardening: preload/render determinism, balance-state gating, and round-trip preservation. |
+| `58_2_phase1_2_2_transaction_edit_state_drift.md` | Phase 1.2.2 transaction edit state-drift contract: preload source lock, preload-state markers, and state reconciliation behavior. |
+| `58_3_phase1_2_3_transaction_edit_refresh_safety.md` | Phase 1.2.3 transaction edit refresh-safety contract: edit-session marker, stale warning visibility, and local-buffer authority under refresh. |
 | `59_phase1_3_csv_import_ux_no_json.md` | Phase 1.3 CSV import UX contract: session summary payload, panel selectors, dismiss lifecycle, no JSON upload behavior. |
 | `60_schema_capabilities.md` | Capability matrix and hard-fail guard behavior. |
 | `61_schema_verifier_parity_playbook.md` | Formal verifier parity definition, release rule, and implementation checklists. |

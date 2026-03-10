@@ -116,3 +116,8 @@ _Last updated: 2026-03-10_
 - Startup/migration gate: SSOT 60.8 / 80.13
 - Security compliance gate: SSOT 70 / 80.12
 - DB integrity gate: SSOT 20.6 / 60.9 / 80.14
+
+## 58.1.9 Phase 1.2.2 Companion (State Drift Hardening)
+- Phase 1.2.2 preload/state-drift contract details are defined in `SSOT 58_2`.
+- Phase 1.2.1 selector, save-gating, and error placement rules remain authoritative unless explicitly tightened by SSOT 58_2.
+- Phase 1.2.2 introduces no new endpoint, no new registry key, and no CSV JSON behavior.

@@ -26,6 +26,8 @@ from helpers.contract_assertions import (
 
 CSV_IMPORT_UX_FAILURE_PREFIX = "CSV import UX contract failed:"
 TRANSACTION_EDIT_UX_FAILURE_PREFIX = "Transaction edit UX contract failed:"
+TRANSACTION_EDIT_STATE_FAILURE_PREFIX = "Transaction edit state contract failed:"
+TRANSACTION_EDIT_REFRESH_SAFETY_FAILURE_PREFIX = "Transaction edit refresh safety contract failed:"
 
 
 def _sqlite_url(db_path) -> str:
@@ -178,6 +180,14 @@ def _csv_import_contract_assert(condition: bool, message: str) -> None:
 
 def _transaction_edit_contract_assert(condition: bool, message: str) -> None:
     assert condition, f"{TRANSACTION_EDIT_UX_FAILURE_PREFIX} {message}"
+
+
+def _transaction_edit_state_contract_assert(condition: bool, message: str) -> None:
+    assert condition, f"{TRANSACTION_EDIT_STATE_FAILURE_PREFIX} {message}"
+
+
+def _transaction_edit_refresh_safety_contract_assert(condition: bool, message: str) -> None:
+    assert condition, f"{TRANSACTION_EDIT_REFRESH_SAFETY_FAILURE_PREFIX} {message}"
 
 
 def _set_last_import_result_session(client, payload: dict) -> None:
@@ -590,6 +600,138 @@ def test_frontend_contract_phase121_post_save_refresh_path_preserves_page_and_pe
     _transaction_edit_contract_assert(
         "loadJournalEntries(JOURNAL_STATE.page || 1, { useControlState: false, pushHistory: false });" in html,
         "post-save refresh path must call loadJournalEntries with current page and preserve query state",
+    )
+
+
+def test_frontend_contract_phase122_static_selector_surface(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    html_resp = client.get("/accounting")
+    _transaction_edit_state_contract_assert(html_resp.status_code == 200, f"expected /accounting 200, got {html_resp.status_code}")
+    html = html_resp.get_data(as_text=True)
+
+    _transaction_edit_state_contract_assert('id="journal-edit-modal"' in html, "missing selector #journal-edit-modal")
+    _transaction_edit_state_contract_assert('data-role="preload-state"' in html, "missing selector [data-role=\"preload-state\"]")
+    _transaction_edit_state_contract_assert('data-action="edit-entry"' in html, "missing selector [data-action=\"edit-entry\"]")
+    _transaction_edit_state_contract_assert('data-entry-id' in html, "missing data-entry-id attribute on edit action surface")
+
+
+def test_frontend_contract_phase122_registry_contract(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    html_resp = client.get("/accounting")
+    _transaction_edit_state_contract_assert(html_resp.status_code == 200, f"expected /accounting 200, got {html_resp.status_code}")
+    html = html_resp.get_data(as_text=True)
+    missing_keys = find_missing_endpoint_registry_keys(html)
+
+    _transaction_edit_state_contract_assert(
+        "window.FINANCE_ENDPOINTS.accounting.journal.list" not in missing_keys,
+        "missing registry key window.FINANCE_ENDPOINTS.accounting.journal.list",
+    )
+    _transaction_edit_state_contract_assert(
+        "window.FINANCE_ENDPOINTS.accounting.journal.updateTemplate" not in missing_keys,
+        "missing registry key window.FINANCE_ENDPOINTS.accounting.journal.updateTemplate",
+    )
+    _transaction_edit_state_contract_assert("__ENTRY_ID__" in html, "journal update template token __ENTRY_ID__ missing")
+
+
+def test_frontend_contract_phase122_safe_default_missing_state_and_save_disabled(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    html_resp = client.get("/accounting")
+    _transaction_edit_state_contract_assert(html_resp.status_code == 200, f"expected /accounting 200, got {html_resp.status_code}")
+    html = html_resp.get_data(as_text=True)
+
+    preload_match = re.search(r'data-role="preload-state"[^>]*data-state="([^"]+)"', html)
+    _transaction_edit_state_contract_assert(preload_match is not None, "missing preload-state marker with data-state")
+    state_val = (preload_match.group(1).strip().lower() if preload_match else "")
+    _transaction_edit_state_contract_assert(
+        state_val in {"loading", "missing"},
+        f"preload-state default must be loading or missing, got {state_val or '<empty>'}",
+    )
+    _transaction_edit_state_contract_assert(
+        re.search(r'data-action="save-entry"[^>]*\bdisabled\b', html) is not None,
+        "save action must be disabled in server-rendered HTML default",
+    )
+    _transaction_edit_state_contract_assert('data-role="form-error"' in html, "missing selector [data-role=\"form-error\"]")
+
+
+def test_frontend_contract_phase122_roundtrip_refresh_pattern_references_page_and_per_page(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    html_resp = client.get("/accounting")
+    _transaction_edit_state_contract_assert(html_resp.status_code == 200, f"expected /accounting 200, got {html_resp.status_code}")
+    html = html_resp.get_data(as_text=True)
+
+    _transaction_edit_state_contract_assert(
+        "function buildJournalParams(filters, page, perPage)" in html,
+        "missing buildJournalParams helper",
+    )
+    _transaction_edit_state_contract_assert(
+        "params.set('page', String(page));" in html,
+        "list refresh URL builder must reference page",
+    )
+    _transaction_edit_state_contract_assert(
+        "params.set('per_page', String(perPage));" in html,
+        "list refresh URL builder must reference per_page",
+    )
+
+
+def test_frontend_contract_phase123_modal_refresh_safety_markers(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    html_resp = client.get("/accounting")
+    _transaction_edit_refresh_safety_contract_assert(html_resp.status_code == 200, f"expected /accounting 200, got {html_resp.status_code}")
+    html = html_resp.get_data(as_text=True)
+
+    modal_start = html.find('id="journal-edit-modal"')
+    _transaction_edit_refresh_safety_contract_assert(modal_start >= 0, "missing #journal-edit-modal")
+    modal_fragment = html[modal_start : modal_start + 6000] if modal_start >= 0 else ""
+
+    _transaction_edit_refresh_safety_contract_assert(
+        'data-role="edit-session"' in modal_fragment,
+        "missing [data-role=\"edit-session\"] inside #journal-edit-modal",
+    )
+    _transaction_edit_refresh_safety_contract_assert(
+        'data-role="stale-warning"' in modal_fragment,
+        "missing [data-role=\"stale-warning\"] inside #journal-edit-modal",
+    )
+    _transaction_edit_refresh_safety_contract_assert(
+        re.search(r'<div id="journal-edit-modal"[^>]*data-buffer-authority="local"', html) is not None,
+        "missing data-buffer-authority=\"local\" on #journal-edit-modal",
+    )
+
+
+def test_frontend_contract_phase123_registry_stability(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    html_resp = client.get("/accounting")
+    _transaction_edit_refresh_safety_contract_assert(html_resp.status_code == 200, f"expected /accounting 200, got {html_resp.status_code}")
+    html = html_resp.get_data(as_text=True)
+    missing_keys = find_missing_endpoint_registry_keys(html)
+
+    _transaction_edit_refresh_safety_contract_assert(
+        "window.FINANCE_ENDPOINTS.accounting.journal.list" not in missing_keys,
+        "missing registry key window.FINANCE_ENDPOINTS.accounting.journal.list",
+    )
+    _transaction_edit_refresh_safety_contract_assert(
+        "window.FINANCE_ENDPOINTS.accounting.journal.updateTemplate" not in missing_keys,
+        "missing registry key window.FINANCE_ENDPOINTS.accounting.journal.updateTemplate",
+    )
+    _transaction_edit_refresh_safety_contract_assert("__ENTRY_ID__" in html, "journal update template token __ENTRY_ID__ missing")
+
+
+def test_frontend_contract_phase123_refresh_builder_references_page_and_per_page(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    html_resp = client.get("/accounting")
+    _transaction_edit_refresh_safety_contract_assert(html_resp.status_code == 200, f"expected /accounting 200, got {html_resp.status_code}")
+    html = html_resp.get_data(as_text=True)
+
+    _transaction_edit_refresh_safety_contract_assert(
+        "function buildJournalParams(filters, page, perPage)" in html,
+        "missing buildJournalParams helper",
+    )
+    _transaction_edit_refresh_safety_contract_assert(
+        "params.set('page', String(page));" in html,
+        "refresh URL builder must reference page",
+    )
+    _transaction_edit_refresh_safety_contract_assert(
+        "params.set('per_page', String(perPage));" in html,
+        "refresh URL builder must reference per_page",
     )
 
 

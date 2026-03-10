@@ -135,3 +135,13 @@ _Last updated: 2026-03-10_
   - `PUT /accounting/journal/<entry_id>` for updates
   - `GET /accounting/journal/list` for list refresh.
 - Phase 1.2.1 introduces no new endpoint, no CSV JSON behavior, and no DB/migration requirement.
+
+## 58.12 Phase 1.2.2 Companion (Preload/State Drift, Non-Contradiction)
+- Phase 1.2.2 state-drift hardening details are defined in `SSOT 58_2`.
+- Phase 1.2 endpoint decisions in this file remain authoritative and unchanged.
+- Phase 1.2.2 introduces no new endpoint, no new registry keys, no CSV JSON behavior, and no DB/migration requirement.
+
+## 58.13 Phase 1.2.3 Companion (Refresh Safety, Non-Contradiction)
+- Phase 1.2.3 refresh-safety details are defined in `SSOT 58_3`.
+- Phase 1.2 endpoint and registry decisions in this file remain authoritative and unchanged.
+- Phase 1.2.3 introduces no new endpoint, no new registry key, no JSON expansion, and no DB/migration requirement.
