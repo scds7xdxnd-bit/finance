@@ -136,6 +136,7 @@ _Last updated: 2026-03-10_
 - clear on session expiration
 
 ## 56.7 Search and Filter Query Contract
+- Phase 1.1 companion for parsing and round-trip semantics: `SSOT 57`.
 
 ### 56.7.1 Transactions View (`/transactions` and `/transactions/list`)
 - Stable query params:
@@ -172,6 +173,7 @@ _Last updated: 2026-03-10_
 ### 56.7.3 Performance Constraint
 - Phase 1 implementations must avoid unbounded full-table scans where filter selectors are present.
 - If p95 filter/list latency exceeds target thresholds, add index follow-up in later DB PR (outside this SSOT-only PR).
+- Measurement-first threshold and evidence method are defined in `SSOT 57.8`.
 
 ## 56.8 Transaction Edit Contract (`PUT /accounting/journal/<entry_id>`)
 
@@ -207,6 +209,6 @@ _Last updated: 2026-03-10_
 - Mandatory follow-up test surface:
   - `tests/test_frontend_contracts.py`
 - Minimum assertions:
-  - required keys from SSOT 55 and SSOT 56
+  - required keys from SSOT 55, SSOT 56, and SSOT 57
   - stable endpoint registry keys used by Phase 1
   - deterministic error-key presence for failure paths

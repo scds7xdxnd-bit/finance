@@ -225,3 +225,4 @@ _Last updated: 2026-03-10_
   - `tests/helpers/contract_assertions.py`
 - This PR is docs-only; test implementation is follow-up work owned by QA/Backend/Frontend coordination.
 - Phase 1 UX contract companion: `project/docs/ssot/56_phase1_ux_friction_removal.md`.
+- Phase 1.1 filters companion: `project/docs/ssot/57_phase1_1_filters_roundtrip.md` (no additional endpoint creation).

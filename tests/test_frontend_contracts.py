@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import datetime as dt
+from html import unescape
+import re
 from decimal import Decimal
+from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
 
 import pytest
@@ -35,6 +38,7 @@ def _login(client, user_id: int, csrf_token: str = "frontend-contract-csrf") -> 
 
 def _seed_minimal_reporting_data(user_id: int) -> dict[str, int | str]:
     ym = "2026-03"
+    roundtrip_query = "seed & roundtrip"
 
     expense_cat = AccountCategory(user_id=user_id, name="Operating Expense", tb_group="expense")
     income_cat = AccountCategory(user_id=user_id, name="Sales", tb_group="income")
@@ -50,40 +54,52 @@ def _seed_minimal_reporting_data(user_id: int) -> dict[str, int | str]:
 
     db.session.add(TrialBalanceSetting(user_id=user_id, initialized_on=dt.date(2026, 1, 1)))
 
-    entry = JournalEntry(
-        user_id=user_id,
-        date="2026/03/10",
-        date_parsed=dt.date(2026, 3, 10),
-        description="contract-shape seed",
-        posted_at=None,
+    entry_specs = (
+        ("2026/03/10", dt.date(2026, 3, 10), f"{roundtrip_query} alpha", Decimal("100.00")),
+        ("2026/03/11", dt.date(2026, 3, 11), f"{roundtrip_query} beta", Decimal("120.00")),
+        ("2026/03/12", dt.date(2026, 3, 12), f"{roundtrip_query} gamma", Decimal("140.00")),
     )
-    db.session.add(entry)
-    db.session.flush()
-
-    db.session.add(
-        JournalLine(
-            journal_id=entry.id,
-            account_id=expense_acc.id,
-            dc="D",
-            amount_base=Decimal("100.00"),
-            line_no=1,
+    primary_entry_id: int | None = None
+    for idx, (date_str, date_parsed, description, amount) in enumerate(entry_specs):
+        entry = JournalEntry(
+            user_id=user_id,
+            date=date_str,
+            date_parsed=date_parsed,
+            description=description,
+            posted_at=None,
         )
-    )
-    db.session.add(
-        JournalLine(
-            journal_id=entry.id,
-            account_id=income_acc.id,
-            dc="C",
-            amount_base=Decimal("100.00"),
-            line_no=2,
+        db.session.add(entry)
+        db.session.flush()
+        if idx == 0:
+            primary_entry_id = int(entry.id)
+        db.session.add(
+            JournalLine(
+                journal_id=entry.id,
+                account_id=expense_acc.id,
+                dc="D",
+                amount_base=amount,
+                line_no=1,
+            )
         )
-    )
+        db.session.add(
+            JournalLine(
+                journal_id=entry.id,
+                account_id=income_acc.id,
+                dc="C",
+                amount_base=amount,
+                line_no=2,
+            )
+        )
     db.session.commit()
     return {
         "ym": ym,
-        "entry_id": int(entry.id),
+        "entry_id": int(primary_entry_id or 0),
         "expense_account_id": int(expense_acc.id),
         "income_account_id": int(income_acc.id),
+        "expense_category_id": int(expense_cat.id),
+        "roundtrip_query": roundtrip_query,
+        "expense_account_name": str(expense_acc.name),
+        "expense_category_name": str(expense_cat.name),
     }
 
 
@@ -128,11 +144,29 @@ def frontend_contract_ctx(tmp_path, monkeypatch):
             "entry_id": int(seed["entry_id"]),
             "expense_account_id": int(seed["expense_account_id"]),
             "income_account_id": int(seed["income_account_id"]),
+            "expense_category_id": int(seed["expense_category_id"]),
+            "roundtrip_query": str(seed["roundtrip_query"]),
+            "expense_account_name": str(seed["expense_account_name"]),
+            "expense_category_name": str(seed["expense_category_name"]),
         }
     finally:
         with app.app_context():
             db.session.remove()
             db.engine.dispose()
+
+
+def _phase11_transactions_params(frontend_contract_ctx) -> dict[str, str]:
+    return {
+        "q": str(frontend_contract_ctx["roundtrip_query"]),
+        "account": str(frontend_contract_ctx["expense_account_name"]),
+        "category": str(frontend_contract_ctx["expense_category_name"]),
+        "min_amount": "50.00",
+        "max_amount": "200.00",
+        "start_date": "2026-03-01",
+        "end_date": "2026-03-31",
+        "page": "1",
+        "per_page": "1",
+    }
 
 
 def test_frontend_contract_add_transaction_envelope_and_shape(frontend_contract_ctx):
@@ -359,13 +393,60 @@ def test_frontend_contract_unbalanced_finalize_mapping(frontend_contract_ctx, mo
     assert payload.get("error_code") == "JOURNAL_NOT_BALANCED"
 
 
-def test_frontend_contract_transactions_filter_param_stability(frontend_contract_ctx):
+def test_frontend_contract_transactions_pagination_roundtrip_preserves_active_params(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    params = _phase11_transactions_params(frontend_contract_ctx)
+    response = client.get("/transactions", query_string=params)
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+
+    hrefs = []
+    for raw_href in re.findall(r'href="([^"]+)"', html):
+        href = unescape(raw_href)
+        parsed = urlparse(href)
+        if parsed.path == "/transactions" and "page=" in parsed.query:
+            hrefs.append(href)
+    assert hrefs, "Frontend contract lock failed: expected at least one transactions pagination href"
+
+    for href in hrefs:
+        parsed = urlparse(href)
+        assert "%26" in parsed.query, "Frontend contract lock failed: q ampersand must be URL-encoded in pagination href"
+        query = parse_qs(parsed.query, keep_blank_values=True)
+        for key in ("q", "account", "category", "min_amount", "max_amount", "start_date", "end_date", "per_page"):
+            assert query.get(key) == [params[key]], f"Frontend contract lock failed: pagination href dropped {key}"
+        assert query.get("page"), "Frontend contract lock failed: pagination href missing page"
+
+
+def test_frontend_contract_transactions_list_progressive_enhancement_html(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    params = _phase11_transactions_params(frontend_contract_ctx)
+    response = client.get("/transactions/list", query_string=params)
+    assert response.status_code == 200
+    assert response.get_json(silent=True) is None
+    assert "text/html" in str(response.content_type or "")
+
+
+def test_frontend_contract_journal_list_accepts_phase11_filter_params(frontend_contract_ctx):
     client = frontend_contract_ctx["client"]
     response = client.get(
-        "/transactions?q=test&category=expense&start_date=2026-03-01&end_date=2026-03-31&page=1&per_page=25"
+        "/accounting/journal/list",
+        query_string={
+            "q": str(frontend_contract_ctx["roundtrip_query"]),
+            "account_id": str(frontend_contract_ctx["expense_account_id"]),
+            "category_id": str(frontend_contract_ctx["expense_category_id"]),
+            "min_amount": "50.00",
+            "max_amount": "200.00",
+            "start": "2026-03-01",
+            "end": "2026-03-31",
+            "page": "1",
+            "per_page": "5",
+        },
     )
+    payload = assert_json_envelope(response, endpoint="GET /accounting/journal/list (phase1.1 params)")
     assert response.status_code == 200
-    assert "text/html" in str(response.content_type or "")
+    assert payload["ok"] is True
+    for key in ("entries", "page", "pages", "total"):
+        assert key in payload
 
 
 def test_frontend_contract_endpoint_registry_keys_present(frontend_contract_ctx):

@@ -47,6 +47,10 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
   - Last Import Result panel persistence/render contract
   - Search/filter query parameter names and defaults
   - Journal edit sequencing and deterministic error mapping
+- Phase 1.1 filters round-trip contract (`SSOT 57`):
+  - stable filter parameter names
+  - transactions and journal round-trip/pagination preservation rules
+  - measurement-first performance posture trigger
 
 ### 99.3.1 Frontend Contract Surface Ownership
 - Architect owns SSOT definitions in `project/docs/ssot/55_frontend_contracts.md`.
@@ -66,6 +70,8 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Backend and Frontend must not remove or rename required frontend-contract keys (`SSOT 55`) without SSOT update and QA contract-test update.
 - Backend and Frontend must not remove or rename required `window.FINANCE_ENDPOINTS` keys (`SSOT 55.5`) without SSOT update and QA contract-test update.
 - Frontend must not hardcode locked endpoint paths when a registry key exists in `window.FINANCE_ENDPOINTS`.
+- Backend and Frontend must not rename or repurpose locked filter query parameter names from SSOT 57 without SSOT update and QA evidence.
+- Frontend must not drop active filter params during pagination or `per_page` changes when SSOT 57 requires round-trip preservation.
 
 ## 99.5 SSOT Change Protocol (Mandatory)
 - Any PR that changes a stable interface or forbidden-change area must:
@@ -78,6 +84,9 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Any PR that changes Phase 1 UX contract behavior (`SSOT 56`) must include:
   - SSOT 56 section references
   - QA contract evidence for key-presence/status handling
+- Any PR that changes Phase 1.1 filter contracts (`SSOT 57`) must include:
+  - SSOT 57 section references
+  - QA contract evidence for round-trip parameter preservation/status handling
 - If behavior is intentionally transitional, PR must include:
   - explicit temporary rule
   - expiration date

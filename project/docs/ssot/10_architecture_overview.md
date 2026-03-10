@@ -149,3 +149,16 @@ Quality gates in `tests/test_vnext_gate.py` and related suites are release-block
 - CSV import UX flow:
   - `/upload_csv` remains redirect/flash pipeline.
   - Last Import Result panel uses server-side persistence; no new CSV JSON contract in Phase 1.
+
+## 10.8 Phase 1.1 Filters Round-Trip Integration
+- Transactions filtering:
+  - canonical query params flow through `/transactions`.
+  - `/transactions/list` accepts identical params for progressive HTML refresh.
+  - no new JSON endpoint is introduced for transactions filtering.
+- Accounting journal filtering:
+  - existing `GET /accounting/journal/list` remains the filter/list JSON endpoint.
+- UI round-trip behavior:
+  - filter params persist through pagination and `per_page` changes.
+  - clear action resets to base route with no filter params.
+- Performance posture:
+  - measurement-first thresholding is defined in SSOT 57; indexing changes require separate evidence-backed DB PR.

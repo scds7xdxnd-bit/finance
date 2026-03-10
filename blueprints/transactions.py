@@ -1,5 +1,6 @@
 import datetime
 import os
+from decimal import Decimal, InvalidOperation
 
 from finance_app.extensions import db
 from finance_app.lib.auth import csrf_token_valid, current_user
@@ -27,6 +28,86 @@ def _maybe_scan_file(path: str) -> None:
 
 def _check_csrf() -> bool:
     return csrf_token_valid()
+
+
+def _normalize_filter_token(raw: str | None) -> str:
+    token = (raw or "").strip()
+    if token.lower() == "all":
+        return ""
+    return token
+
+
+def _parse_filter_decimal(raw: str | None, *, field: str, errors: list[str]) -> tuple[float | None, str]:
+    token = (raw or "").strip()
+    if not token:
+        return None, ""
+    try:
+        value = float(Decimal(token))
+        return value, token
+    except (InvalidOperation, ValueError, TypeError):
+        errors.append(f"Invalid filter {field}; expected decimal value.")
+        return None, ""
+
+
+def _parse_filter_date(raw: str | None, *, field: str, errors: list[str]) -> tuple[datetime.date | None, str]:
+    token = (raw or "").strip()
+    if not token:
+        return None, ""
+    try:
+        return datetime.datetime.strptime(token, "%Y-%m-%d").date(), token
+    except Exception:
+        errors.append(f"Invalid filter {field}; expected YYYY-MM-DD.")
+        return None, ""
+
+
+def _parse_transactions_filters() -> dict:
+    errors: list[str] = []
+
+    q = (request.args.get("q") or "").strip()
+    account = _normalize_filter_token(request.args.get("account"))
+    category = _normalize_filter_token(request.args.get("category"))
+
+    min_amount_value, min_amount = _parse_filter_decimal(
+        request.args.get("min_amount"), field="min_amount", errors=errors
+    )
+    max_amount_value, max_amount = _parse_filter_decimal(
+        request.args.get("max_amount"), field="max_amount", errors=errors
+    )
+    start_parsed, start_date = _parse_filter_date(
+        request.args.get("start_date"), field="start_date", errors=errors
+    )
+    end_parsed, end_date = _parse_filter_date(
+        request.args.get("end_date"), field="end_date", errors=errors
+    )
+
+    try:
+        page = max(1, int((request.args.get("page") or "1").strip() or "1"))
+    except Exception:
+        page = 1
+        errors.append("Invalid filter page; defaulting to 1.")
+
+    try:
+        per_page = max(1, min(1000, int((request.args.get("per_page") or "100").strip() or "100")))
+    except Exception:
+        per_page = 100
+        errors.append("Invalid filter per_page; defaulting to 100.")
+
+    return {
+        "q": q,
+        "account": account,
+        "category": category,
+        "min_amount": min_amount,
+        "max_amount": max_amount,
+        "min_amount_value": min_amount_value,
+        "max_amount_value": max_amount_value,
+        "start_date": start_date,
+        "end_date": end_date,
+        "start_date_parsed": start_parsed,
+        "end_date_parsed": end_parsed,
+        "page": page,
+        "per_page": per_page,
+        "errors": errors,
+    }
 
 
 def _record_last_import_result(
@@ -176,62 +257,34 @@ def transactions():
     if not user.is_admin:
         tx_query = tx_query.filter_by(user_id=user.id)
 
-    # Filter inputs
-    q = (request.args.get('q') or '').strip()
-    category = (request.args.get('category') or '').strip()
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
-    account = request.args.get('account')
-    min_amount = request.args.get('min_amount')
-    max_amount = request.args.get('max_amount')
-
-    def _parse_date(s):
-        if not s:
-            return None
-        try:
-            y, m, d = _parse_date_tuple(s)
-            if y and m and d:
-                return datetime.date(y, m, d)
-        except Exception:
-            return None
-
-    def _norm_date_str(s):
-        if not s:
-            return None
-        try:
-            parts = str(s).replace('-', '/').split('/')
-            if len(parts) == 3:
-                y = parts[0]
-                m = parts[1].zfill(2)
-                d = parts[2].zfill(2)
-                return f"{y}/{m}/{d}"
-        except Exception:
-            pass
-        return s
-
-    _sd = _parse_date(start_date)
-    _ed = _parse_date(end_date)
-    _sd_str = _norm_date_str(start_date)
-    _ed_str = _norm_date_str(end_date)
+    filters_state = _parse_transactions_filters()
+    q = filters_state["q"]
+    category = filters_state["category"]
+    start_date = filters_state["start_date"]
+    end_date = filters_state["end_date"]
+    account = filters_state["account"]
+    min_amount = filters_state["min_amount"]
+    max_amount = filters_state["max_amount"]
+    min_amount_value = filters_state["min_amount_value"]
+    max_amount_value = filters_state["max_amount_value"]
+    _sd = filters_state["start_date_parsed"]
+    _ed = filters_state["end_date_parsed"]
+    _sd_str = _sd.strftime("%Y/%m/%d") if _sd else None
+    _ed_str = _ed.strftime("%Y/%m/%d") if _ed else None
+    page = filters_state["page"]
+    per_page = filters_state["per_page"]
+    filter_errors = filters_state["errors"]
 
     if account:
         tx_query = tx_query.filter((Transaction.debit_account == account) | (Transaction.credit_account == account))
-    if min_amount:
-        try:
-            amt = float(min_amount)
-            tx_query = tx_query.filter(
-                (Transaction.debit_amount >= amt) | (Transaction.credit_amount >= amt)
-            )
-        except Exception:
-            pass
-    if max_amount:
-        try:
-            amt = float(max_amount)
-            tx_query = tx_query.filter(
-                (Transaction.debit_amount <= amt) | (Transaction.credit_amount <= amt)
-            )
-        except Exception:
-            pass
+    if min_amount_value is not None:
+        tx_query = tx_query.filter(
+            (Transaction.debit_amount >= min_amount_value) | (Transaction.credit_amount >= min_amount_value)
+        )
+    if max_amount_value is not None:
+        tx_query = tx_query.filter(
+            (Transaction.debit_amount <= max_amount_value) | (Transaction.credit_amount <= max_amount_value)
+        )
     if _sd:
         tx_query = tx_query.filter(
             or_(
@@ -247,15 +300,6 @@ def transactions():
             )
         )
     tx_query = tx_query.order_by(Transaction.date_parsed.desc(), Transaction.id.desc())
-
-    try:
-        page = max(1, int(request.args.get('page') or 1))
-    except Exception:
-        page = 1
-    try:
-        per_page = max(1, min(1000, int(request.args.get('per_page') or 100)))
-    except Exception:
-        per_page = 100
 
     # Build account list for filters from transactions (extend later with journal lines)
     accs = set()
@@ -356,12 +400,7 @@ def transactions():
         if q_filter:
             description_text = (entry_dict.get('description') or '').strip().lower()
             reference_text = (entry_dict.get('reference') or '').strip().lower()
-            line_match = any(
-                q_filter in (ln.get('account') or '').strip().lower()
-                or q_filter in (ln.get('memo') or '').strip().lower()
-                for ln in entry_dict['lines']
-            )
-            if q_filter not in description_text and q_filter not in reference_text and not line_match:
+            if q_filter not in description_text and q_filter not in reference_text:
                 return False
         if account_filter:
             if not any((ln.get('account') or '').strip().lower() == account_filter for ln in entry_dict['lines']):
@@ -369,18 +408,10 @@ def transactions():
         if category_filter:
             if not any((ln.get('category') or '').strip().lower() == category_filter for ln in entry_dict['lines']):
                 return False
-        if min_amount:
-            try:
-                if entry_dict['total_debit'] < float(min_amount):
-                    return False
-            except Exception:
-                pass
-        if max_amount:
-            try:
-                if entry_dict['total_debit'] > float(max_amount):
-                    return False
-            except Exception:
-                pass
+        if min_amount_value is not None and float(entry_dict['total_debit'] or 0.0) < float(min_amount_value):
+            return False
+        if max_amount_value is not None and float(entry_dict['total_debit'] or 0.0) > float(max_amount_value):
+            return False
         return True
 
     for je in journal_entries:
@@ -443,6 +474,7 @@ def transactions():
     now = datetime.datetime.now()
     return render_template('transactions.html', entries=paginated, user=user, accounts=accounts, categories=categories, now=now,
                            last_import_result=last_import_result,
+                           filter_errors=filter_errors,
                            page=page, pages=pages, per_page=per_page, total_count=total_count,
                            filters={
                                'q': q or '',
@@ -504,62 +536,34 @@ def transaction_list():
     if not user.is_admin:
         tx_query = tx_query.filter_by(user_id=user.id)
 
-    # Filter inputs
-    q = (request.args.get('q') or '').strip()
-    category = (request.args.get('category') or '').strip()
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
-    account = request.args.get('account')
-    min_amount = request.args.get('min_amount')
-    max_amount = request.args.get('max_amount')
-
-    def _parse_date(s):
-        if not s:
-            return None
-        try:
-            y, m, d = _parse_date_tuple(s)
-            if y and m and d:
-                return datetime.date(y, m, d)
-        except Exception:
-            return None
-
-    def _norm_date_str(s):
-        if not s:
-            return None
-        try:
-            parts = str(s).replace('-', '/').split('/')
-            if len(parts) == 3:
-                y = parts[0]
-                m = parts[1].zfill(2)
-                d = parts[2].zfill(2)
-                return f"{y}/{m}/{d}"
-        except Exception:
-            pass
-        return s
-
-    _sd = _parse_date(start_date)
-    _ed = _parse_date(end_date)
-    _sd_str = _norm_date_str(start_date)
-    _ed_str = _norm_date_str(end_date)
+    filters_state = _parse_transactions_filters()
+    q = filters_state["q"]
+    category = filters_state["category"]
+    start_date = filters_state["start_date"]
+    end_date = filters_state["end_date"]
+    account = filters_state["account"]
+    min_amount = filters_state["min_amount"]
+    max_amount = filters_state["max_amount"]
+    min_amount_value = filters_state["min_amount_value"]
+    max_amount_value = filters_state["max_amount_value"]
+    _sd = filters_state["start_date_parsed"]
+    _ed = filters_state["end_date_parsed"]
+    _sd_str = _sd.strftime("%Y/%m/%d") if _sd else None
+    _ed_str = _ed.strftime("%Y/%m/%d") if _ed else None
+    page = filters_state["page"]
+    per_page = filters_state["per_page"]
+    filter_errors = filters_state["errors"]
 
     if account:
         tx_query = tx_query.filter((Transaction.debit_account == account) | (Transaction.credit_account == account))
-    if min_amount:
-        try:
-            amt = float(min_amount)
-            tx_query = tx_query.filter(
-                (Transaction.debit_amount >= amt) | (Transaction.credit_amount >= amt)
-            )
-        except Exception:
-            pass
-    if max_amount:
-        try:
-            amt = float(max_amount)
-            tx_query = tx_query.filter(
-                (Transaction.debit_amount <= amt) | (Transaction.credit_amount <= amt)
-            )
-        except Exception:
-            pass
+    if min_amount_value is not None:
+        tx_query = tx_query.filter(
+            (Transaction.debit_amount >= min_amount_value) | (Transaction.credit_amount >= min_amount_value)
+        )
+    if max_amount_value is not None:
+        tx_query = tx_query.filter(
+            (Transaction.debit_amount <= max_amount_value) | (Transaction.credit_amount <= max_amount_value)
+        )
     if _sd:
         tx_query = tx_query.filter(
             or_(
@@ -575,15 +579,6 @@ def transaction_list():
             )
         )
     tx_query = tx_query.order_by(Transaction.date_parsed.desc(), Transaction.id.desc())
-
-    try:
-        page = max(1, int(request.args.get('page') or 1))
-    except Exception:
-        page = 1
-    try:
-        per_page = max(1, min(1000, int(request.args.get('per_page') or 100)))
-    except Exception:
-        per_page = 100
 
     # Build account list for filters from transactions (extend later with journal lines)
     accs = set()
@@ -683,12 +678,7 @@ def transaction_list():
         if q_filter:
             description_text = (entry_dict.get('description') or '').strip().lower()
             reference_text = (entry_dict.get('reference') or '').strip().lower()
-            line_match = any(
-                q_filter in (ln.get('account') or '').strip().lower()
-                or q_filter in (ln.get('memo') or '').strip().lower()
-                for ln in entry_dict['lines']
-            )
-            if q_filter not in description_text and q_filter not in reference_text and not line_match:
+            if q_filter not in description_text and q_filter not in reference_text:
                 return False
         if account_filter:
             if not any((ln.get('account') or '').strip().lower() == account_filter for ln in entry_dict['lines']):
@@ -696,18 +686,10 @@ def transaction_list():
         if category_filter:
             if not any((ln.get('category') or '').strip().lower() == category_filter for ln in entry_dict['lines']):
                 return False
-        if min_amount:
-            try:
-                if entry_dict['total_debit'] < float(min_amount):
-                    return False
-            except Exception:
-                pass
-        if max_amount:
-            try:
-                if entry_dict['total_debit'] > float(max_amount):
-                    return False
-            except Exception:
-                pass
+        if min_amount_value is not None and float(entry_dict['total_debit'] or 0.0) < float(min_amount_value):
+            return False
+        if max_amount_value is not None and float(entry_dict['total_debit'] or 0.0) > float(max_amount_value):
+            return False
         return True
 
     for je in journal_entries:
@@ -770,6 +752,7 @@ def transaction_list():
     now = datetime.datetime.now()
     return render_template('transactions.html', entries=paginated, user=user, accounts=accounts, categories=categories, now=now,
                            last_import_result=last_import_result,
+                           filter_errors=filter_errors,
                            page=page, pages=pages, per_page=per_page, total_count=total_count,
                            filters={
                                'q': q or '',

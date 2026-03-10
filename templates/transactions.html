@@ -225,6 +225,26 @@
       justify-content: flex-end;
       flex-wrap: wrap;
     }
+    .tx-filter-errors {
+      display: none;
+      width: 100%;
+      border: 1px solid #f1c1c1;
+      border-radius: 10px;
+      background: #fff5f5;
+      color: var(--negative);
+      font-size: 0.85rem;
+      padding: 8px 10px;
+      box-sizing: border-box;
+    }
+    .tx-filter-errors.visible { display: block; }
+    .tx-filter-field-error {
+      display: block;
+      min-height: 14px;
+      margin-top: 4px;
+      color: var(--negative);
+      font-size: 0.76rem;
+      font-weight: 600;
+    }
 
     .tx-list { display: flex; flex-direction: column; gap: 12px; }
     .tx-list-card {
@@ -332,7 +352,10 @@
               <p class="tx-lede" style="margin-top:6px;">Balance debits and credits line-by-line, then save directly to your ledger.</p>
             </div>
             <div class="tx-inline-actions">
-              <input id="csv_file_input" type="file" name="csv_file" accept=".csv" style="display:none;">
+              <form id="csv-upload-form" method="post" action="{{ url_for('transactions_bp.upload_csv') }}" enctype="multipart/form-data" style="display:none;">
+                <input id="csv_file_input" type="file" name="csv_file" accept=".csv">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              </form>
               <button type="button" class="button primary" id="open-quick-add-transactions"><i class="fa fa-bolt"></i> Quick Add</button>
               <button type="button" class="button ghost icon-only" title="Import CSV" onclick="triggerCsvUpload()"><i class="fa fa-file-csv"></i></button>
             </div>
@@ -372,6 +395,15 @@
               <span>Showing {{ entries|length if entries else 0 }} results</span>
             </div>
           </div>
+          {% if filter_errors %}
+            <div class="flash-card" style="margin-top:6px;">
+              <ul style="margin:0;padding-left:20px;">
+                {% for err in filter_errors %}
+                  <li style="font-weight:600;">{{ err }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% endif %}
           <div class="tx-list" style="margin-top:4px; max-height:520px; overflow:auto;">
             {% if entries %}
               {% for entry in entries %}
@@ -434,8 +466,14 @@
               <label>Search
                 <input type="text" name="q" value="{{ filters.q }}" placeholder="Description, account, memo">
               </label>
-              <label>Start Date<input type="date" name="start_date" value="{{ filters.start_date }}"></label>
-              <label>End Date<input type="date" name="end_date" value="{{ filters.end_date }}"></label>
+              <label>Start Date
+                <input type="date" name="start_date" value="{{ filters.start_date }}">
+                <small class="tx-filter-field-error" data-filter-error="start_date"></small>
+              </label>
+              <label>End Date
+                <input type="date" name="end_date" value="{{ filters.end_date }}">
+                <small class="tx-filter-field-error" data-filter-error="end_date"></small>
+              </label>
               <label>Account<select name="account">
                 <option value="">All accounts</option>
                 {% for acc in accounts %}
@@ -448,9 +486,29 @@
                   <option value="{{ cat }}" {% if filters.category == cat %}selected{% endif %}>{{ cat }}</option>
                 {% endfor %}
               </select></label>
-              <label>Min Amount<input type="number" step="0.01" name="min_amount" placeholder="0.00" value="{{ filters.min_amount }}"></label>
-              <label>Max Amount<input type="number" step="0.01" name="max_amount" placeholder="0.00" value="{{ filters.max_amount }}"></label>
+              <label>Min Amount
+                <input type="number" step="0.01" name="min_amount" placeholder="0.00" value="{{ filters.min_amount }}">
+                <small class="tx-filter-field-error" data-filter-error="min_amount"></small>
+              </label>
+              <label>Max Amount
+                <input type="number" step="0.01" name="max_amount" placeholder="0.00" value="{{ filters.max_amount }}">
+                <small class="tx-filter-field-error" data-filter-error="max_amount"></small>
+              </label>
+              <label>Per Page
+                <select name="per_page">
+                  {% if per_page not in [1, 10, 25, 50, 100] %}
+                    <option value="{{ per_page }}" selected>{{ per_page }}</option>
+                  {% endif %}
+                  <option value="1" {% if per_page == 1 %}selected{% endif %}>1</option>
+                  <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+                  <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+                  <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                  <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                </select>
+                <small class="tx-filter-field-error" data-filter-error="per_page"></small>
+              </label>
             </div>
+            <div id="tx-filter-form-error" class="tx-filter-errors" aria-live="polite"></div>
             <div class="tx-filter-footer">
               <span class="filter-legend"><i class="fa fa-circle-info"></i> Filters refresh automatically.</span>
               <button type="submit" class="button ghost"><i class="fa fa-rotate"></i> Apply</button>
@@ -523,6 +581,11 @@
         return '';
       }
     })();
+    const TX_PAGE_PATH = (() => {
+      const path = (window.location.pathname || '/transactions').trim();
+      if (path.endsWith('/list')) return path.slice(0, -5) || '/transactions';
+      return path || '/transactions';
+    })();
     const TX_ADD_URL = (txEndpoints.add || '').trim();
     const ML_SUGGESTIONS_URL = (mlEndpoints.suggestions || '').trim();
     const ML_SUGGESTION_LOG_URL = (mlEndpoints.suggestionLog || '').trim();
@@ -545,6 +608,99 @@
       const msg = `Configuration error: missing endpoint key ${key}.`;
       showFeedback(msg, 'error');
       throw new Error(msg);
+    }
+
+    function setTxFilterFormError(message){
+      const node = document.getElementById('tx-filter-form-error');
+      if (!node) return;
+      const text = (message || '').trim();
+      if (!text){
+        node.textContent = '';
+        node.classList.remove('visible');
+        return;
+      }
+      node.textContent = text;
+      node.classList.add('visible');
+    }
+
+    function setTxFilterFieldError(form, fieldName, message){
+      if (!form) return;
+      const nodes = form.querySelectorAll('[data-filter-error]');
+      for (let i = 0; i < nodes.length; i += 1){
+        if (nodes[i].getAttribute('data-filter-error') === fieldName){
+          nodes[i].textContent = (message || '').trim();
+          return;
+        }
+      }
+    }
+
+    function clearTxFilterErrors(form){
+      if (!form) return;
+      form.querySelectorAll('[data-filter-error]').forEach((node) => {
+        node.textContent = '';
+      });
+      setTxFilterFormError('');
+    }
+
+    function isValidIsoDateString(value){
+      const raw = String(value || '').trim();
+      if (!raw) return true;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return false;
+      const [yy, mm, dd] = raw.split('-').map(Number);
+      const dt = new Date(Date.UTC(yy, mm - 1, dd));
+      return !Number.isNaN(dt.getTime()) && dt.getUTCFullYear() === yy && dt.getUTCMonth() + 1 === mm && dt.getUTCDate() === dd;
+    }
+
+    function isValidDecimalString(value){
+      const raw = String(value || '').trim();
+      if (!raw) return true;
+      return /^-?\d+(\.\d+)?$/.test(raw);
+    }
+
+    function validateTxFilterForm(form){
+      if (!form) return true;
+      clearTxFilterErrors(form);
+      let valid = true;
+
+      const startDate = String(form.elements.start_date ? form.elements.start_date.value : '').trim();
+      const endDate = String(form.elements.end_date ? form.elements.end_date.value : '').trim();
+      const minAmount = String(form.elements.min_amount ? form.elements.min_amount.value : '').trim();
+      const maxAmount = String(form.elements.max_amount ? form.elements.max_amount.value : '').trim();
+      const perPage = String(form.elements.per_page ? form.elements.per_page.value : '').trim();
+
+      if (!isValidIsoDateString(startDate)){
+        setTxFilterFieldError(form, 'start_date', 'Use YYYY-MM-DD.');
+        valid = false;
+      }
+      if (!isValidIsoDateString(endDate)){
+        setTxFilterFieldError(form, 'end_date', 'Use YYYY-MM-DD.');
+        valid = false;
+      }
+      if (!isValidDecimalString(minAmount)){
+        setTxFilterFieldError(form, 'min_amount', 'Enter a valid decimal amount.');
+        valid = false;
+      }
+      if (!isValidDecimalString(maxAmount)){
+        setTxFilterFieldError(form, 'max_amount', 'Enter a valid decimal amount.');
+        valid = false;
+      }
+      if (startDate && endDate && isValidIsoDateString(startDate) && isValidIsoDateString(endDate) && startDate > endDate){
+        setTxFilterFieldError(form, 'end_date', 'End date must be on or after start date.');
+        valid = false;
+      }
+      if (minAmount && maxAmount && isValidDecimalString(minAmount) && isValidDecimalString(maxAmount) && parseFloat(minAmount) > parseFloat(maxAmount)){
+        setTxFilterFieldError(form, 'max_amount', 'Max amount must be >= min amount.');
+        valid = false;
+      }
+      if (!/^\d+$/.test(perPage) || Number(perPage) <= 0){
+        setTxFilterFieldError(form, 'per_page', 'Per page must be a positive integer.');
+        valid = false;
+      }
+
+      if (!valid){
+        setTxFilterFormError('Please fix invalid filter values before applying.');
+      }
+      return valid;
     }
 
     function generateId(prefix){
@@ -946,8 +1102,11 @@
           telemetryWarning = err && err.message ? err.message : 'suggestion logging failed.';
         }
         resetEntry();
-        const base = requireEndpoint(TX_LIST_URL, 'transactions.list');
-        updateTxListFromURL(base);
+        const filterForm = document.getElementById('tx-filter-form');
+        const currentParams = filterForm ? buildTxFilterParamsFromForm(filterForm) : new URLSearchParams(window.location.search);
+        const fetchUrl = buildTxListURLFromParams(currentParams);
+        const historyUrl = buildTxPageURLFromParams(currentParams);
+        updateTxListFromURL(fetchUrl, { historyUrl });
         const list = document.getElementById('tx-list-section');
         if (list) { list.style.display = 'block'; list.scrollIntoView({ behavior:'smooth', block:'start' }); }
         const btn = document.getElementById('toggle-tx-btn');
@@ -1037,7 +1196,7 @@
 
     resetEntry();
 
-    function buildTxListURLFromForm(form){
+    function buildTxFilterParamsFromForm(form){
       const params = new URLSearchParams();
       const fd = new FormData(form);
       for (const [k,v] of fd.entries()){
@@ -1047,17 +1206,37 @@
       if (current.searchParams.get('per_page') && !params.get('per_page')){
         params.set('per_page', current.searchParams.get('per_page'));
       }
+      return params;
+    }
+
+    function buildTxListURLFromParams(params){
       const base = requireEndpoint(TX_LIST_URL, 'transactions.list');
-      return params.toString() ? `${base}?${params.toString()}` : base;
+      const query = params instanceof URLSearchParams ? params.toString() : new URLSearchParams(params || '').toString();
+      return query ? `${base}?${query}` : base;
+    }
+
+    function buildTxPageURLFromParams(params){
+      const query = params instanceof URLSearchParams ? params.toString() : new URLSearchParams(params || '').toString();
+      return query ? `${TX_PAGE_PATH}?${query}` : TX_PAGE_PATH;
+    }
+
+    function buildTxListURLFromForm(form){
+      return buildTxListURLFromParams(buildTxFilterParamsFromForm(form));
     }
 
     function attachFilterHandler(){
       const form = document.getElementById('tx-filter-form');
       if (!form) return;
+      if (form.dataset.txFiltersBound === '1') return;
+      form.dataset.txFiltersBound = '1';
       const trigger = () => {
-        let url = '';
+        if (!validateTxFilterForm(form)) return;
+        let listUrl = '';
+        let historyUrl = '';
         try {
-          url = buildTxListURLFromForm(form);
+          const params = buildTxFilterParamsFromForm(form);
+          listUrl = buildTxListURLFromParams(params);
+          historyUrl = buildTxPageURLFromParams(params);
         } catch (_) {
           return;
         }
@@ -1065,7 +1244,7 @@
         if (section) section.style.display = 'block';
         const btn = document.getElementById('toggle-tx-btn');
         if (btn) btn.innerHTML = '<i class="fa fa-list"></i> Hide Entries';
-        updateTxListFromURL(url);
+        updateTxListFromURL(listUrl, { historyUrl });
       };
       form.addEventListener('submit', (evt) => { evt.preventDefault(); trigger(); });
       let timer = null;
@@ -1081,28 +1260,13 @@
     }
 
     function clearTxFilters(){
-      const form = document.getElementById('tx-filter-form');
-      if (!form) return;
-      Array.from(form.elements).forEach(el => {
-        if (el.tagName === 'INPUT' || el.tagName === 'SELECT'){
-          if (el.type === 'checkbox' || el.type === 'radio') el.checked = false; else el.value = '';
-        }
-      });
-      let base = '';
-      try {
-        base = requireEndpoint(TX_LIST_URL, 'transactions.list');
-      } catch (_) {
-        return;
-      }
-      updateTxListFromURL(base);
-      const section = document.getElementById('tx-list-section');
-      if (section) section.style.display = 'block';
-      const btn = document.getElementById('toggle-tx-btn');
-      if (btn) btn.innerHTML = '<i class="fa fa-list"></i> Hide Entries';
+      window.location.assign(TX_PAGE_PATH);
     }
     window.clearTxFilters = clearTxFilters;
 
-    async function updateTxListFromURL(url){
+    async function updateTxListFromURL(url, options = {}){
+      const historyUrl = (options && options.historyUrl) ? options.historyUrl : url;
+      const skipPushState = !!(options && options.skipPushState);
       try{
         const res = await fetch(url, { headers:{ 'X-Requested-With':'XMLHttpRequest' }});
         if (!res.ok){
@@ -1118,37 +1282,48 @@
           curSection.style.display = 'block';
           const btn = document.getElementById('toggle-tx-btn');
           if (btn) btn.innerHTML = '<i class="fa fa-list"></i> Hide Entries';
-          window.history.pushState({}, '', url);
+          if (!skipPushState){
+            window.history.pushState({}, '', historyUrl);
+          }
           attachFilterHandler();
           attachTxListDelegation();
         } else {
           showFeedback('Unable to refresh transaction list.', 'error');
         }
-      }catch(err){ console.error(err); }
+      }catch(err){
+        console.error(err);
+        showFeedback('Unable to refresh transaction list.', 'error');
+      }
     }
     window.updateTxListFromURL = updateTxListFromURL;
 
     function attachTxListDelegation(){
       const container = document.getElementById('tx-list-section');
       if (!container) return;
+      if (container.dataset.txListBound === '1') return;
+      container.dataset.txListBound = '1';
       // existing delegation for link clicks
       container.addEventListener('click', function handler(e){
         const link = e.target && e.target.closest ? e.target.closest('a') : null;
         if (link){
           const href = link.getAttribute('href') || '';
-          let isListLink = false;
-          if (href && TX_LIST_PATH){
+          let matchPath = '';
+          if (href){
             try {
-              const hrefPath = new URL(href, window.location.origin).pathname;
-              isListLink = hrefPath === TX_LIST_PATH;
+              const parsed = new URL(href, window.location.origin);
+              const hrefPath = parsed.pathname;
+              if (hrefPath === TX_LIST_PATH || hrefPath === TX_PAGE_PATH){
+                matchPath = hrefPath;
+                const params = parsed.searchParams;
+                const fetchUrl = (matchPath === TX_LIST_PATH) ? href : buildTxListURLFromParams(params);
+                const historyUrl = buildTxPageURLFromParams(params);
+                e.preventDefault();
+                updateTxListFromURL(fetchUrl, { historyUrl });
+                return;
+              }
             } catch (_) {
-              isListLink = false;
+              matchPath = '';
             }
-          }
-          if (isListLink){
-            e.preventDefault();
-            updateTxListFromURL(href);
-            return;
           }
         }
         // accept/reject handlers
@@ -1200,12 +1375,15 @@
         window.QuickAddModal.setOnSuccess(() => {
           const form = document.getElementById('tx-filter-form');
           let refreshUrl = '';
+          let historyUrl = '';
           try {
-            refreshUrl = form ? buildTxListURLFromForm(form) : requireEndpoint(TX_LIST_URL, 'transactions.list');
+            const params = form ? buildTxFilterParamsFromForm(form) : new URLSearchParams(window.location.search);
+            refreshUrl = buildTxListURLFromParams(params);
+            historyUrl = buildTxPageURLFromParams(params);
           } catch (_) {
             return;
           }
-          updateTxListFromURL(refreshUrl);
+          updateTxListFromURL(refreshUrl, { historyUrl });
           showFeedback('Entry saved successfully.', 'success');
         });
       }
@@ -1228,31 +1406,20 @@
           const isHidden = section.style.display === 'none' || section.style.display === '';
           section.style.display = isHidden ? 'block' : 'none';
           toggleBtn.innerHTML = isHidden ? '<i class="fa fa-list"></i> Hide Entries' : '<i class="fa fa-list"></i> Show Entries';
-          if (isHidden){ updateTxListFromURL(location.href); }
+          if (isHidden){ updateTxListFromURL(location.href, { skipPushState: true }); }
         });
       }
-      window.addEventListener('popstate', () => updateTxListFromURL(location.href));
+      window.addEventListener('popstate', () => updateTxListFromURL(location.href, { skipPushState: true }));
     });
 
     function triggerCsvUpload(){
+      const form = document.getElementById('csv-upload-form');
       var inp = document.getElementById('csv_file_input');
-      if (!inp) return;
-      inp.onchange = async function(){
+      if (!inp || !form) return;
+      inp.value = '';
+      inp.onchange = function(){
         if (!inp.files || !inp.files[0]) return;
-        const fd = new FormData();
-        fd.append('csv_file', inp.files[0]);
-        try{
-          const res = await fetch('{{ url_for("transactions_bp.upload_csv") }}', {
-            method:'POST',
-            headers: { 'X-CSRF-Token': getCsrfToken() },
-            body: fd
-          });
-          if (res.ok){
-            try {
-              updateTxListFromURL(requireEndpoint(TX_LIST_URL, 'transactions.list'));
-            } catch (_) {}
-          }
-        }catch(err){ console.error(err); }
+        form.submit();
       };
       inp.click();
     }

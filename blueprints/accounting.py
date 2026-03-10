@@ -2880,6 +2880,9 @@ def journal_entries_list():
     start = (request.args.get('start') or '').strip() or None
     end = (request.args.get('end') or '').strip() or None
     account_filter = (request.args.get('account_id') or '').strip() or None
+    category_filter = (request.args.get('category_id') or '').strip() or None
+    min_amount_filter = (request.args.get('min_amount') or '').strip() or None
+    max_amount_filter = (request.args.get('max_amount') or '').strip() or None
     try:
         page = int(request.args.get('page', '1'))
     except Exception:
@@ -2888,13 +2891,28 @@ def journal_entries_list():
         per_page = int(request.args.get('per_page', '25'))
     except Exception:
         per_page = 25
+    account_id = None
+    if account_filter:
+        try:
+            account_id = int(account_filter)
+        except Exception:
+            account_id = None
+    category_id = None
+    if category_filter:
+        try:
+            category_id = int(category_filter)
+        except Exception:
+            category_id = None
 
     return journal_list(
         user_id=user.id,
         q=search or None,
         start=start,
         end=end,
-        account_id=int(account_filter) if account_filter else None,
+        account_id=account_id,
+        category_id=category_id,
+        min_amount=min_amount_filter,
+        max_amount=max_amount_filter,
         page=page,
         per_page=per_page,
     )
