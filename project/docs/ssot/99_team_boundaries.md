@@ -1,5 +1,5 @@
 # Team Boundaries and Change Rules
-_Last updated: 2026-03-10_
+_Last updated: 2026-03-11_
 
 ## 99.1 Scope
 Ownership boundaries, stable interfaces, and forbidden changes for vNext correctness work.
@@ -61,6 +61,11 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
   - panel selector/data-role surface is stable
   - dismiss semantics are stable (`POST /transactions/import_result/dismiss`, auth+CSRF, redirect param preservation)
   - `/upload_csv` remains no-JSON contract surface
+- Phase 1.3.1 CSV import details polish contract (`SSOT 59_1`):
+  - details rendering selectors and visibility-state semantics are stable
+  - details toggle presence rule is stable (render toggle only when details data exists)
+  - default details state is stable (`data-state="collapsed"` when details container exists)
+  - no endpoint/registry expansion is allowed in this phase
 - Phase 1.2.1 transaction edit UX hardening (`SSOT 58_1`):
   - deterministic preload/render behavior for edit modal
   - deterministic balance-state and save-gating behavior
@@ -130,6 +135,14 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Backend owns existing endpoint behavior only; no endpoint expansion.
 - QA owns selector-surface and registry-stability contract checks.
 
+### 99.3.8 Phase 1.3.1 Ownership
+- Architect owns `project/docs/ssot/59_1_phase1_3_csv_import_details_polish.md`.
+- Backend owns:
+  - session summary optional details-key population when data exists
+  - dismiss redirect parameter preservation semantics on existing dismiss endpoint.
+- Frontend owns details toggle/render behavior and SSOT 59/59_1 selector stability.
+- QA owns contract-shape checks for details selector presence/absence rules and dismiss preservation checks.
+
 ## 99.4 Forbidden Changes
 - Reporting code must not compute ranked totals from legacy `Transaction` rows.
 - Reporting code must not enable or silently emulate mixed mode aggregation.
@@ -148,6 +161,8 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Frontend must not bypass `window.FINANCE_ENDPOINTS.accounting.journal.list` and `window.FINANCE_ENDPOINTS.accounting.journal.updateTemplate` in Phase 1.2 flows.
 - Backend and Frontend must not introduce `/upload_csv` JSON response contracts without SSOT update and QA evidence.
 - Backend and Frontend must not rename `session["last_import_result_v1"]` or SSOT 59 locked panel selectors/data-role markers without SSOT update and QA evidence.
+- Backend and Frontend must not remove/rename SSOT 59_1 details selectors (`[data-role="import-details-failures"]`, `[data-role="import-details-warnings"]`, `[data-role="import-details-meta"]`) or details `data-state="collapsed|expanded"` semantics without SSOT update and QA evidence.
+- Frontend must not render details toggle when both `failure_samples` and `warnings` are absent/empty; this visibility rule is locked by SSOT 59_1.
 - Backend and Frontend must not introduce new edit/list endpoints or new registry keys for Phase 1.2.1 without SSOT update and QA evidence.
 - Backend and Frontend must not break query-param preservation (`page`/`per_page`) on post-save list refresh in Phase 1.2.1 flows.
 - Backend and Frontend must not introduce new preload read endpoints for Phase 1.2.2 without SSOT update and QA evidence.
@@ -177,6 +192,9 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Any PR that changes Phase 1.3 CSV import UX contracts (`SSOT 59`) must include:
   - SSOT 59 section references
   - QA contract evidence for panel selectors, dismiss semantics, and filter-param preservation checks
+- Any PR that changes Phase 1.3.1 CSV import details polish contracts (`SSOT 59_1`) must include:
+  - SSOT 59_1 section references
+  - QA contract evidence for details toggle visibility rules, details-selector state surface, and dismiss redirect-param preservation checks
 - Any PR that changes Phase 1.2.1 edit hardening contracts (`SSOT 58_1`) must include:
   - SSOT 58_1 section references
   - QA contract evidence for preload/render selectors, error mapping, and post-save query-param preservation checks

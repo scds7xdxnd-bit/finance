@@ -1,5 +1,5 @@
 # Finance App SSOT Index
-_Last updated: 2026-03-10_
+_Last updated: 2026-03-11_
 
 ## 00.1 Purpose
 This directory is the Single Source of Truth (SSOT) for vNext financial correctness.
@@ -32,6 +32,7 @@ Section IDs in this file and all SSOT files are stable citation anchors.
 - Phase 1.2.3 transaction edit refresh-safety contract is authoritative (`SSOT 58_3`): active edit sessions retain local buffer authority, stale warning visibility is mandatory, and refresh params remain preserved.
 - Phase 1.2.4 transaction edit usability-polish contract is authoritative (`SSOT 58_4`): additive selector and usability behavior locks are stable while endpoint/registry surfaces remain unchanged.
 - Phase 1.3 CSV import UX contract is authoritative (`SSOT 59`): import summary remains session-backed (`last_import_result_v1`), dismiss remains POST-based, and `/upload_csv` remains no-JSON.
+- Phase 1.3.1 CSV import details polish contract is authoritative (`SSOT 59_1`): details rendering/toggle semantics are deterministic HTML/session behavior, with no `/upload_csv` JSON change.
 - Canonical ledger query API is the reporting contract surface.
 - CI vNext gate enforces schema, dedupe, convergence, reporting parity, scope invariants, invariant catalog parity, statement export parity, security compliance, startup/migration contract, and DB integrity.
 
@@ -74,6 +75,7 @@ Any change to locked decisions, contract surfaces, or gate thresholds must satis
 - For Phase 1.2.3 transaction edit refresh-safety changes, include SSOT references from `SSOT 58_3` and QA contract evidence for edit-session marker, stale-warning selector, and buffer-authority semantics.
 - For Phase 1.2.4 transaction edit usability-polish changes, include SSOT references from `SSOT 58_4` and QA contract evidence for additive selector surface and registry-stability checks.
 - For Phase 1.3 CSV import UX contract changes, include SSOT references from `SSOT 59` and QA contract evidence for panel selectors, dismiss semantics, and filter-param preservation checks.
+- For Phase 1.3.1 CSV import details polish changes, include SSOT references from `SSOT 59_1` and QA contract evidence for details-selector surface, collapsed/expanded state behavior, and dismiss redirect-param preservation checks.
 
 ## 00.6 Document Map
 | File | Purpose |
@@ -93,6 +95,7 @@ Any change to locked decisions, contract surfaces, or gate thresholds must satis
 | `58_3_phase1_2_3_transaction_edit_refresh_safety.md` | Phase 1.2.3 transaction edit refresh-safety contract: edit-session marker, stale warning visibility, and local-buffer authority under refresh. |
 | `58_4_phase1_2_4_transaction_edit_usability_polish.md` | Phase 1.2.4 transaction edit usability polish: additive keyboard/focus/line/delta/error/stale/save-status selector and behavior locks. |
 | `59_phase1_3_csv_import_ux_no_json.md` | Phase 1.3 CSV import UX contract: session summary payload, panel selectors, dismiss lifecycle, no JSON upload behavior. |
+| `59_1_phase1_3_csv_import_details_polish.md` | Phase 1.3.1 CSV import details polish: deterministic details rendering/toggle semantics, additive selector lock, and no `/upload_csv` JSON behavior. |
 | `60_schema_capabilities.md` | Capability matrix and hard-fail guard behavior. |
 | `61_schema_verifier_parity_playbook.md` | Formal verifier parity definition, release rule, and implementation checklists. |
 | `70_security_model.md` | AuthN/AuthZ, CSRF, admin safety, audit requirements, endpoint sensitivity classes. |

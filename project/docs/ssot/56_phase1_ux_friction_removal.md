@@ -1,5 +1,5 @@
 # Phase 1 UX Friction Removal Contract
-_Last updated: 2026-03-10_
+_Last updated: 2026-03-11_
 
 ## 56.1 Scope
 - This document defines the SSOT contract for Phase 1 UX friction removal.
@@ -222,3 +222,8 @@ _Last updated: 2026-03-10_
 - Phase 1.3 CSV import UX behavior is defined in `SSOT 59`.
 - `/upload_csv` remains redirect/flash; no CSV JSON contract is introduced.
 - Phase 1.0/1.1/1.2 behavior in this document remains unchanged by Phase 1.3.
+
+## 56.13 Phase 1.3.1 Companion (CSV Import Details Polish, No JSON)
+- Phase 1.3.1 details-polish behavior is defined in `SSOT 59_1`.
+- `/upload_csv` remains redirect/flash and session-backed; no CSV JSON contract is introduced.
+- Phase 1.0/1.1/1.2/1.3 behavior in this document remains unchanged by Phase 1.3.1.

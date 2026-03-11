@@ -29,6 +29,7 @@ TRANSACTION_EDIT_UX_FAILURE_PREFIX = "Transaction edit UX contract failed:"
 TRANSACTION_EDIT_STATE_FAILURE_PREFIX = "Transaction edit state contract failed:"
 TRANSACTION_EDIT_REFRESH_SAFETY_FAILURE_PREFIX = "Transaction edit refresh safety contract failed:"
 TRANSACTION_EDIT_USABILITY_FAILURE_PREFIX = "Transaction edit usability contract failed:"
+CSV_IMPORT_DETAILS_UX_FAILURE_PREFIX = "CSV import details UX contract failed:"
 
 
 def _sqlite_url(db_path) -> str:
@@ -193,6 +194,10 @@ def _transaction_edit_refresh_safety_contract_assert(condition: bool, message: s
 
 def _transaction_edit_usability_contract_assert(condition: bool, message: str) -> None:
     assert condition, f"{TRANSACTION_EDIT_USABILITY_FAILURE_PREFIX} {message}"
+
+
+def _csv_import_details_contract_assert(condition: bool, message: str) -> None:
+    assert condition, f"{CSV_IMPORT_DETAILS_UX_FAILURE_PREFIX} {message}"
 
 
 def _set_last_import_result_session(client, payload: dict) -> None:
@@ -813,6 +818,140 @@ def test_frontend_contract_phase124_registry_stability(frontend_contract_ctx):
         "params.set('page', String(page));" in html and "params.set('per_page', String(perPage));" in html,
         "refresh builder must reference page and per_page",
     )
+
+
+def test_frontend_contract_phase131_details_failure_samples_only(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    _set_last_import_result_session(
+        client,
+        {
+            "imported_count": 0,
+            "duplicate_count": 0,
+            "failed_count": 2,
+            "summary_text": "Import failed for 2 rows.",
+            "source_filename": "details-failures.csv",
+            "recorded_at": "2026-03-11T10:00:00Z",
+            "failure_samples": [{"line_number": 4, "message": "invalid amount"}],
+        },
+    )
+
+    resp = client.get("/transactions")
+    _csv_import_details_contract_assert(resp.status_code == 200, f"expected /transactions 200, got {resp.status_code}")
+    html = resp.get_data(as_text=True)
+    base_selectors = (
+        "#last-import-result-panel",
+        'data-role="import-severity"',
+        'data-role="import-summary"',
+        'data-role="import-counts"',
+        'data-role="import-filename"',
+        'data-role="import-recorded-at"',
+    )
+    for selector in base_selectors:
+        _csv_import_details_contract_assert(selector in html, f"missing base selector {selector}")
+    _csv_import_details_contract_assert('data-action="toggle-import-details"' in html, "missing details toggle")
+    _csv_import_details_contract_assert(
+        re.search(r'data-role="import-details"[^>]*data-state="collapsed"', html) is not None,
+        "details container must default to data-state=\"collapsed\"",
+    )
+    _csv_import_details_contract_assert('data-role="import-details-failures"' in html, "missing failures details section")
+    _csv_import_details_contract_assert('data-role="import-details-warnings"' not in html, "warnings details section must be absent")
+
+
+def test_frontend_contract_phase131_details_warnings_only(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    _set_last_import_result_session(
+        client,
+        {
+            "imported_count": 0,
+            "duplicate_count": 1,
+            "failed_count": 1,
+            "summary_text": "Import had warnings.",
+            "source_filename": "details-warnings.csv",
+            "recorded_at": "2026-03-11T10:02:00Z",
+            "warnings": ["date normalized to YYYY-MM-DD"],
+        },
+    )
+
+    resp = client.get("/transactions")
+    _csv_import_details_contract_assert(resp.status_code == 200, f"expected /transactions 200, got {resp.status_code}")
+    html = resp.get_data(as_text=True)
+    _csv_import_details_contract_assert('data-action="toggle-import-details"' in html, "missing details toggle")
+    _csv_import_details_contract_assert(
+        re.search(r'data-role="import-details"[^>]*data-state="collapsed"', html) is not None,
+        "details container must default to data-state=\"collapsed\"",
+    )
+    _csv_import_details_contract_assert('data-role="import-details-warnings"' in html, "missing warnings details section")
+    _csv_import_details_contract_assert('data-role="import-details-failures"' not in html, "failures details section must be absent")
+
+
+def test_frontend_contract_phase131_details_absent_hides_toggle_and_details(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    _set_last_import_result_session(
+        client,
+        {
+            "imported_count": 5,
+            "duplicate_count": 0,
+            "failed_count": 0,
+            "summary_text": "Import successful.",
+            "source_filename": "details-none.csv",
+            "recorded_at": "2026-03-11T10:04:00Z",
+        },
+    )
+
+    resp = client.get("/transactions")
+    _csv_import_details_contract_assert(resp.status_code == 200, f"expected /transactions 200, got {resp.status_code}")
+    html = resp.get_data(as_text=True)
+    _csv_import_details_contract_assert("#last-import-result-panel" in html, "base panel must render")
+    _csv_import_details_contract_assert('data-action="toggle-import-details"' not in html, "details toggle must be absent when no details data")
+    _csv_import_details_contract_assert('data-role="import-details"' not in html, "details container must be absent when no details data")
+
+
+def test_frontend_contract_phase131_dismiss_semantics_and_param_preservation(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    csrf_token = frontend_contract_ctx["csrf_token"]
+    _set_last_import_result_session(
+        client,
+        {
+            "imported_count": 0,
+            "duplicate_count": 0,
+            "failed_count": 1,
+            "summary_text": "Import failed.",
+            "source_filename": "details-dismiss.csv",
+            "recorded_at": "2026-03-11T10:06:00Z",
+            "failure_samples": [{"line_number": 1, "message": "bad data"}],
+        },
+    )
+    params = {
+        "q": "seed",
+        "account": str(frontend_contract_ctx["expense_account_name"]),
+        "category": str(frontend_contract_ctx["expense_category_name"]),
+        "min_amount": "10.00",
+        "max_amount": "500.00",
+        "start_date": "2026-03-01",
+        "end_date": "2026-03-31",
+        "page": "2",
+        "per_page": "25",
+    }
+
+    page_resp = client.get("/transactions", query_string=params)
+    _csv_import_details_contract_assert(page_resp.status_code == 200, f"expected /transactions 200, got {page_resp.status_code}")
+    html = page_resp.get_data(as_text=True)
+    form_open = _extract_form_open_tag(html, "/transactions/import_result/dismiss")
+    _csv_import_details_contract_assert(form_open is not None, "dismiss form action /transactions/import_result/dismiss not found")
+    _csv_import_details_contract_assert('method="post"' in (form_open or "").lower(), "dismiss form must use POST")
+    _csv_import_details_contract_assert('name="csrf_token"' in html, "dismiss form must include csrf_token field")
+
+    action_match = re.search(r'action="([^"]+)"', form_open or "")
+    _csv_import_details_contract_assert(action_match is not None, "dismiss form action attribute missing")
+    dismiss_action = (action_match.group(1) if action_match else "/transactions/import_result/dismiss").replace("&amp;", "&")
+    dismiss_resp = client.post(dismiss_action, data={"csrf_token": csrf_token}, follow_redirects=False)
+    _csv_import_details_contract_assert(300 <= dismiss_resp.status_code < 400, f"dismiss should redirect, got {dismiss_resp.status_code}")
+    location = str(dismiss_resp.headers.get("Location") or "")
+    _csv_import_details_contract_assert(bool(location), "dismiss redirect missing Location header")
+
+    query = parse_qs(urlparse(location).query, keep_blank_values=True)
+    for key in params:
+        _csv_import_details_contract_assert(key in query, f"dismiss redirect missing preserved key {key}")
 
 
 def test_frontend_contract_phase13_import_panel_presence_and_selector_surface(frontend_contract_ctx):

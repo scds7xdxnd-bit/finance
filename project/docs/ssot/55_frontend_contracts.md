@@ -1,12 +1,14 @@
 # Frontend Contract Lock (vNext)
-_Last updated: 2026-03-10_
+_Last updated: 2026-03-11_
 
 ## 55.1 Scope
 - Frontend Contract Surface means any HTTP status, payload key, or endpoint registry key consumed directly by templates or static JavaScript.
 - This document locks minimal backend contracts for frontend-critical endpoints during UI refactors.
 - Non-JSON endpoints are out of scope for this contract lock.
 - `/upload_csv` JSON behavior is explicitly excluded in this phase; current redirect/flash flow remains authoritative.
-- Phase 1.3 CSV import UX is HTML/session contract only and is defined in `SSOT 59` (no JSON endpoint lock added here).
+- Phase 1.3 CSV import UX is HTML/session contract only and is defined in `SSOT 59`.
+- Phase 1.3.1 CSV import details polish is HTML/session contract only and is defined in `SSOT 59_1`.
+- SSOT 59 and SSOT 59_1 are not JSON endpoint locks; they are server-rendered panel/details behavior contracts.
 
 ## 55.2 Rule of Change
 - Additive response/request changes are allowed if required keys in this document remain valid.
@@ -237,3 +239,4 @@ _Last updated: 2026-03-10_
 - Phase 1.2.3 transaction edit refresh-safety companion: `project/docs/ssot/58_3_phase1_2_3_transaction_edit_refresh_safety.md` (no new endpoint, no new registry key, no JSON expansion).
 - Phase 1.2.4 transaction edit usability polish companion: `project/docs/ssot/58_4_phase1_2_4_transaction_edit_usability_polish.md` (additive selector/UX locks only; no endpoint/registry expansion).
 - Phase 1.3 CSV import UX companion: `project/docs/ssot/59_phase1_3_csv_import_ux_no_json.md` (session/HTML UX only; no `/upload_csv` JSON contract and no registry-key churn required).
+- Phase 1.3.1 CSV import details polish companion: `project/docs/ssot/59_1_phase1_3_csv_import_details_polish.md` (session/HTML details-render contract only; no `/upload_csv` JSON contract and no registry-key expansion).
