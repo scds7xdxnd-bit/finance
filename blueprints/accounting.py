@@ -753,7 +753,6 @@ def accounting():
                            tb_initialized_on=tb_initialized_on)
 
 
-@accounting_bp.route('/accounting/month_close', methods=['GET'])
 def month_close_foundation():
     from finance_app import current_user
 
@@ -1158,7 +1157,6 @@ def _list_month_close_snapshots(ym):
     return rows
 
 
-@accounting_bp.route('/accounting/month_close/snapshot', methods=['POST'])
 def month_close_snapshot_create():
     from finance_app import current_user
 
@@ -3560,7 +3558,6 @@ def statement_pdf():
         return {'ok': False, 'error': f'Failed to render statement: {e}'}, 500
 
 
-@accounting_bp.route('/accounting/receivables/pdf', methods=['GET'])
 def receivables_pdf():
     user = current_user()
     if not user:
@@ -3605,7 +3602,6 @@ def receivables_pdf():
     )
 
 
-@accounting_bp.route('/accounting/payables/pdf', methods=['GET'])
 def payables_pdf():
     user = current_user()
     if not user:
@@ -3650,7 +3646,6 @@ def payables_pdf():
     )
 
 
-@accounting_bp.route('/accounting/loan_receipt/pdf', methods=['GET'])
 def loan_receipt_pdf():
     from finance_app import JournalEntry, JournalLine, ReceivableTracker
 
