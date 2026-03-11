@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>{{ title }}</title>
+    <style>
+      body { font-family: Arial, sans-serif; font-size: 12px; color: #111; margin: 24px; }
+      h1 { margin: 0 0 8px; font-size: 20px; }
+      .meta { margin: 0 0 12px; color: #444; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { border: 1px solid #d0d0d0; padding: 6px 8px; }
+      th { text-align: left; background: #f2f4f7; }
+      td.num { text-align: right; }
+      .empty { padding: 12px 0; color: #666; }
+    </style>
+  </head>
+  <body>
+    <h1>{{ title }}</h1>
+    <p class="meta">
+      Period={{ ym }} | status={{ status }} | party={{ party or "all" }} |
+      min={{ min_amount if min_amount is not none else "n/a" }} |
+      max={{ max_amount if max_amount is not none else "n/a" }} |
+      generated_at={{ generated_at }}
+    </p>
+    {% if rows %}
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Counterparty</th>
+            <th>Status</th>
+            <th>Currency</th>
+            <th>Start Date</th>
+            <th>Principal</th>
+            <th>Remaining</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <td>{{ row.name }}</td>
+              <td>{{ row.counterparty or "" }}</td>
+              <td>{{ row.status }}</td>
+              <td>{{ row.currency }}</td>
+              <td>{{ row.start_date or "" }}</td>
+              <td class="num">{{ row.principal_amount }}</td>
+              <td class="num">{{ row.remaining_amount }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="empty">No rows for selected filters.</p>
+    {% endif %}
+  </body>
+</html>

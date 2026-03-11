@@ -132,6 +132,24 @@ jobs:
           path: frontend_contracts.log
           if-no-files-found: ignore
 
+      - name: Documents contracts gate
+        shell: bash
+        run: |
+          set +e
+          : > documents_contract.log
+          python3 -m pytest -q tests/test_documents_contract.py | tee documents_contract.log
+          cmd_status=${PIPESTATUS[0]}
+          set -e
+          exit "${cmd_status}"
+
+      - name: Upload documents contracts artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: documents_contract.log
+          path: documents_contract.log
+          if-no-files-found: ignore
+
       - name: Invariant catalog parity check
         shell: bash
         run: |

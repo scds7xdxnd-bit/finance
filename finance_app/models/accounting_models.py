@@ -399,3 +399,19 @@ class AdminActionAudit(db.Model):
     __table_args__ = (
         db.Index("ix_admin_action_audit_actor_created", "actor_user_id", "created_at"),
     )
+
+
+class MonthCloseSnapshot(db.Model):
+    __tablename__ = "month_close_snapshot"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ym = db.Column(db.String(7), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, nullable=False)
+    payload_json = db.Column(db.Text, nullable=False)
+    notes = db.Column(db.Text)
+    source_mode = db.Column(db.String(30))
+
+    __table_args__ = (
+        db.CheckConstraint("length(ym) = 7 AND substr(ym, 5, 1) = '-'", name="ck_month_close_snapshot_ym_fmt"),
+        db.Index("ix_month_close_snapshot_ym_created_desc", "ym", db.text("created_at DESC")),
+    )

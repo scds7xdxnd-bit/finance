@@ -237,6 +237,11 @@
       return res.json().catch(() => ({}));
     }
 
+    function shouldOpenReceivablesFromQuery(){
+      const ym = (new URLSearchParams(window.location.search || '').get('ym') || '').trim();
+      return /^\d{4}-(0[1-9]|1[0-2])$/.test(ym);
+    }
+
     // Toggle between views
     function showView(view) {
       const foldersBtn = document.getElementById('btn-view-folders');
@@ -573,7 +578,8 @@
     document.addEventListener('DOMContentLoaded', () => {
       // Restore last selected view if available
       const storedView = localStorage.getItem('accountingView') || 'folders';
-      showView(storedView);
+      const initialView = shouldOpenReceivablesFromQuery() ? 'receivables' : storedView;
+      showView(initialView);
       document.getElementById('btn-view-folders').addEventListener('click', () => showView('folders'));
       document.getElementById('btn-view-accounts').addEventListener('click', () => showView('accounts'));
       const trialBtn = document.getElementById('btn-view-trial');
@@ -582,8 +588,8 @@
       if (receivablesBtn) receivablesBtn.addEventListener('click', () => showView('receivables'));
       const balanceBtn = document.getElementById('btn-view-balance');
       if (balanceBtn) balanceBtn.addEventListener('click', () => { showView('balance'); initBalanceSheetUI(); });
-      if (storedView === 'balance') { initBalanceSheetUI(); }
-      if (storedView === 'receivables' && typeof window.initReceivableDebtUI === 'function') {
+      if (initialView === 'balance') { initBalanceSheetUI(); }
+      if (initialView === 'receivables' && typeof window.initReceivableDebtUI === 'function') {
         window.initReceivableDebtUI();
       }
       const clearBtn = document.getElementById('btn-clear-selection');
@@ -1281,14 +1287,14 @@
           </div>
         </div>
 
-        <div class="tb-step-card">
+        <div id="documents-panel" class="tb-step-card">
           <div class="tb-step-header">
             <div>
               <div class="tb-step-label">Step 1 · Filter</div>
               <div class="tb-step-title">Focus receivables & debt</div>
-              <p class="acc-note-muted">Choose type, currency, and tab to view saved or needs-info threads.</p>
+              <p class="acc-note-muted">Choose type, month, status, party, and amount range, then export receivables/payables PDFs.</p>
             </div>
-            <div class="tb-toolbar">
+            <div class="tb-toolbar" data-role="docs-selectors">
               <div class="tb-toolbar-fields">
                 <label class="tb-filter-field">
                   <span style="font-weight:600;color:#1a4d2e;">Type</span>
@@ -1304,18 +1310,49 @@
                     <option value="">All</option>
                   </select>
                 </label>
+                <label class="tb-filter-field">
+                  <span style="font-weight:600;color:#1a4d2e;">Month</span>
+                  <input id="rd-ym-filter" class="tb-input" type="month" placeholder="YYYY-MM">
+                </label>
+                <label class="tb-filter-field">
+                  <span style="font-weight:600;color:#1a4d2e;">Status</span>
+                  <select id="rd-status-filter" class="tb-select">
+                    <option value="all">All</option>
+                    <option value="open">Open</option>
+                    <option value="closed">Closed</option>
+                  </select>
+                </label>
+                <label class="tb-filter-field">
+                  <span style="font-weight:600;color:#1a4d2e;">Party</span>
+                  <input id="rd-party-filter" class="tb-input" type="text" placeholder="Counterparty name">
+                </label>
+                <label class="tb-filter-field">
+                  <span style="font-weight:600;color:#1a4d2e;">Min Amount</span>
+                  <input id="rd-min-amount-filter" class="tb-input" type="number" min="0" step="0.01" placeholder="0.00">
+                </label>
+                <label class="tb-filter-field">
+                  <span style="font-weight:600;color:#1a4d2e;">Max Amount</span>
+                  <input id="rd-max-amount-filter" class="tb-input" type="number" min="0" step="0.01" placeholder="0.00">
+                </label>
                 <div class="rd-tabs">
                   <button id="rd-tab-saved" class="rd-tab-btn active"><i class="fa fa-circle-check"></i> Saved <span id="rd-count-saved" class="rd-tab-count">0</span></button>
                   <button id="rd-tab-unsaved" class="rd-tab-btn"><i class="fa fa-pen"></i> Needs Info <span id="rd-count-unsaved" class="rd-tab-count">0</span></button>
                 </div>
               </div>
               <div class="tb-toolbar-fields">
+                <button id="rd-apply-filters" class="icon-btn tb-summary-toggle"><i class="fa fa-filter"></i> Apply</button>
+                <button id="rd-clear-filters" class="icon-btn btn-danger-ghost"><i class="fa fa-eraser"></i> Clear</button>
                 <button id="rd-refresh-btn" class="icon-btn tb-summary-toggle"><i class="fa fa-rotate"></i> Refresh</button>
+                <button id="rd-receivables-pdf-btn" class="icon-btn" data-action="download-receivables-pdf"><i class="fa fa-file-pdf"></i> Receivables PDF</button>
+                <button id="rd-payables-pdf-btn" class="icon-btn" data-action="download-payables-pdf"><i class="fa fa-file-pdf"></i> Payables PDF</button>
+                <button type="button" data-action="download-loan-receipt" hidden aria-hidden="true"></button>
                 <button id="rd-add-entry-btn" class="icon-btn rd-primary-btn"><i class="fa fa-plus"></i> Add Receivable/Debt</button>
               </div>
             </div>
           </div>
           <div class="tb-inline-note">Transactions that touch receivable or short-term debt folders appear here automatically.</div>
+          <div class="tb-inline-note">Generated as of <span data-role="docs-generated-at">—</span>. Regenerate before sharing; this is operational output and not legal certification.</div>
+          <div data-role="docs-error" class="journal-filter-errors" aria-live="polite"></div>
         </div>
 
         <div class="tb-step-card">
@@ -2679,10 +2716,11 @@
   document.addEventListener('DOMContentLoaded', function(){
     initSummaryToggle();
     const storedView = localStorage.getItem('accountingView') || 'folders';
-    if (storedView === 'receivables' && typeof window.initReceivableDebtUI === 'function') {
+    const initialView = shouldOpenReceivablesFromQuery() ? 'receivables' : storedView;
+    if (initialView === 'receivables' && typeof window.initReceivableDebtUI === 'function') {
       window.initReceivableDebtUI();
     }
-    if (storedView === 'trial') { 
+    if (initialView === 'trial') { 
       initTrialBalanceUI();
       ensureTrialPromptState();
       // If user previously completed setup, show summary by default
@@ -2894,7 +2932,15 @@
         pending: new Map(),
         dirty: new Set(),
         currencies: [],
-        filters: { type: 'all', currency: '' },
+        filters: {
+          type: 'all',
+          currency: '',
+          ym: todayIso().slice(0, 7),
+          status: 'all',
+          party: '',
+          min_amount: '',
+          max_amount: ''
+        },
         loading: false,
         summary: { receivable: 0, debt: 0, saved: 0, unsaved: 0 },
         lastFilteredCount: 0,
@@ -2909,7 +2955,9 @@
         loanGroupSuggestions: new Map(),
         loanGroupLoading: new Set(),
         contactViewMode: 'cards',
-        contactSort: 'alpha'
+        contactSort: 'alpha',
+        urlFiltersHydrated: false,
+        popstateBound: false
       };
     }
     return window.RECEIVABLE_STATE;
@@ -2923,6 +2971,372 @@
   };
   const RECEIVABLE_BASE_FLOWS = new Set(['loan_provided', 'debt_received']);
   const RECEIVABLE_SETTLEMENT_FLOWS = new Set(['loan_repaid', 'debt_paid']);
+  const RECEIVABLE_DOCUMENT_STATUS = new Set(['all', 'open', 'closed']);
+
+  function currentReceivableYm(){
+    return todayIso().slice(0, 7);
+  }
+
+  function receivableIsValidYm(value){
+    const raw = (value || '').trim();
+    if (!raw) return false;
+    const match = raw.match(/^(\d{4})-(\d{2})$/);
+    if (!match) return false;
+    const month = parseInt(match[2], 10);
+    return month >= 1 && month <= 12;
+  }
+
+  function receivableNormalizeAmount(value){
+    const raw = (value || '').trim();
+    if (!raw) return '';
+    const num = Number(raw);
+    if (!Number.isFinite(num) || num < 0) return null;
+    return num.toFixed(2);
+  }
+
+  function receivableStatusFromRow(row){
+    const remaining = toNumeric(row && row.remaining_amount);
+    if (Number.isFinite(remaining) && remaining <= 0.005) return 'closed';
+    const raw = ((row && row.status) || '').trim().toUpperCase();
+    return raw === 'PAID' ? 'closed' : 'open';
+  }
+
+  function getDocsErrorNode(){
+    return document.querySelector('#documents-panel [data-role="docs-error"]');
+  }
+
+  function setDocsError(message){
+    const node = getDocsErrorNode();
+    if (!node) return;
+    const text = (message || '').trim();
+    node.textContent = text;
+    node.classList.toggle('visible', !!text);
+  }
+
+  function clearDocsError(){
+    const node = getDocsErrorNode();
+    if (!node) return;
+    node.textContent = '';
+    node.classList.remove('visible');
+  }
+
+  function updateDocumentsGeneratedAt(){
+    const node = document.querySelector('#documents-panel [data-role="docs-generated-at"]');
+    if (!node) return;
+    const now = new Date();
+    try {
+      node.textContent = now.toLocaleString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (_) {
+      node.textContent = now.toISOString();
+    }
+  }
+
+  function setReceivableFilterMessage(message, tone = 'info'){
+    const node = document.getElementById('rd-status');
+    if (!node) return;
+    const text = (message || '').trim();
+    if (!text) return;
+    if (tone === 'error'){
+      node.style.color = '#b22222';
+    } else if (tone === 'success'){
+      node.style.color = '#1a4d2e';
+    } else {
+      node.style.color = '#1a4d2e';
+    }
+    node.textContent = text;
+  }
+
+  function hydrateReceivableFiltersFromUrl(state){
+    const params = new URLSearchParams(window.location.search || '');
+    const messages = [];
+    const ymRaw = (params.get('ym') || '').trim();
+    if (ymRaw){
+      if (receivableIsValidYm(ymRaw)) {
+        state.filters.ym = ymRaw;
+      } else {
+        state.filters.ym = currentReceivableYm();
+        messages.push(`Invalid month filter "${ymRaw}". Using ${state.filters.ym}.`);
+      }
+    } else {
+      state.filters.ym = state.filters.ym || currentReceivableYm();
+    }
+
+    const statusRaw = (params.get('status') || '').trim().toLowerCase();
+    if (statusRaw){
+      if (RECEIVABLE_DOCUMENT_STATUS.has(statusRaw)) {
+        state.filters.status = statusRaw;
+      } else {
+        state.filters.status = 'all';
+        messages.push(`Invalid status filter "${statusRaw}".`);
+      }
+    } else {
+      state.filters.status = state.filters.status || 'all';
+    }
+
+    state.filters.party = (params.get('party') || '').trim();
+
+    const minAmountRaw = (params.get('min_amount') || '').trim();
+    if (minAmountRaw){
+      const normalized = receivableNormalizeAmount(minAmountRaw);
+      if (normalized === null){
+        state.filters.min_amount = '';
+        messages.push(`Invalid min_amount filter "${minAmountRaw}".`);
+      } else {
+        state.filters.min_amount = normalized;
+      }
+    } else {
+      state.filters.min_amount = '';
+    }
+
+    const maxAmountRaw = (params.get('max_amount') || '').trim();
+    if (maxAmountRaw){
+      const normalized = receivableNormalizeAmount(maxAmountRaw);
+      if (normalized === null){
+        state.filters.max_amount = '';
+        messages.push(`Invalid max_amount filter "${maxAmountRaw}".`);
+      } else {
+        state.filters.max_amount = normalized;
+      }
+    } else {
+      state.filters.max_amount = '';
+    }
+
+    if (state.filters.min_amount && state.filters.max_amount){
+      const minVal = Number(state.filters.min_amount);
+      const maxVal = Number(state.filters.max_amount);
+      if (Number.isFinite(minVal) && Number.isFinite(maxVal) && minVal > maxVal){
+        state.filters.min_amount = '';
+        state.filters.max_amount = '';
+        messages.push('Invalid amount range: min amount must be less than or equal to max amount.');
+      }
+    }
+
+    const typeRaw = (params.get('rd_type') || '').trim().toLowerCase();
+    if (typeRaw === 'all' || typeRaw === 'receivable' || typeRaw === 'debt'){
+      state.filters.type = typeRaw || 'all';
+    }
+    const currencyRaw = (params.get('rd_currency') || '').trim().toUpperCase();
+    state.filters.currency = currencyRaw;
+
+    const viewRaw = (params.get('rd_view') || '').trim().toLowerCase();
+    if (viewRaw === 'saved' || viewRaw === 'unsaved'){
+      state.viewMode = viewRaw;
+    }
+
+    return messages.join(' ');
+  }
+
+  function syncReceivableFilterControls(){
+    const state = ensureReceivableState();
+    const typeNode = document.getElementById('rd-type-filter');
+    if (typeNode) typeNode.value = state.filters.type || 'all';
+    const currencyNode = document.getElementById('rd-currency-filter');
+    if (currencyNode) currencyNode.value = (state.filters.currency || '').toUpperCase();
+    const ymNode = document.getElementById('rd-ym-filter');
+    if (ymNode) ymNode.value = state.filters.ym || currentReceivableYm();
+    const statusNode = document.getElementById('rd-status-filter');
+    if (statusNode) statusNode.value = state.filters.status || 'all';
+    const partyNode = document.getElementById('rd-party-filter');
+    if (partyNode) partyNode.value = state.filters.party || '';
+    const minNode = document.getElementById('rd-min-amount-filter');
+    if (minNode) minNode.value = state.filters.min_amount || '';
+    const maxNode = document.getElementById('rd-max-amount-filter');
+    if (maxNode) maxNode.value = state.filters.max_amount || '';
+  }
+
+  function syncReceivableFiltersToUrl(options = {}){
+    const state = ensureReceivableState();
+    const preserveDefaults = options.preserveDefaults !== false;
+    const params = new URLSearchParams(window.location.search || '');
+    const assignOrDelete = (key, value) => {
+      const text = (value || '').toString().trim();
+      if (text) params.set(key, text);
+      else params.delete(key);
+    };
+    if (preserveDefaults){
+      assignOrDelete('ym', state.filters.ym || currentReceivableYm());
+      assignOrDelete('status', state.filters.status || 'all');
+      assignOrDelete('party', state.filters.party);
+      assignOrDelete('min_amount', state.filters.min_amount);
+      assignOrDelete('max_amount', state.filters.max_amount);
+      assignOrDelete('rd_type', state.filters.type && state.filters.type !== 'all' ? state.filters.type : '');
+      assignOrDelete('rd_currency', state.filters.currency || '');
+      assignOrDelete('rd_view', state.viewMode || 'saved');
+    } else {
+      ['ym', 'status', 'party', 'min_amount', 'max_amount', 'rd_type', 'rd_currency', 'rd_view'].forEach((key) => params.delete(key));
+    }
+    const query = params.toString();
+    const nextUrl = `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash || ''}`;
+    window.history.replaceState({}, '', nextUrl);
+  }
+
+  function applyReceivableFilterStateFromControls(options = {}){
+    const state = ensureReceivableState();
+    const resetPaging = options.resetPaging !== false;
+    const syncUrl = options.syncUrl !== false;
+
+    const typeRaw = (document.getElementById('rd-type-filter')?.value || 'all').trim().toLowerCase();
+    const currencyRaw = (document.getElementById('rd-currency-filter')?.value || '').trim().toUpperCase();
+    const ymRaw = (document.getElementById('rd-ym-filter')?.value || '').trim();
+    const statusRaw = (document.getElementById('rd-status-filter')?.value || 'all').trim().toLowerCase();
+    const partyRaw = (document.getElementById('rd-party-filter')?.value || '').trim();
+    const minRaw = (document.getElementById('rd-min-amount-filter')?.value || '').trim();
+    const maxRaw = (document.getElementById('rd-max-amount-filter')?.value || '').trim();
+
+    const ym = ymRaw;
+    if (!ym){
+      setDocsError('Month (YYYY-MM) is required.');
+      setReceivableFilterMessage('Month (YYYY-MM) is required.', 'error');
+      return false;
+    }
+    if (!receivableIsValidYm(ym)){
+      setDocsError('Month must be in YYYY-MM format.');
+      setReceivableFilterMessage('Month must be in YYYY-MM format.', 'error');
+      return false;
+    }
+    const status = RECEIVABLE_DOCUMENT_STATUS.has(statusRaw) ? statusRaw : 'all';
+    const minNormalized = receivableNormalizeAmount(minRaw);
+    if (minNormalized === null){
+      setDocsError('Min amount must be a valid decimal number.');
+      setReceivableFilterMessage('Min amount must be a valid decimal number.', 'error');
+      return false;
+    }
+    const maxNormalized = receivableNormalizeAmount(maxRaw);
+    if (maxNormalized === null){
+      setDocsError('Max amount must be a valid decimal number.');
+      setReceivableFilterMessage('Max amount must be a valid decimal number.', 'error');
+      return false;
+    }
+    if (minNormalized && maxNormalized && Number(minNormalized) > Number(maxNormalized)){
+      setDocsError('Min amount must be less than or equal to max amount.');
+      setReceivableFilterMessage('Min amount must be less than or equal to max amount.', 'error');
+      return false;
+    }
+
+    clearDocsError();
+    state.filters.type = typeRaw === 'receivable' || typeRaw === 'debt' ? typeRaw : 'all';
+    state.filters.currency = currencyRaw;
+    state.filters.ym = ym;
+    state.filters.status = status;
+    state.filters.party = partyRaw;
+    state.filters.min_amount = minNormalized || '';
+    state.filters.max_amount = maxNormalized || '';
+    if (resetPaging){
+      state.savedPage = 1;
+      state.unsavedPage = 1;
+    }
+    if (syncUrl){
+      syncReceivableFiltersToUrl();
+    }
+    return true;
+  }
+
+  function clearReceivableFilters(){
+    const state = ensureReceivableState();
+    state.filters.type = 'all';
+    state.filters.currency = '';
+    state.filters.ym = currentReceivableYm();
+    state.filters.status = 'all';
+    state.filters.party = '';
+    state.filters.min_amount = '';
+    state.filters.max_amount = '';
+    state.savedPage = 1;
+    state.unsavedPage = 1;
+    syncReceivableFilterControls();
+    syncReceivableFiltersToUrl({ preserveDefaults: false });
+    clearDocsError();
+    renderReceivableTable();
+  }
+
+  function buildReceivableDocumentsPdfUrl(direction){
+    const state = ensureReceivableState();
+    const ym = (state.filters.ym || '').trim();
+    if (!receivableIsValidYm(ym)){
+      setDocsError('Select a valid month (YYYY-MM) before downloading PDF.');
+      setReceivableFilterMessage('Select a valid month (YYYY-MM) before downloading PDF.', 'error');
+      return '';
+    }
+    const status = RECEIVABLE_DOCUMENT_STATUS.has(state.filters.status) ? state.filters.status : 'all';
+    const endpoint = direction === 'payable' ? '/accounting/payables/pdf' : '/accounting/receivables/pdf';
+    const params = new URLSearchParams();
+    params.set('ym', ym);
+    params.set('status', status);
+    if (state.filters.party) params.set('party', state.filters.party);
+    if (state.filters.min_amount) params.set('min_amount', state.filters.min_amount);
+    if (state.filters.max_amount) params.set('max_amount', state.filters.max_amount);
+    return `${endpoint}?${params.toString()}`;
+  }
+
+  async function preflightPdfNavigation(url, label){
+    if (!url) return false;
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { 'Accept': 'application/pdf' },
+        credentials: 'same-origin'
+      });
+      if (!response.ok){
+        setDocsError(`${label} download failed (${response.status}).`);
+        return false;
+      }
+      const contentType = String(response.headers.get('Content-Type') || '').toLowerCase();
+      if (!contentType.includes('application/pdf')){
+        setDocsError(`${label} download failed: server did not return a PDF.`);
+        return false;
+      }
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      const signature = new TextDecoder().decode(bytes.slice(0, 4));
+      if (signature !== '%PDF'){
+        setDocsError(`${label} download failed: invalid PDF signature.`);
+        return false;
+      }
+      clearDocsError();
+      window.location.assign(url);
+      return true;
+    } catch (_) {
+      setDocsError(`${label} download failed. Please try again.`);
+      return false;
+    }
+  }
+
+  async function triggerReceivablePdfDownload(direction){
+    if (!applyReceivableFilterStateFromControls({ resetPaging: false, syncUrl: true })) return;
+    const url = buildReceivableDocumentsPdfUrl(direction);
+    if (!url) return;
+    const label = direction === 'payable' ? 'Payables PDF' : 'Receivables PDF';
+    await preflightPdfNavigation(url, label);
+  }
+
+  function buildLoanReceiptPdfUrl(options = {}){
+    const entryRaw = options.entryId;
+    const loanRaw = options.loanId;
+    const entryId = Number.isFinite(Number(entryRaw)) ? parseInt(String(entryRaw), 10) : null;
+    const loanId = Number.isFinite(Number(loanRaw)) ? parseInt(String(loanRaw), 10) : null;
+    const hasEntry = Number.isInteger(entryId) && entryId > 0;
+    const hasLoan = Number.isInteger(loanId) && loanId > 0;
+    if ((hasEntry && hasLoan) || (!hasEntry && !hasLoan)){
+      setDocsError('Loan receipt requires exactly one selector: entry_id or loan_id.');
+      return '';
+    }
+    const state = ensureReceivableState();
+    const params = new URLSearchParams();
+    if (hasEntry){
+      params.set('entry_id', String(entryId));
+    } else {
+      params.set('loan_id', String(loanId));
+    }
+    if (receivableIsValidYm(state.filters.ym || '')){
+      params.set('ym', state.filters.ym);
+    }
+    clearDocsError();
+    return `/accounting/loan_receipt/pdf?${params.toString()}`;
+  }
 
   function getReceivableAccountList(kind){
     const boot = window.ACC_BOOT || {};
@@ -3347,6 +3761,20 @@
     return source.filter(baseRow => {
       if (state.filters.type !== 'all' && baseRow.type !== state.filters.type) return false;
       if (state.filters.currency && baseRow.currency !== state.filters.currency) return false;
+      if (state.filters.ym){
+        const dateValue = (baseRow.date_iso || baseRow.entry_date || '').trim();
+        if (!dateValue.startsWith(`${state.filters.ym}-`)) return false;
+      }
+      if (state.filters.status && state.filters.status !== 'all'){
+        if (receivableStatusFromRow(baseRow) !== state.filters.status) return false;
+      }
+      if (state.filters.party){
+        const partyValue = normalizeContactName(baseRow.contact_name || '');
+        if (!partyValue.includes(normalizeContactName(state.filters.party))) return false;
+      }
+      const amountValue = toNumeric(baseRow.transaction_value != null ? baseRow.transaction_value : baseRow.amount);
+      if (state.filters.min_amount && Number.isFinite(amountValue) && amountValue < Number(state.filters.min_amount)) return false;
+      if (state.filters.max_amount && Number.isFinite(amountValue) && amountValue > Number(state.filters.max_amount)) return false;
       return true;
     });
   }
@@ -4757,6 +5185,10 @@
       }
       const headerLinkText = isManual ? '' : (linkedEntries.length === 1 ? linkedLabel : (linkedEntries.length > 1 ? `${linkedEntries.length} linked` : ''));
       const manualChipHtml = isManual ? '<span class="rd-chip rd-chip-manual"><i class="fa fa-bookmark"></i> Tracker only</span>' : '';
+      const receiptHref = (!isManual && baseRow.journal_id) ? buildLoanReceiptPdfUrl({ entryId: baseRow.journal_id }) : '';
+      const receiptActionHtml = receiptHref
+        ? `<a class="icon-btn rd-receipt-btn" data-action="download-loan-receipt" data-entry-id="${escapeHtml(baseRow.journal_id)}" href="${escapeHtml(receiptHref)}" title="Download receipt PDF"><i class="fa fa-file-pdf"></i></a>`
+        : '';
       const linkOptions = isManual ? [] : buildReceivableLinkOptions(row);
       let linkOptionsHtml = linkOptions.length ? '<option value="">Select transaction…</option>' : '<option value="">No available transactions</option>';
       linkOptions.forEach(opt => {
@@ -4847,6 +5279,7 @@
             <div class="rd-header-amount">${row.currency} ${formatCurrency(row.amount || 0)}</div>
             ${!isManual && headerLinkText ? `<div class="rd-header-link"><i class="fa fa-link"></i> ${escapeHtml(headerLinkText)}</div>` : ''}
             <div class="rd-header-actions">
+              ${receiptActionHtml}
               <button type="button" class="icon-btn rd-save-btn"><i class="fa fa-floppy-disk"></i> Save</button>
               <button type="button" class="icon-btn rd-reset-btn" title="Reset"><i class="fa fa-rotate-left"></i></button>
               <button type="button" class="icon-btn rd-delete-btn" title="Remove"><i class="fa fa-trash"></i></button>
@@ -4995,6 +5428,7 @@ function bindReceivableRow(entry, baseRow, row){
     const saveBtn = entry.querySelector('.rd-save-btn');
     const resetBtn = entry.querySelector('.rd-reset-btn');
     const deleteBtn = entry.querySelector('.rd-delete-btn');
+    const receiptBtn = entry.querySelector('[data-action="download-loan-receipt"]');
     const linkSelect = entry.querySelector('.rd-link-select');
     const linkClear = entry.querySelector('.rd-link-clear');
     const linkAddBtn = entry.querySelector('.rd-link-add');
@@ -5067,6 +5501,14 @@ function bindReceivableRow(entry, baseRow, row){
     if (saveBtn) saveBtn.addEventListener('click', (e) => { e.stopPropagation(); saveReceivableRow(baseRow.line_id); });
     if (resetBtn) resetBtn.addEventListener('click', (e) => { e.stopPropagation(); resetReceivableRow(baseRow.line_id); });
     if (deleteBtn) deleteBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteReceivableRow(baseRow.line_id, deleteBtn); });
+    if (receiptBtn) receiptBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const entryIdRaw = receiptBtn.getAttribute('data-entry-id') || '';
+      const url = buildLoanReceiptPdfUrl({ entryId: entryIdRaw });
+      if (!url) return;
+      await preflightPdfNavigation(url, 'Loan receipt PDF');
+    });
     if (linkSelect) {
       const updateAddState = () => {
         if (linkAddBtn) {
@@ -5481,8 +5923,20 @@ function bindReceivableRow(entry, baseRow, row){
 
   function initReceivableDebtUI(){
     const state = ensureReceivableState();
+    updateDocumentsGeneratedAt();
+    if (!state.urlFiltersHydrated){
+      const filterWarning = hydrateReceivableFiltersFromUrl(state);
+      state.urlFiltersHydrated = true;
+      if (filterWarning){
+        setDocsError(filterWarning);
+      } else {
+        clearDocsError();
+      }
+    }
+    syncReceivableFilterControls();
     if (state.initialized){
       populateReceivableCurrencyFilter();
+      syncReceivableFilterControls();
       renderReceivableTable();
       refreshReceivableSummary();
       return;
@@ -5490,20 +5944,63 @@ function bindReceivableRow(entry, baseRow, row){
     state.initialized = true;
     const typeFilter = document.getElementById('rd-type-filter');
     const currencyFilter = document.getElementById('rd-currency-filter');
+    const ymFilter = document.getElementById('rd-ym-filter');
+    const statusFilter = document.getElementById('rd-status-filter');
+    const partyFilter = document.getElementById('rd-party-filter');
+    const minAmountFilter = document.getElementById('rd-min-amount-filter');
+    const maxAmountFilter = document.getElementById('rd-max-amount-filter');
+    const applyFiltersBtn = document.getElementById('rd-apply-filters');
+    const clearFiltersBtn = document.getElementById('rd-clear-filters');
+    const receivablesPdfBtn = document.getElementById('rd-receivables-pdf-btn');
+    const payablesPdfBtn = document.getElementById('rd-payables-pdf-btn');
     const refreshBtn = document.getElementById('rd-refresh-btn');
     if (typeFilter) typeFilter.addEventListener('change', () => {
-      state.filters.type = (typeFilter.value || 'all').toLowerCase();
-      state.savedPage = 1;
-      state.unsavedPage = 1;
+      if (!applyReceivableFilterStateFromControls({ resetPaging: true, syncUrl: true })) return;
       renderReceivableTable();
     });
     if (currencyFilter) currencyFilter.addEventListener('change', () => {
-      state.filters.currency = (currencyFilter.value || '').toUpperCase();
-      state.savedPage = 1;
-      state.unsavedPage = 1;
+      if (!applyReceivableFilterStateFromControls({ resetPaging: true, syncUrl: true })) return;
       renderReceivableTable();
     });
-    if (refreshBtn) refreshBtn.addEventListener('click', () => loadReceivableData());
+    if (ymFilter) ymFilter.addEventListener('change', () => {
+      if (!applyReceivableFilterStateFromControls({ resetPaging: true, syncUrl: true })) return;
+      renderReceivableTable();
+    });
+    if (statusFilter) statusFilter.addEventListener('change', () => {
+      if (!applyReceivableFilterStateFromControls({ resetPaging: true, syncUrl: true })) return;
+      renderReceivableTable();
+    });
+    if (partyFilter) partyFilter.addEventListener('keydown', (evt) => {
+      if (evt.key !== 'Enter') return;
+      evt.preventDefault();
+      if (!applyReceivableFilterStateFromControls({ resetPaging: true, syncUrl: true })) return;
+      renderReceivableTable();
+    });
+    if (minAmountFilter) minAmountFilter.addEventListener('change', () => {
+      if (!applyReceivableFilterStateFromControls({ resetPaging: true, syncUrl: true })) return;
+      renderReceivableTable();
+    });
+    if (maxAmountFilter) maxAmountFilter.addEventListener('change', () => {
+      if (!applyReceivableFilterStateFromControls({ resetPaging: true, syncUrl: true })) return;
+      renderReceivableTable();
+    });
+    if (applyFiltersBtn) applyFiltersBtn.addEventListener('click', () => {
+      if (!applyReceivableFilterStateFromControls({ resetPaging: true, syncUrl: true })) return;
+      renderReceivableTable();
+    });
+    if (clearFiltersBtn) clearFiltersBtn.addEventListener('click', () => {
+      clearReceivableFilters();
+    });
+    if (refreshBtn) refreshBtn.addEventListener('click', () => {
+      if (!applyReceivableFilterStateFromControls({ resetPaging: false, syncUrl: true })) return;
+      loadReceivableData();
+    });
+    if (receivablesPdfBtn) receivablesPdfBtn.addEventListener('click', () => {
+      triggerReceivablePdfDownload('receivable');
+    });
+    if (payablesPdfBtn) payablesPdfBtn.addEventListener('click', () => {
+      triggerReceivablePdfDownload('payable');
+    });
     const addBtn = document.getElementById('rd-add-entry-btn');
     if (addBtn) addBtn.addEventListener('click', () => {
       setupReceivableCreateModal();
@@ -5513,6 +6010,7 @@ function bindReceivableRow(entry, baseRow, row){
     if (tabSaved) tabSaved.addEventListener('click', () => {
       state.viewMode = 'saved';
       state.savedPage = 1;
+      syncReceivableFiltersToUrl();
       updateReceivableTabButtons();
       renderReceivableTable();
     });
@@ -5520,6 +6018,7 @@ function bindReceivableRow(entry, baseRow, row){
     if (tabUnsaved) tabUnsaved.addEventListener('click', () => {
       state.viewMode = 'unsaved';
       state.unsavedPage = 1;
+      syncReceivableFiltersToUrl();
       updateReceivableTabButtons();
       renderReceivableTable();
     });
@@ -5540,7 +6039,20 @@ function bindReceivableRow(entry, baseRow, row){
       state.contactSort = (sortSelect.value || 'alpha');
       renderReceivableContactGroups();
     });
+    if (!state.popstateBound){
+      state.popstateBound = true;
+      window.addEventListener('popstate', () => {
+        const warning = hydrateReceivableFiltersFromUrl(state);
+        syncReceivableFilterControls();
+        if (warning) setDocsError(warning);
+        else clearDocsError();
+        renderReceivableTable();
+      });
+    }
     setupReceivableCreateModal();
+    if (!applyReceivableFilterStateFromControls({ resetPaging: false, syncUrl: true })){
+      syncReceivableFilterControls();
+    }
     loadReceivableData();
   }
 

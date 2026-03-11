@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Loan Receipt {{ document_id }}</title>
+    <style>
+      body { font-family: Arial, sans-serif; font-size: 12px; color: #111; margin: 28px; }
+      h1 { margin: 0 0 8px; font-size: 20px; }
+      .meta { margin: 0 0 14px; color: #444; }
+      table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+      th, td { border: 1px solid #d0d0d0; padding: 6px 8px; }
+      th { width: 30%; text-align: left; background: #f2f4f7; }
+      .signatures { margin-top: 40px; display: flex; justify-content: space-between; }
+      .sig { width: 45%; border-top: 1px solid #555; padding-top: 6px; color: #555; }
+    </style>
+  </head>
+  <body>
+    <h1>Loan Provision/Settlement Receipt</h1>
+    <p class="meta">Document ID={{ document_id }} | generated_at={{ generated_at }}</p>
+    <table>
+      <tbody>
+        <tr><th>Group Name</th><td>{{ group.name }}</td></tr>
+        <tr><th>Direction</th><td>{{ group.direction }}</td></tr>
+        <tr><th>Counterparty</th><td>{{ group.counterparty or "" }}</td></tr>
+        <tr><th>Status</th><td>{{ group.status }}</td></tr>
+        <tr><th>Currency</th><td>{{ group.currency }}</td></tr>
+        <tr><th>Principal Amount</th><td>{{ group.principal_amount }}</td></tr>
+        <tr><th>Remaining Amount</th><td>{{ remaining_amount }}</td></tr>
+        <tr><th>Reference</th><td>{{ reference }}</td></tr>
+        <tr><th>Date</th><td>{{ group.start_date }}</td></tr>
+      </tbody>
+    </table>
+    <div class="signatures">
+      <div class="sig">Prepared by</div>
+      <div class="sig">Approved by</div>
+    </div>
+  </body>
+</html>
