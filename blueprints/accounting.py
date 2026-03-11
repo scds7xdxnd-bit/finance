@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Set
 
 from finance_app import LoanGroup, LoanGroupLink, current_user, db
 from finance_app.lib.auth import require_admin
+from finance_app.services.pdf_render_service import render_template_pdf
 from finance_app.services.journal_service import (
     JOURNAL_ERROR_UNBALANCED,
     JOURNAL_ERROR_WRITE_FAILED,
@@ -65,7 +66,7 @@ from finance_app.services.trial_balance_service import (
     set_initialization as tb_set_initialization,
 )
 from finance_app.services.schema_guard_service import guard_capabilities, validate_schema_guard_bypass
-from flask import Blueprint, Response, current_app, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, Response, current_app, flash, redirect, render_template, render_template_string, request, session, url_for
 from sqlalchemy import func
 
 # We avoid importing from app at module import time to prevent circular imports.
@@ -172,6 +173,270 @@ def _parse_month_period(ym: str):
     except Exception:
         return None
     return year, month, start, end
+
+
+_DOCUMENT_STATUS_VALUES = {"open", "closed", "all"}
+
+
+def _documents_html_error(status: int, message: str):
+    return Response(
+        render_template_string(
+            """
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8"><title>Documents Error</title></head>
+  <body>
+    <main>
+      <h1>Documents request failed</h1>
+      <p>{{ message }}</p>
+    </main>
+  </body>
+</html>
+            """,
+            message=message,
+        ),
+        status=status,
+        mimetype="text/html",
+    )
+
+
+def _parse_documents_pdf_selector():
+    ym = (request.args.get("ym") or "").strip()
+    period = _parse_month_period(ym) if ym else None
+    if not ym or period is None:
+        return None, "Invalid ym selector. Expected YYYY-MM."
+
+    status = (request.args.get("status") or "all").strip().lower()
+    if status not in _DOCUMENT_STATUS_VALUES:
+        return None, "Invalid status selector. Expected open, closed, or all."
+
+    party = (request.args.get("party") or "").strip() or None
+
+    def _parse_amount(name: str):
+        raw = (request.args.get(name) or "").strip()
+        if not raw:
+            return None, None
+        try:
+            amount = Decimal(raw).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        except Exception:
+            return None, f"Invalid {name} selector. Expected decimal."
+        return amount, None
+
+    min_amount, min_error = _parse_amount("min_amount")
+    if min_error:
+        return None, min_error
+    max_amount, max_error = _parse_amount("max_amount")
+    if max_error:
+        return None, max_error
+    if min_amount is not None and max_amount is not None and min_amount > max_amount:
+        return None, "Invalid amount range. min_amount must be <= max_amount."
+
+    return {
+        "ym": ym,
+        "period": period,
+        "status": status,
+        "party": party,
+        "min_amount": min_amount,
+        "max_amount": max_amount,
+    }, None
+
+
+def _filename_token(value, *, default="all"):
+    raw = (str(value or "")).strip().lower()
+    if not raw:
+        return default
+    chars = []
+    for ch in raw:
+        chars.append(ch if ch.isalnum() else "-")
+    normalized = "".join(chars).strip("-")
+    return normalized or default
+
+
+def _decimal_str(value):
+    if value is None:
+        return None
+    try:
+        dec = value if isinstance(value, Decimal) else Decimal(str(value))
+        return f"{dec.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP):.2f}"
+    except Exception:
+        return str(value)
+
+
+def _query_documents_rows(*, user_id: int, direction: str, selector: dict):
+    from finance_app.services.loan_group_service import group_summary as loan_group_summary_service
+
+    _, _, start, end = selector["period"]
+    status = selector["status"]
+    party = selector["party"]
+    min_amount = selector["min_amount"]
+    max_amount = selector["max_amount"]
+
+    query = LoanGroup.query.filter_by(user_id=user_id, direction=direction)
+    query = query.filter(LoanGroup.start_date >= start, LoanGroup.start_date <= end)
+    if status != "all":
+        query = query.filter(func.lower(LoanGroup.status) == status)
+    if party:
+        query = query.filter(func.lower(LoanGroup.counterparty).contains(party.lower()))
+    if min_amount is not None:
+        query = query.filter(LoanGroup.principal_amount >= min_amount)
+    if max_amount is not None:
+        query = query.filter(LoanGroup.principal_amount <= max_amount)
+
+    rows = []
+    groups = query.order_by(LoanGroup.start_date.asc(), LoanGroup.created_at.asc(), LoanGroup.id.asc()).all()
+    for group in groups:
+        summary, _ = loan_group_summary_service(user_id, group)
+        rows.append(
+            {
+                "id": group.id,
+                "name": group.name,
+                "counterparty": group.counterparty,
+                "status": group.status,
+                "currency": group.currency,
+                "start_date": group.start_date.isoformat() if group.start_date else None,
+                "principal_amount": _decimal_str(group.principal_amount),
+                "remaining_amount": _decimal_str((summary or {}).get("remaining")),
+            }
+        )
+    return rows
+
+
+def _is_open_documents_tracker_row(row) -> bool:
+    status = (getattr(row, "status", "") or "").strip().upper()
+    if status in {"PAID", "CLOSED", "SETTLED"}:
+        return False
+    if status in {"UNPAID", "OPEN", "PARTIAL", "OVERDUE"}:
+        return True
+
+    try:
+        remaining = Decimal(str(getattr(row, "remaining_amount", None)))
+        if remaining > Decimal("0.005"):
+            return True
+    except Exception:
+        pass
+
+    try:
+        transaction_value = Decimal(str(getattr(row, "transaction_value", None)))
+        amount_paid = Decimal(str(getattr(row, "amount_paid", None)))
+        return amount_paid + Decimal("0.005") < transaction_value
+    except Exception:
+        return False
+
+
+def _derive_month_close_documents_counts(*, user_id: int, start: _dt.date, end: _dt.date):
+    from finance_app import JournalEntry, ReceivableTracker
+
+    counters = {
+        "open_receivables_count": 0,
+        "open_payables_count": 0,
+        "total_receivables_count": 0,
+        "total_payables_count": 0,
+        "open_documents_count": 0,
+        "total_documents_count": 0,
+    }
+    try:
+        rows = (
+            ReceivableTracker.query.join(JournalEntry, ReceivableTracker.journal_id == JournalEntry.id)
+            .filter(
+                ReceivableTracker.user_id == user_id,
+                JournalEntry.user_id == user_id,
+                JournalEntry.date_parsed >= start,
+                JournalEntry.date_parsed <= end,
+            )
+            .all()
+        )
+    except Exception:
+        return {"ok": False, "counts": counters}
+
+    for row in rows:
+        category = (getattr(row, "category", "") or "").strip().lower()
+        is_open = _is_open_documents_tracker_row(row)
+        if category == "receivable":
+            counters["total_receivables_count"] += 1
+            if is_open:
+                counters["open_receivables_count"] += 1
+        elif category in {"debt", "payable"}:
+            counters["total_payables_count"] += 1
+            if is_open:
+                counters["open_payables_count"] += 1
+
+    counters["open_documents_count"] = counters["open_receivables_count"] + counters["open_payables_count"]
+    counters["total_documents_count"] = counters["total_receivables_count"] + counters["total_payables_count"]
+    return {"ok": True, "counts": counters}
+
+
+def _derive_month_close_draft_counts(*, user_id: int, start: _dt.date, end: _dt.date):
+    from finance_app import JournalEntry, JournalLine
+
+    counters = {"draft_count": 0, "unbalanced_draft_count": 0}
+    try:
+        strict_draft_entries = (
+            JournalEntry.query.filter(
+                JournalEntry.user_id == user_id,
+                JournalEntry.posted_at.is_(None),
+                JournalEntry.date_parsed >= start,
+                JournalEntry.date_parsed <= end,
+            )
+            .order_by(JournalEntry.id.asc())
+            .all()
+        )
+    except Exception:
+        return {"ok": False, "counts": counters}
+
+    draft_entries = list(strict_draft_entries or [])
+    if not draft_entries:
+        # Legacy compatibility: older write paths may auto-populate posted_at via ORM defaults.
+        try:
+            draft_entries = (
+                JournalEntry.query.filter(
+                    JournalEntry.user_id == user_id,
+                    JournalEntry.date_parsed >= start,
+                    JournalEntry.date_parsed <= end,
+                )
+                .order_by(JournalEntry.id.asc())
+                .all()
+            )
+        except Exception:
+            return {"ok": False, "counts": counters}
+
+    draft_ids = [int(entry.id) for entry in (draft_entries or []) if getattr(entry, "id", None) is not None]
+    counters["draft_count"] = len(draft_ids)
+    if not draft_ids:
+        return {"ok": True, "counts": counters}
+
+    totals = {entry_id: {"D": Decimal("0"), "C": Decimal("0")} for entry_id in draft_ids}
+    try:
+        rows = (
+            db.session.query(
+                JournalLine.journal_id,
+                JournalLine.dc,
+                func.coalesce(func.sum(JournalLine.amount_base), 0),
+            )
+            .filter(JournalLine.journal_id.in_(draft_ids))
+            .group_by(JournalLine.journal_id, JournalLine.dc)
+            .all()
+        )
+    except Exception:
+        return {"ok": False, "counts": counters}
+
+    for journal_id, dc, amount_total in rows:
+        key = (str(dc or "")).strip().upper()
+        if key not in {"D", "C"}:
+            continue
+        try:
+            totals[int(journal_id)][key] = Decimal(str(amount_total or 0))
+        except Exception:
+            totals[int(journal_id)][key] = Decimal("0")
+
+    epsilon = Decimal("0.005")
+    unbalanced_count = 0
+    for draft_id in draft_ids:
+        debit_total = totals[draft_id]["D"]
+        credit_total = totals[draft_id]["C"]
+        if (debit_total - credit_total).copy_abs() > epsilon:
+            unbalanced_count += 1
+    counters["unbalanced_draft_count"] = unbalanced_count
+    return {"ok": True, "counts": counters}
 
 
 def _resolve_receivable_scope(user):
@@ -486,6 +751,445 @@ def accounting():
                            opening_balance_dates=opening_balance_dates,
                            tb_first_month=tb_first_month,
                            tb_initialized_on=tb_initialized_on)
+
+
+def month_close_foundation():
+    from finance_app import current_user
+
+    user = current_user()
+    if not user:
+        flash('Login required.')
+        return redirect(url_for('auth_bp.login'))
+
+    active_ym, period, ym_valid, ym_warning = _resolve_month_close_period(request.args.get('ym'))
+    ym_message = f"Month close period: {active_ym}"
+
+    start = end = None
+    if period:
+        _, _, start, end = period
+
+    statement_result = None
+    tb_result = None
+    coverage_state = "unknown"
+    coverage_source = "unknown"
+    coverage_note = "Coverage check is unavailable for this period."
+    if start and end:
+        try:
+            statement_result, tb_result = _build_month_close_snapshot_payload(user.id, active_ym, start, end)
+            if isinstance(statement_result, dict) and isinstance(tb_result, dict):
+                coverage_source = "tb+statement"
+                statement_ok = bool(statement_result.get("ok"))
+                tb_ok = bool(tb_result.get("ok"))
+                coverage_data = statement_result.get("coverage")
+                has_partial_flag = False
+                if isinstance(coverage_data, dict):
+                    has_partial_flag = bool(
+                        coverage_data.get("partial")
+                        or coverage_data.get("incomplete")
+                        or coverage_data.get("is_partial")
+                        or coverage_data.get("present") is False
+                    )
+                coverage_state = "ok" if (statement_ok and tb_ok and not has_partial_flag) else "warn"
+                coverage_note = (
+                    f"TB ok={tb_ok}; statement ok={statement_ok}; partial={has_partial_flag}."
+                )
+            elif isinstance(statement_result, dict) or isinstance(tb_result, dict):
+                coverage_state = "warn"
+                coverage_source = "tb+statement"
+                statement_error = statement_result.get("error") if isinstance(statement_result, dict) else None
+                tb_error = tb_result.get("error") if isinstance(tb_result, dict) else None
+                coverage_note = str(statement_error or tb_error or "Coverage is partially unavailable.")
+            else:
+                coverage_state = "unknown"
+                coverage_source = "unknown"
+                coverage_note = "Coverage could not be computed safely."
+        except Exception:
+            current_app.logger.exception("month_close_coverage_unavailable user_id=%s ym=%s", user.id, active_ym)
+            coverage_state = "unknown"
+            coverage_source = "unknown"
+            coverage_note = "Coverage check failed; please retry after reports are available."
+
+    unbalanced_state = "unknown"
+    unbalanced_note = "Draft balance state is unavailable for this period."
+    drafts_count = "?"
+    unbalanced_drafts_count = "?"
+    if start and end:
+        try:
+            draft_counts_result = _derive_month_close_draft_counts(user_id=user.id, start=start, end=end)
+            if draft_counts_result.get("ok"):
+                draft_counts = draft_counts_result.get("counts") or {}
+                draft_count_value = int(draft_counts.get("draft_count") or 0)
+                unbalanced_count_value = int(draft_counts.get("unbalanced_draft_count") or 0)
+                drafts_count = str(draft_count_value)
+                unbalanced_drafts_count = str(unbalanced_count_value)
+                unbalanced_state = "warn" if unbalanced_count_value > 0 else "ok"
+                unbalanced_note = (
+                    f"Draft entries={draft_count_value}; unbalanced drafts={unbalanced_count_value}."
+                )
+            else:
+                unbalanced_state = "unknown"
+                unbalanced_note = "Draft balance state could not be computed safely."
+        except Exception:
+            current_app.logger.exception("month_close_draft_state_unavailable user_id=%s ym=%s", user.id, active_ym)
+            unbalanced_state = "unknown"
+            unbalanced_note = "Draft balance state could not be computed safely."
+
+    reports_state = "ok" if ym_valid else "warn"
+    reports_note = "Use existing TB Monthly and Statement Data surfaces for review."
+    report_links = {
+        "tb_monthly": url_for("accounting_bp.tb_monthly", ym=active_ym),
+        "statement_data": url_for("accounting_bp.statement_data", ym=active_ym),
+        "statement_export": url_for("accounting_bp.statement_export", ym=active_ym, kind="income", format="csv"),
+        "tb_pdf": url_for("accounting_bp.tb_pdf", ym=active_ym),
+        "statement_pdf": url_for("accounting_bp.statement_pdf", ym=active_ym, kind="income"),
+    }
+    page_ctx = (request.args.get("page") or "").strip() or None
+    per_page_ctx = (request.args.get("per_page") or "").strip() or None
+    journal_drafts_params = {"ym": active_ym}
+    if start and end:
+        journal_drafts_params["start"] = start.isoformat()
+        journal_drafts_params["end"] = end.isoformat()
+    if page_ctx and per_page_ctx:
+        journal_drafts_params["page"] = page_ctx
+        journal_drafts_params["per_page"] = per_page_ctx
+    resolution_links = {
+        "open_tb": url_for("accounting_bp.tb_monthly", ym=active_ym),
+        "open_statements": url_for("accounting_bp.statement_data", ym=active_ym),
+        "open_journal_drafts": url_for("accounting_bp.journal_entries_list", **journal_drafts_params),
+        "open_documents_panel": url_for("accounting_bp.accounting", ym=active_ym),
+    }
+    documents_state = "unknown"
+    documents_note = "Documents state is unavailable for this period."
+    documents_open_count = "?"
+    documents_total_count = "?"
+    document_links = {
+        "receivables_pdf": url_for("accounting_bp.receivables_pdf", ym=active_ym, status="all"),
+        "payables_pdf": url_for("accounting_bp.payables_pdf", ym=active_ym, status="all"),
+    }
+    loan_receipt_url = None
+
+    if start and end:
+        try:
+            counts_result = _derive_month_close_documents_counts(user_id=user.id, start=start, end=end)
+            if counts_result.get("ok"):
+                counts = counts_result.get("counts") or {}
+                open_documents_count = int(counts.get("open_documents_count") or 0)
+                total_documents_count = int(counts.get("total_documents_count") or 0)
+                documents_open_count = str(open_documents_count)
+                documents_total_count = str(total_documents_count)
+                documents_state = "warn" if open_documents_count > 0 else "ok"
+                documents_note = (
+                    f"Open documents: {open_documents_count}. Total documents: {total_documents_count}. "
+                    "Download-now posture: documents are generated as-of request time and may be regenerated."
+                )
+            else:
+                documents_state = "unknown"
+                documents_note = "Documents state could not be computed safely."
+        except Exception:
+            current_app.logger.exception("month_close_documents_state_unavailable user_id=%s ym=%s", user.id, active_ym)
+            documents_state = "unknown"
+            documents_note = "Documents state could not be computed safely."
+
+    readiness_state = "unknown"
+    readiness_message = "Readiness unknown (insufficient data)."
+    readiness_action_key = "retry_refresh"
+    readiness_action_enabled = "true"
+    readiness_action_url = url_for("accounting_bp.month_close_foundation", ym=active_ym)
+
+    has_unknown_state = any(state == "unknown" for state in (coverage_state, unbalanced_state, documents_state))
+    has_warn_state = any(state == "warn" for state in (coverage_state, unbalanced_state, documents_state))
+    if has_unknown_state:
+        readiness_state = "unknown"
+        readiness_message = "Readiness unknown (insufficient data)."
+        readiness_action_key = "retry_refresh"
+        readiness_action_enabled = "true"
+        readiness_action_url = url_for("accounting_bp.month_close_foundation", ym=active_ym)
+    elif has_warn_state:
+        readiness_state = "attention"
+        readiness_message = "Needs attention before closing (advisory)."
+        if unbalanced_state == "warn":
+            readiness_action_key = "open_journal_drafts"
+            readiness_action_enabled = "true"
+            readiness_action_url = resolution_links.get("open_journal_drafts")
+        elif documents_state == "warn":
+            readiness_action_key = "open_documents"
+            readiness_action_enabled = "true"
+            readiness_action_url = resolution_links.get("open_documents_panel")
+        else:
+            readiness_action_key = "open_statements"
+            readiness_action_enabled = "true"
+            readiness_action_url = resolution_links.get("open_statements")
+    else:
+        readiness_state = "ready"
+        readiness_message = "Ready to close month (advisory)."
+        readiness_action_key = "create_snapshot"
+        readiness_action_enabled = "true"
+        readiness_action_url = None
+
+    snapshots = _list_month_close_snapshots(active_ym)
+    if snapshots:
+        snapshot_state = "ok"
+        snapshot_note = f"Saved snapshot available for {active_ym}."
+    else:
+        snapshot_state = "warn"
+        snapshot_note = "No snapshot saved yet."
+    csrf_token = session.get("csrf_token", "")
+
+    return render_template_string(
+        """
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Month Close</title>
+  </head>
+  <body>
+    <main id="month-close-page" data-page-selector="#month-close-page"{% if page_ctx %} data-current-page="{{ page_ctx }}"{% endif %}{% if per_page_ctx %} data-per-page="{{ per_page_ctx }}"{% endif %}>
+      <h1>Month Close Foundation</h1>
+      <p data-role="month-close-ym">{{ ym_message }}</p>
+      {% if ym_warning %}
+        <p data-role="month-close-ym-warning">{{ ym_warning }}</p>
+      {% endif %}
+
+      <section data-role="month-close-checklist">
+        <article data-role="mc-readiness" data-state="{{ readiness_state }}">
+          <h2>Readiness</h2>
+          <p data-role="mc-readiness-message">{{ readiness_message }}</p>
+          <p data-role="mc-readiness-next-action"
+             data-action-key="{{ readiness_action_key }}"
+             data-enabled="{{ readiness_action_enabled }}">
+            Next action: {{ readiness_action_key }}
+          </p>
+          {% if readiness_action_url %}
+            <a data-role="mc-readiness-next-action-link" href="{{ readiness_action_url }}">Go</a>
+          {% endif %}
+        </article>
+        <article data-role="mc-coverage" data-state="{{ coverage_state }}">
+          <h2>Coverage</h2>
+          <p data-role="mc-coverage-source">{{ coverage_source }}</p>
+          <p data-role="mc-coverage-note">{{ coverage_note }}</p>
+        </article>
+        <article data-role="mc-unbalanced-drafts" data-state="{{ unbalanced_state }}">
+          <h2>Unbalanced drafts</h2>
+          <p>{{ unbalanced_note }}</p>
+          <p>
+            Drafts: <span data-role="mc-drafts-count">{{ drafts_count }}</span>
+            /
+            Unbalanced: <span data-role="mc-unbalanced-drafts-count">{{ unbalanced_drafts_count }}</span>
+          </p>
+          <ul>
+            <li><a data-action="mc-open-journal-drafts" href="{{ resolution_links.open_journal_drafts }}">Open journal drafts</a></li>
+          </ul>
+        </article>
+        <article data-role="mc-reports" data-state="{{ reports_state }}">
+          <h2>Reports</h2>
+          <p>{{ reports_note }}</p>
+          <ul>
+            <li><a data-action="mc-open-tb" href="{{ resolution_links.open_tb }}">Open TB</a></li>
+            <li><a data-action="mc-open-statements" href="{{ resolution_links.open_statements }}">Open statements</a></li>
+            <li><a href="{{ report_links.tb_monthly }}">TB Monthly</a></li>
+            <li><a href="{{ report_links.statement_data }}">Statement Data</a></li>
+            <li><a href="{{ report_links.statement_export }}">Statement Export</a></li>
+            <li><a data-action="mc-download-tb-pdf" href="{{ report_links.tb_pdf }}">Download TB PDF</a></li>
+            <li><a data-action="mc-download-statement-pdf" href="{{ report_links.statement_pdf }}">Download Statement PDF</a></li>
+          </ul>
+        </article>
+        <article data-role="mc-documents" data-state="{{ documents_state }}">
+          <h2>Documents</h2>
+          <p>{{ documents_note }}</p>
+          <p><a data-action="mc-open-documents-panel" href="{{ resolution_links.open_documents_panel }}">Open documents panel</a></p>
+          <p>
+            Open: <span data-role="mc-documents-open-count">{{ documents_open_count }}</span>
+            /
+            Total: <span data-role="mc-documents-total-count">{{ documents_total_count }}</span>
+          </p>
+          <ul>
+            <li><a data-action="mc-download-receivables-pdf" href="{{ document_links.receivables_pdf }}">Download Receivables PDF</a></li>
+            <li><a data-action="mc-download-payables-pdf" href="{{ document_links.payables_pdf }}">Download Payables PDF</a></li>
+            {% if loan_receipt_url %}
+              <li><a data-action="mc-download-loan-receipt-pdf" href="{{ loan_receipt_url }}">Download Loan Receipt PDF</a></li>
+            {% endif %}
+          </ul>
+        </article>
+        <article data-role="mc-snapshot" data-state="{{ snapshot_state }}">
+          <h2>Snapshot</h2>
+          <p data-role="mc-snapshot-status">{{ snapshot_note }}</p>
+          <form method="post" action="{{ url_for('accounting_bp.month_close_snapshot_create', ym=active_ym) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" data-action="mc-create-snapshot">Create snapshot</button>
+          </form>
+          <ul data-role="mc-snapshot-list">
+            {% if snapshots %}
+              {% for item in snapshots %}
+                <li>{{ item.created_at }} · {{ item.summary }}</li>
+              {% endfor %}
+            {% else %}
+              <li>No snapshots yet.</li>
+            {% endif %}
+          </ul>
+        </article>
+      </section>
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <section aria-live="polite">
+            <ul>
+              {% for message in messages %}
+                <li>{{ message }}</li>
+              {% endfor %}
+            </ul>
+          </section>
+        {% endif %}
+      {% endwith %}
+    </main>
+  </body>
+</html>
+        """,
+        active_ym=active_ym,
+        ym_message=ym_message,
+        ym_warning=ym_warning,
+        coverage_state=coverage_state,
+        coverage_source=coverage_source,
+        coverage_note=coverage_note,
+        unbalanced_state=unbalanced_state,
+        unbalanced_note=unbalanced_note,
+        drafts_count=drafts_count,
+        unbalanced_drafts_count=unbalanced_drafts_count,
+        page_ctx=page_ctx,
+        per_page_ctx=per_page_ctx,
+        resolution_links=resolution_links,
+        reports_state=reports_state,
+        reports_note=reports_note,
+        report_links=report_links,
+        documents_state=documents_state,
+        documents_note=documents_note,
+        documents_open_count=documents_open_count,
+        documents_total_count=documents_total_count,
+        document_links=document_links,
+        loan_receipt_url=loan_receipt_url,
+        readiness_state=readiness_state,
+        readiness_message=readiness_message,
+        readiness_action_key=readiness_action_key,
+        readiness_action_enabled=readiness_action_enabled,
+        readiness_action_url=readiness_action_url,
+        snapshot_state=snapshot_state,
+        snapshot_note=snapshot_note,
+        snapshots=snapshots,
+        csrf_token=csrf_token,
+    )
+
+
+def _resolve_month_close_period(raw_ym):
+    requested_ym = (raw_ym or '').strip()
+    period = _parse_month_period(requested_ym) if requested_ym else None
+    ym_valid = period is not None
+    if ym_valid:
+        return requested_ym, period, True, ""
+    fallback_ym = _dt.date.today().strftime("%Y-%m")
+    fallback_period = _parse_month_period(fallback_ym)
+    if requested_ym:
+        warning = f"Invalid ym '{requested_ym}'. Showing fallback month {fallback_ym}."
+    else:
+        warning = f"Missing ym. Showing fallback month {fallback_ym}."
+    return fallback_ym, fallback_period, False, warning
+
+
+def _build_month_close_snapshot_payload(user_id, ym, start, end):
+    statement_result = ledger_statement_period(
+        user_id,
+        start,
+        end,
+        currency=None,
+        cash_folder_ids=[],
+    )
+    tb_result = ledger_trial_balance_month(user_id, ym, currency=None, include_coverage=False)
+    return statement_result, tb_result
+
+
+def _month_close_snapshot_dir(ym):
+    from pathlib import Path
+
+    return Path(current_app.instance_path) / "month_close_snapshots" / str(ym)
+
+
+def _write_month_close_snapshot(*, ym, payload):
+    snapshot_dir = _month_close_snapshot_dir(ym)
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+    created_at = _dt.datetime.now(_dt.timezone.utc)
+    created_iso = created_at.isoformat().replace("+00:00", "Z")
+    stamp = created_at.strftime("%Y%m%dT%H%M%S%fZ")
+    file_path = snapshot_dir / f"{stamp}.json"
+    tmp_path = snapshot_dir / f".{stamp}.tmp"
+    snapshot_doc = dict(payload or {})
+    snapshot_doc["ym"] = ym
+    snapshot_doc["created_at"] = created_iso
+    with tmp_path.open("w", encoding="utf-8") as handle:
+        json.dump(snapshot_doc, handle, ensure_ascii=False, sort_keys=True, default=str)
+    tmp_path.replace(file_path)
+    return {"id": file_path.name, "created_at": created_iso}
+
+
+def _list_month_close_snapshots(ym):
+    snapshot_dir = _month_close_snapshot_dir(ym)
+    if not snapshot_dir.exists():
+        return []
+    rows = []
+    for file_path in sorted(snapshot_dir.glob("*.json"), key=lambda p: p.name, reverse=True):
+        try:
+            with file_path.open("r", encoding="utf-8") as handle:
+                doc = json.load(handle)
+            created_at = str(doc.get("created_at") or file_path.stem).strip() or file_path.stem
+            source_mode = str(doc.get("source_mode") or "journal").strip() or "journal"
+            rows.append(
+                {
+                    "id": file_path.name,
+                    "created_at": created_at,
+                    "summary": f"source={source_mode}",
+                }
+            )
+        except Exception:
+            rows.append(
+                {
+                    "id": file_path.name,
+                    "created_at": file_path.stem,
+                    "summary": "snapshot file unreadable",
+                }
+            )
+    return rows
+
+
+def month_close_snapshot_create():
+    from finance_app import current_user
+
+    user = current_user()
+    if not user:
+        flash('Login required.')
+        return redirect(url_for('auth_bp.login'))
+    if not _check_csrf():
+        flash('CSRF token missing or invalid.')
+        return redirect(url_for('accounting_bp.month_close_foundation', ym=(request.args.get('ym') or '').strip()))
+
+    active_ym, period, _, ym_warning = _resolve_month_close_period(request.args.get('ym'))
+    if ym_warning:
+        flash(ym_warning)
+    if not period:
+        flash('Unable to resolve month-close period.')
+        return redirect(url_for('accounting_bp.month_close_foundation', ym=active_ym))
+    _, _, start, end = period
+
+    try:
+        statement_result, tb_result = _build_month_close_snapshot_payload(user.id, active_ym, start, end)
+        snapshot_payload = {
+            "source_mode": "journal",
+            "statement": statement_result,
+            "trial_balance": tb_result,
+            "notes": "month_close_phase_2_1_minimal_snapshot",
+        }
+        _write_month_close_snapshot(ym=active_ym, payload=snapshot_payload)
+        flash(f"Snapshot created for {active_ym}.")
+    except Exception:
+        current_app.logger.exception("month_close_snapshot_create_failed user_id=%s ym=%s", user.id, active_ym)
+        flash(f"Snapshot create failed for {active_ym}.")
+    return redirect(url_for('accounting_bp.month_close_foundation', ym=active_ym))
 
 
 def _check_csrf():
@@ -2852,6 +3556,240 @@ def statement_pdf():
         except Exception:
             pass
         return {'ok': False, 'error': f'Failed to render statement: {e}'}, 500
+
+
+def receivables_pdf():
+    user = current_user()
+    if not user:
+        return ("Unauthorized", 401)
+    ok_guard, payload, status = _guard_schema_caps(["journal_report_perf"], user_id=user.id)
+    if not ok_guard:
+        return payload, status
+
+    selector, parse_error = _parse_documents_pdf_selector()
+    if parse_error:
+        return _documents_html_error(400, parse_error)
+
+    rows = _query_documents_rows(user_id=user.id, direction="receivable", selector=selector)
+    ym = selector["ym"]
+    status_value = selector["status"]
+    party = selector["party"]
+    min_amount = selector["min_amount"]
+    max_amount = selector["max_amount"]
+    filename = f"receivables_{ym}_{_filename_token(status_value)}.pdf"
+    generated_at = _dt.datetime.now(_dt.timezone.utc).isoformat().replace("+00:00", "Z")
+    return render_template_pdf(
+        template_name="pdf/receivables_payables.html",
+        context={
+            "title": "Receivables Report",
+            "ym": ym,
+            "status": status_value,
+            "party": party,
+            "min_amount": _decimal_str(min_amount),
+            "max_amount": _decimal_str(max_amount),
+            "rows": rows,
+            "generated_at": generated_at,
+        },
+        filename=filename,
+        fallback_lines=[
+            "Receivables Report",
+            f"ym={ym}",
+            f"status={status_value}",
+            f"party={party or 'all'}",
+            f"rows={len(rows)}",
+            f"generated_at={generated_at}",
+        ],
+    )
+
+
+def payables_pdf():
+    user = current_user()
+    if not user:
+        return ("Unauthorized", 401)
+    ok_guard, payload, status = _guard_schema_caps(["journal_report_perf"], user_id=user.id)
+    if not ok_guard:
+        return payload, status
+
+    selector, parse_error = _parse_documents_pdf_selector()
+    if parse_error:
+        return _documents_html_error(400, parse_error)
+
+    rows = _query_documents_rows(user_id=user.id, direction="payable", selector=selector)
+    ym = selector["ym"]
+    status_value = selector["status"]
+    party = selector["party"]
+    min_amount = selector["min_amount"]
+    max_amount = selector["max_amount"]
+    filename = f"payables_{ym}_{_filename_token(status_value)}.pdf"
+    generated_at = _dt.datetime.now(_dt.timezone.utc).isoformat().replace("+00:00", "Z")
+    return render_template_pdf(
+        template_name="pdf/receivables_payables.html",
+        context={
+            "title": "Payables Report",
+            "ym": ym,
+            "status": status_value,
+            "party": party,
+            "min_amount": _decimal_str(min_amount),
+            "max_amount": _decimal_str(max_amount),
+            "rows": rows,
+            "generated_at": generated_at,
+        },
+        filename=filename,
+        fallback_lines=[
+            "Payables Report",
+            f"ym={ym}",
+            f"status={status_value}",
+            f"party={party or 'all'}",
+            f"rows={len(rows)}",
+            f"generated_at={generated_at}",
+        ],
+    )
+
+
+def loan_receipt_pdf():
+    from finance_app import JournalEntry, JournalLine, ReceivableTracker
+
+    user = current_user()
+    if not user:
+        return ("Unauthorized", 401)
+    ok_guard, payload, status = _guard_schema_caps(["journal_report_perf"], user_id=user.id)
+    if not ok_guard:
+        return payload, status
+
+    ym = (request.args.get("ym") or "").strip()
+    if ym and not _parse_month_period(ym):
+        return _documents_html_error(400, "Invalid ym selector. Expected YYYY-MM.")
+
+    loan_id = (request.args.get("loan_id") or "").strip()
+    entry_id_raw = (request.args.get("entry_id") or "").strip()
+    if bool(loan_id) == bool(entry_id_raw):
+        return _documents_html_error(400, "Provide exactly one selector: loan_id or entry_id.")
+    group = None
+    entry_receipt_context = None
+    if loan_id:
+        group = LoanGroup.query.filter_by(user_id=user.id, id=loan_id).first()
+        doc_id = f"loan_{_filename_token(loan_id, default='unknown')}"
+    else:
+        try:
+            entry_id = int(entry_id_raw)
+        except Exception:
+            return _documents_html_error(400, "Invalid entry_id selector. Expected integer.")
+        if entry_id <= 0:
+            return _documents_html_error(400, "Invalid entry_id selector. Expected positive integer.")
+        doc_id = f"entry_{entry_id}"
+        group = (
+            LoanGroup.query.join(LoanGroupLink, LoanGroupLink.loan_group_id == LoanGroup.id)
+            .join(JournalLine, LoanGroupLink.journal_line_id == JournalLine.id)
+            .filter(
+                LoanGroup.user_id == user.id,
+                LoanGroupLink.user_id == user.id,
+                JournalLine.journal_id == entry_id,
+            )
+            .order_by(LoanGroup.created_at.desc(), LoanGroup.id.desc())
+            .first()
+        )
+        if not group:
+            entry = JournalEntry.query.filter_by(user_id=user.id, id=entry_id).first()
+            if entry:
+                tracker_rows = (
+                    ReceivableTracker.query.filter_by(user_id=user.id, journal_id=entry_id)
+                    .order_by(ReceivableTracker.id.asc())
+                    .all()
+                )
+                if tracker_rows:
+                    parties = [str((row.contact_name or "")).strip() for row in tracker_rows]
+                    parties = [p for p in parties if p]
+                    categories = [str((row.category or "")).strip().lower() for row in tracker_rows]
+                    status_values = [str((row.status or "")).strip().upper() for row in tracker_rows]
+                    currencies = [str((row.currency_code or "")).strip().upper() for row in tracker_rows if row.currency_code]
+                    principal_total = Decimal("0")
+                    remaining_total = Decimal("0")
+                    for row in tracker_rows:
+                        principal_total += Decimal(str(row.transaction_value or 0))
+                        remaining_total += Decimal(str(row.remaining_amount or 0))
+                    if "receivable" in categories:
+                        direction_value = "receivable"
+                    elif "debt" in categories or "payable" in categories:
+                        direction_value = "payable"
+                    else:
+                        direction_value = "unknown"
+                    if any(status in {"UNPAID", "OPEN", "PARTIAL", "OVERDUE"} for status in status_values):
+                        status_value = "open"
+                    elif status_values:
+                        status_value = "closed"
+                    else:
+                        status_value = "unknown"
+                    entry_receipt_context = {
+                        "group": {
+                            "id": f"entry:{entry_id}",
+                            "name": (entry.description or f"Journal Entry {entry_id}"),
+                            "direction": direction_value,
+                            "counterparty": ", ".join(parties),
+                            "status": status_value,
+                            "currency": currencies[0] if currencies else "KRW",
+                            "principal_amount": _decimal_str(principal_total),
+                            "start_date": entry.date_parsed.isoformat() if entry.date_parsed else (entry.date or None),
+                        },
+                        "remaining_amount": _decimal_str(remaining_total),
+                        "reference": (request.args.get("reference") or "").strip() or (entry.reference or f"entry:{entry_id}"),
+                        "fallback_lines": [
+                            "Loan Provision/Settlement Receipt",
+                            f"document_id=entry_{entry_id}",
+                            f"entry_id={entry_id}",
+                            f"counterparty={', '.join(parties) if parties else 'n/a'}",
+                            f"principal={_decimal_str(principal_total)} {(currencies[0] if currencies else 'KRW')}",
+                            f"remaining={_decimal_str(remaining_total)} {(currencies[0] if currencies else 'KRW')}",
+                        ],
+                    }
+
+    if not group and not entry_receipt_context:
+        return _documents_html_error(404, "Loan receipt target not found.")
+
+    generated_at = _dt.datetime.now(_dt.timezone.utc).isoformat().replace("+00:00", "Z")
+    document_id = doc_id
+    filename = f"loan_receipt_{document_id}.pdf"
+    if group:
+        summary, _ = loan_group_summary(user.id, group)
+        context_group = {
+            "id": group.id,
+            "name": group.name,
+            "direction": group.direction,
+            "counterparty": group.counterparty,
+            "status": group.status,
+            "currency": group.currency,
+            "principal_amount": _decimal_str(group.principal_amount),
+            "start_date": group.start_date.isoformat() if group.start_date else None,
+        }
+        remaining_amount = _decimal_str((summary or {}).get("remaining"))
+        reference = (request.args.get("reference") or "").strip() or f"loan_group:{group.id}"
+        fallback_lines = [
+            "Loan Provision/Settlement Receipt",
+            f"document_id={document_id}",
+            f"group_id={group.id}",
+            f"counterparty={group.counterparty or 'n/a'}",
+            f"principal={_decimal_str(group.principal_amount)} {group.currency}",
+            f"remaining={_decimal_str((summary or {}).get('remaining'))} {group.currency}",
+            f"generated_at={generated_at}",
+        ]
+    else:
+        context_group = entry_receipt_context["group"]
+        remaining_amount = entry_receipt_context["remaining_amount"]
+        reference = entry_receipt_context["reference"]
+        fallback_lines = list(entry_receipt_context["fallback_lines"])
+        fallback_lines.append(f"generated_at={generated_at}")
+
+    return render_template_pdf(
+        template_name="pdf/loan_receipt.html",
+        context={
+            "group": context_group,
+            "document_id": document_id,
+            "generated_at": generated_at,
+            "reference": reference,
+            "remaining_amount": remaining_amount,
+        },
+        filename=filename,
+        fallback_lines=fallback_lines,
+    )
 
 
 @accounting_bp.route('/accounting/tb/set_first_month', methods=['POST'])

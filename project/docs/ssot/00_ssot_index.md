@@ -33,6 +33,16 @@ Section IDs in this file and all SSOT files are stable citation anchors.
 - Phase 1.2.4 transaction edit usability-polish contract is authoritative (`SSOT 58_4`): additive selector and usability behavior locks are stable while endpoint/registry surfaces remain unchanged.
 - Phase 1.3 CSV import UX contract is authoritative (`SSOT 59`): import summary remains session-backed (`last_import_result_v1`), dismiss remains POST-based, and `/upload_csv` remains no-JSON.
 - Phase 1.3.1 CSV import details polish contract is authoritative (`SSOT 59_1`): details rendering/toggle semantics are deterministic HTML/session behavior, with no `/upload_csv` JSON change.
+- Phase 2.0 Month Close Foundation is authoritative (`SSOT 60_month_close_foundation`): checklist UI contracts and snapshot hooks are stable, with no immutability requirement.
+- Documents PDF contract is authoritative (`SSOT 61_documents_contracts`): selectors and filename rules are stable; documents contract tests are merge-blocking.
+- Documents UX and proof posture are authoritative (`SSOT 62_documents_ux_proof_posture`): documents selector UX, validation visibility, and proof-disclaimer posture are stable without new endpoint/registry requirements.
+- Phase 2.5 Month Close reports/documents integration is authoritative (`SSOT 63_month_close_documents_integration`): Month Close checklist action selectors and URL round-trip rules are stable without new endpoint/registry requirements.
+- Phase 2.5.1 Month Close documents state derivation is authoritative (`SSOT 63_1_month_close_documents_state`): `mc-documents` state/count derivation and selector surface are stable without new endpoint/registry requirements.
+- Phase 2.6 Month Close coverage + unbalanced drafts derivation is authoritative (`SSOT 63_2_month_close_coverage_unbalanced_state`): deterministic checklist derivation rules and additive selector surface, with no endpoint/registry requirements.
+- Phase 2.7 Month Close resolution actions are authoritative (`SSOT 63_3_month_close_resolution_actions`): checklist resolution actions are navigation-only, preserve `ym`, and require no endpoint/registry expansion.
+- Phase 2.8 Month Close readiness summary is authoritative (`SSOT 63_4_month_close_readiness_summary`): readiness roll-up state + next-action guidance is deterministic and machine-checkable with no endpoint/registry expansion.
+- Phase 2.8.1 Month Close readiness next-action linkage hardening is authoritative (`SSOT 63_4_1_month_close_readiness_linkage`): next-action mapping/enabled/linkage semantics are deterministic and reuse-only.
+- Phase 2.10.1 Month Close documents deep-link lock is authoritative (`SSOT 63_6_month_close_documents_deeplink_lock`): documents resolution deep-link target and hydration behavior are deterministic and reuse-only.
 - Canonical ledger query API is the reporting contract surface.
 - CI vNext gate enforces schema, dedupe, convergence, reporting parity, scope invariants, invariant catalog parity, statement export parity, security compliance, startup/migration contract, and DB integrity.
 
@@ -60,7 +70,7 @@ Any change to locked decisions, contract surfaces, or gate thresholds must satis
 - Include section references in PR description (for example `SSOT 40.3`, `SSOT 80.2`).
 - Obtain architect signoff for stable interface changes listed in `99_team_boundaries.md`.
 - Include the mandatory `SSOT Impact` section from `.github/pull_request_template.md`.
-- For schema verifier or capability changes, include parity evidence from `SSOT 61.8`.
+- For schema verifier or capability changes, include parity evidence from `SSOT 61_schema_verifier_parity_playbook` (`61.8`).
 - For invariant catalog or invariant assertion changes, include parity evidence from `SSOT 81.8`.
 - For statement export or statement data contract changes, include parity evidence from `SSOT 50.7` and gate evidence from `SSOT 80.11`.
 - For sensitive endpoint changes, include security gate evidence from `SSOT 80.12` and exception-register updates from `SSOT 70.5` (if applicable).
@@ -76,6 +86,15 @@ Any change to locked decisions, contract surfaces, or gate thresholds must satis
 - For Phase 1.2.4 transaction edit usability-polish changes, include SSOT references from `SSOT 58_4` and QA contract evidence for additive selector surface and registry-stability checks.
 - For Phase 1.3 CSV import UX contract changes, include SSOT references from `SSOT 59` and QA contract evidence for panel selectors, dismiss semantics, and filter-param preservation checks.
 - For Phase 1.3.1 CSV import details polish changes, include SSOT references from `SSOT 59_1` and QA contract evidence for details-selector surface, collapsed/expanded state behavior, and dismiss redirect-param preservation checks.
+- For Month Close UI or snapshot foundation changes, include SSOT references from `SSOT 60_month_close_foundation` and QA evidence once month-close contract tests exist.
+- Any change to documents selectors/filenames must include SSOT references from `SSOT 61_documents_contracts` and QA evidence from `tests/test_documents_contract.py`.
+- Any change to documents UX selectors/proof posture must include SSOT references from `SSOT 62_documents_ux_proof_posture` and QA evidence from `tests/test_documents_contract.py` (and `tests/test_frontend_contracts.py` when selector checks are added).
+- Any change to Month Close reports/documents integration selectors or round-trip behavior must include SSOT references from `SSOT 63_month_close_documents_integration` and QA evidence from `tests/test_frontend_contracts.py`.
+- Any change to Month Close documents state derivation selectors/state rules must include SSOT references from `SSOT 63_1_month_close_documents_state` and QA evidence from `tests/test_frontend_contracts.py`.
+- Any change to Month Close resolution action selectors or URL-construction rules must include SSOT references from `SSOT 63_3_month_close_resolution_actions` and QA evidence from `tests/test_frontend_contracts.py`.
+- Any change to Month Close readiness selectors/state derivation must include SSOT references from `SSOT 63_4_month_close_readiness_summary` and QA evidence from `tests/test_frontend_contracts.py`.
+- Any change to Month Close readiness next-action mapping/enabled/linkage rules must include SSOT references from `SSOT 63_4_1_month_close_readiness_linkage` and QA evidence from `tests/test_frontend_contracts.py`.
+- Any change to Month Close documents deep-link target/hydration rules must include SSOT references from `SSOT 63_6_month_close_documents_deeplink_lock` and QA evidence from `tests/test_frontend_contracts.py`.
 
 ## 00.6 Document Map
 | File | Purpose |
@@ -96,8 +115,18 @@ Any change to locked decisions, contract surfaces, or gate thresholds must satis
 | `58_4_phase1_2_4_transaction_edit_usability_polish.md` | Phase 1.2.4 transaction edit usability polish: additive keyboard/focus/line/delta/error/stale/save-status selector and behavior locks. |
 | `59_phase1_3_csv_import_ux_no_json.md` | Phase 1.3 CSV import UX contract: session summary payload, panel selectors, dismiss lifecycle, no JSON upload behavior. |
 | `59_1_phase1_3_csv_import_details_polish.md` | Phase 1.3.1 CSV import details polish: deterministic details rendering/toggle semantics, additive selector lock, and no `/upload_csv` JSON behavior. |
+| `60_month_close_foundation.md` | Phase 2.0 Month Close checklist UI contract and snapshot foundation (no immutability required). |
 | `60_schema_capabilities.md` | Capability matrix and hard-fail guard behavior. |
+| `61_documents_contracts.md` | Phase 2.3 documents UX and contract lock for selector parsing, PDF response behavior, and deterministic filenames. |
 | `61_schema_verifier_parity_playbook.md` | Formal verifier parity definition, release rule, and implementation checklists. |
+| `62_documents_ux_proof_posture.md` | Phase 2.4 documents UX and proof-posture lock for selector UX, URL round-trip, validation visibility, and receipt semantics. |
+| `63_month_close_documents_integration.md` | Phase 2.5 Month Close integration lock for reports/documents action selectors, URL round-trip behavior, and reuse-only route posture. |
+| `63_1_month_close_documents_state.md` | Phase 2.5.1 Month Close documents state derivation lock for deterministic state/count rules and additive selector surface. |
+| `63_2_month_close_coverage_unbalanced_state.md` | Phase 2.6 Month Close coverage + unbalanced drafts state derivation lock (advisory, reuse-only, additive selectors). |
+| `63_3_month_close_resolution_actions.md` | Phase 2.7 Month Close resolution-action lock (navigation-only, `ym` preservation, no endpoint/registry expansion). |
+| `63_4_month_close_readiness_summary.md` | Phase 2.8 Month Close readiness roll-up: deterministic `ready|attention|unknown` + next-action guidance selectors. |
+| `63_4_1_month_close_readiness_linkage.md` | Phase 2.8.1 Month Close readiness next-action linkage hardening: deterministic mapping/enabled/link rules to existing navigation controls. |
+| `63_6_month_close_documents_deeplink_lock.md` | Phase 2.10.1 Month Close documents deep-link lock: `/accounting?ym` target rule, self-link ban, and deterministic target hydration posture. |
 | `70_security_model.md` | AuthN/AuthZ, CSRF, admin safety, audit requirements, endpoint sensitivity classes. |
 | `80_quality_gates.md` | Gate invariants, CI jobs, thresholds, failure drills. |
 | `81_invariant_catalog_parity_playbook.md` | Formal invariant catalog parity definition, release rule, and implementation checklists. |

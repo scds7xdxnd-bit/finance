@@ -9,6 +9,9 @@ _Last updated: 2026-03-11_
 - Phase 1.3 CSV import UX is HTML/session contract only and is defined in `SSOT 59`.
 - Phase 1.3.1 CSV import details polish is HTML/session contract only and is defined in `SSOT 59_1`.
 - SSOT 59 and SSOT 59_1 are not JSON endpoint locks; they are server-rendered panel/details behavior contracts.
+- Phase 2.3 documents contract is defined in `SSOT 61_documents_contracts` as PDF/non-JSON contract surface and does not add registry-key requirements in this file.
+- Phase 2.4 documents UX/proof posture is defined in `SSOT 62_documents_ux_proof_posture` as UX/DOM behavior lock only; it does not expand endpoint or registry-key contracts.
+- Phase 2.5 Month Close integration is defined in `SSOT 63_month_close_documents_integration` as checklist/action UX lock only; it does not expand endpoint or registry-key contracts.
 
 ## 55.2 Rule of Change
 - Additive response/request changes are allowed if required keys in this document remain valid.
@@ -240,3 +243,7 @@ _Last updated: 2026-03-11_
 - Phase 1.2.4 transaction edit usability polish companion: `project/docs/ssot/58_4_phase1_2_4_transaction_edit_usability_polish.md` (additive selector/UX locks only; no endpoint/registry expansion).
 - Phase 1.3 CSV import UX companion: `project/docs/ssot/59_phase1_3_csv_import_ux_no_json.md` (session/HTML UX only; no `/upload_csv` JSON contract and no registry-key churn required).
 - Phase 1.3.1 CSV import details polish companion: `project/docs/ssot/59_1_phase1_3_csv_import_details_polish.md` (session/HTML details-render contract only; no `/upload_csv` JSON contract and no registry-key expansion).
+- Phase 2.0 month close UI contract: `project/docs/ssot/60_month_close_foundation.md` (UI/DOM/selector contract; reuses existing JSON endpoint locks and does not add endpoint lock surface in Phase 2.0).
+- Phase 2.3 documents contract companion: `project/docs/ssot/61_documents_contracts.md` (PDF/non-JSON selector + filename lock; no new registry-key requirement in Phase 2.3).
+- Phase 2.4 documents UX/proof posture companion: `project/docs/ssot/62_documents_ux_proof_posture.md` (selector UX/validation/proof semantics lock only; no endpoint/registry expansion).
+- Phase 2.5 Month Close reports/documents integration companion: `project/docs/ssot/63_month_close_documents_integration.md` (checklist action-selector and URL round-trip lock only; no endpoint/registry expansion).

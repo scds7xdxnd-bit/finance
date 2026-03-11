@@ -1,5 +1,5 @@
 # Operator Runbook (Canonical)
-_Last updated: 2026-03-09_
+_Last updated: 2026-03-11_
 
 ## 90.1 Scope
 Canonical procedure for backup/restore, migrations, backfill, reconcile, cutover, and rollback.
@@ -12,6 +12,7 @@ Canonical procedure for backup/restore, migrations, backfill, reconcile, cutover
 - Do not run release/cutover operations when security compliance gate fails (`GATE-SECURITY-COMPLIANCE`).
 - Do not run release/cutover operations when startup/migration contract gate fails (`GATE-STARTUP-MIGRATION-CONTRACT`).
 - Do not run release/cutover operations when DB integrity gate fails (`GATE-DB-INTEGRITY`).
+- Month Close checklist is advisory in Phase 2.0 and is not a release gate unless a future SSOT gate explicitly makes it blocking.
 - Always create a backup/snapshot before migrations or destructive operations.
 - Run backfill as dry-run before apply.
 - Do not cut over while `ledger-reconcile` fails or coverage thresholds are below defaults.
@@ -178,6 +179,8 @@ Branch protection must require checks mapped in `project/docs/ssot/80_quality_ga
 - Security model and exception register: `project/docs/ssot/70_security_model.md`
 - DB integrity contract: `project/docs/ssot/20_domain_model.md` (SSOT 20.6), `project/docs/ssot/60_schema_capabilities.md` (SSOT 60.9)
 - DB integrity gate suite: `tests/test_db_integrity_gate.py`
+- Month close foundation contract (advisory): `project/docs/ssot/60_month_close_foundation.md`
+- Documents contract (PDF selector/filename lock): `project/docs/ssot/61_documents_contracts.md`
 - Existing operator reference: `project/docs/operator_runbook.md`
 
 ## 90.7 Startup and Migration Standard Procedure
@@ -252,3 +255,18 @@ This subsection is authoritative for `journal_integrity` rollout and ongoing ope
   - `python3 scripts/migration_smoke_vnext.py`
   - `python3 -m pytest -q tests/test_db_integrity_gate.py`
 - Release/cutover remains blocked until all commands above pass.
+
+## 90.9 Documents PDF Verification (Advisory)
+- Phase 2.3 documents behavior is a contract lock, not a new release gate family.
+- Phase 2.4 proof posture reminder: receipts are acknowledgment/proof documents for personal use, may be regenerated, and are not immutability guarantees.
+- Phase 2.5 Month Close integration reminder: month-close report/document actions are advisory workflow helpers and must preserve selected `ym` context in generated URLs.
+- Operator verification steps:
+  1. Trigger each PDF route with valid selector sets:
+     - `/accounting/receivables/pdf`
+     - `/accounting/payables/pdf`
+     - `/accounting/loan_receipt/pdf`
+  2. Confirm response headers include:
+     - `Content-Type: application/pdf`
+     - deterministic filename via `Content-Disposition`
+  3. Confirm response body signature begins with `%PDF`.
+  4. Confirm invalid selector cases fail deterministically with `400`.

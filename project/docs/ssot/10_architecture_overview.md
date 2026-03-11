@@ -275,3 +275,123 @@ Quality gates in `tests/test_vnext_gate.py` and related suites are release-block
   - no new registry keys
   - no new JSON contracts
   - no `/upload_csv` JSON behavior changes (SSOT 59 + SSOT 59_1).
+
+## 10.16 Phase 2.0 Month Close Foundation Integration Points
+- Month Close UI posture:
+  - advisory checklist surface only in Phase 2.0; no release-blocking month-close gate is introduced.
+  - checklist UX must remain deterministic and user-visible (not console-only).
+- Reuse-first data sourcing:
+  - reuse existing reporting/list endpoint surfaces where possible (`tbMonthly`, `statements.data`, optional journal list context).
+  - no new JSON contract surface is required by Phase 2.0.
+- Snapshot posture:
+  - snapshot hooks are allowed without immutability requirement.
+  - snapshot persistence may be deferred; Phase 2.0 can ship with deterministic coming-soon/disabled snapshot controls.
+- Contract boundary:
+  - no new endpoint or registry key requirement in SSOT 60_month_close_foundation
+  - no weakening of startup/security/DB-integrity gates.
+
+## 10.17 Phase 2.3 Documents Integration Points
+- Document route posture:
+  - documents remain PDF routes (`application/pdf`), not JSON API surfaces.
+  - existing routes are contract-locked in SSOT 61; this phase introduces no new endpoint requirement.
+- Selector behavior:
+  - selector parsing is stable and must fail deterministically with `400` on invalid combinations/values.
+  - loan receipt selector exclusivity (`loan_id` xor `entry_id`) is deterministic contract behavior.
+- Failure posture:
+  - startup/schema/capability blocking conditions must fail closed with `503`.
+- UI posture:
+  - minimal row HTML posture remains unchanged (no per-row embedded JSON blobs).
+  - selector controls build round-trippable URLs only; no new registry keys are required by this phase.
+
+## 10.18 Phase 2.4 Documents UX and Proof Posture Integration Points
+- Endpoint stability:
+  - documents remain bound to SSOT 61 routes with no endpoint expansion in this phase.
+- UX stability:
+  - selector controls, apply/clear URL round-trip behavior, and visible validation messaging are contract-locked by SSOT 62.
+  - documents download remains navigation/file-response behavior (non-JSON).
+- Proof posture:
+  - receipt semantics are acknowledgment/proof posture for personal use.
+  - regeneration is allowed; immutability is not required by this phase.
+- UI architecture posture:
+  - minimal row HTML remains unchanged; no per-row embedded JSON blobs for documents generation.
+  - no new registry keys are required by this phase.
+
+## 10.19 Phase 2.5 Month Close Reports + Documents Integration Points
+- Integration posture:
+  - Month Close checklist remains advisory while integrating reports/documents actions for selected `ym`.
+  - no new endpoint or registry-key requirement is introduced by this phase.
+- Route reuse posture:
+  - existing report/document PDF routes are reused (SSOT 61 + existing report PDF routes).
+  - integration remains navigation/download behavior (non-JSON).
+- Selector and round-trip posture:
+  - Month Close page keeps `ym` canonical in URL.
+  - report/document actions include selected `ym` in generated URLs.
+- Loan receipt action posture:
+  - loan-receipt action is rendered only when deterministic selector source (`loan_id` or `entry_id`) exists in context.
+- UI architecture posture:
+  - minimal row HTML remains unchanged; no per-row embedded JSON blobs.
+
+## 10.20 Phase 2.5.1 Month Close Documents State Derivation Integration Points
+- State derivation posture:
+  - Month Close `mc-documents` state for selected `ym` is derived from existing receivables/payables data sources only (no new details endpoint).
+  - state derivation remains advisory and non-blocking.
+- Deterministic state rules:
+  - `warn` when open documents count is greater than zero.
+  - `ok` when counts are computable and open documents count is zero.
+  - `unknown` when counts are not computable under safe-fail conditions.
+  - `fail` remains reserved/unused in this phase.
+- UI architecture posture:
+  - existing `[data-role="mc-documents"]` state surface remains authoritative.
+  - additive count selectors (`mc-documents-open-count`, `mc-documents-total-count`) are stable contract markers.
+  - optional helper navigation actions remain URL/navigation behavior only and preserve `ym`.
+- Contract boundary:
+  - no new endpoints
+  - no new registry keys
+  - no JSON contract expansion
+  - compatibility with SSOT 60/61/62/63 and SSOT 55/57 is required.
+
+## 10.21 Phase 2.6 Month Close Coverage + Draft Balance Integration Points
+- Derivation posture is reuse-only:
+  - Coverage derived from existing TB monthly + statement data surfaces for selected ym.
+  - Unbalanced drafts derived from existing journal list surface and posted_at draft semantics.
+- UI adds count slots and coverage metadata slots; no new endpoints or registry keys.
+- All month-close links/actions preserve ym and remain navigation-based.
+
+## 10.22 Phase 2.7 Month Close Resolution Actions Integration Points
+- Resolution-action posture:
+  - month-close checklist resolution actions are navigation-only affordances.
+  - no blocking close behavior or new state model is introduced in this phase.
+- Reuse-only routing posture:
+  - actions navigate to existing pages/endpoints only (TB, statements, journal drafts, documents panel).
+  - no new endpoint or registry-key requirement is introduced by this phase.
+- URL construction posture:
+  - all resolution actions preserve `ym`.
+  - when targeting paginated list contexts, actions preserve `page` and `per_page` where applicable.
+
+## 10.23 Phase 2.8 Month Close Readiness Summary Integration Points
+- Readiness is derived from existing month-close checklist states/counts only (SSOT 63_1/63_2) and snapshot section presence.
+- No new endpoints or registry keys are introduced.
+- Readiness is advisory; it does not block month-close or app usage.
+- Additive selector surface under month-close: `mc-readiness`, message, and next-action markers.
+
+## 10.24 Phase 2.8.1 Month Close Readiness Linkage Hardening Integration Points
+- Linkage posture:
+  - readiness next-action keys map deterministically to existing navigation-only resolution actions and snapshot controls.
+  - no new endpoint or registry-key requirement is introduced.
+- Enabled posture:
+  - readiness enabled/disabled semantics are deterministic based on target/control presence.
+  - disabled actions do not render placeholder/empty links.
+- URL posture:
+  - when readiness link exists, it preserves active `ym`.
+  - paginated targets preserve `page` and `per_page` where applicable.
+
+## 10.25 Phase 2.10.1 Month Close Documents Deep-Link Lock Integration Points
+- Deep-link posture:
+  - Month Close documents resolution action targets `/accounting` with `ym` preserved.
+  - self-linking to `/accounting/month_close` for documents resolution is forbidden.
+- Hydration posture:
+  - first-load `/accounting?ym=YYYY-MM` enters documents/receivables-payables surface deterministically.
+  - unrelated localStorage view restores must not override first-load `ym` entry context.
+- Reuse posture:
+  - no new endpoints or registry keys are introduced.
+  - documents URL builders remain navigation-only and include active `ym`.

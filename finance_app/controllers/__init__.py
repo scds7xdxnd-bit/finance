@@ -2,7 +2,7 @@
 
 # Keep imports inside the function to avoid circulars during app creation.
 def register_blueprints(app):
-    from blueprints.accounting import accounting_bp
+    from finance_app.blueprints.accounting import accounting_bp
     from blueprints.admin import admin_bp
     from blueprints.auth import auth_bp
     from blueprints.journal import journal_bp

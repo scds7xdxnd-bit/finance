@@ -86,6 +86,53 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
   - keyboard/focus, balance clarity, and save-status semantics are deterministic
   - JS-state preload posture remains unchanged (`JOURNAL_STATE.byId`, no row JSON blobs)
   - no endpoint or registry-key expansion is allowed in this phase
+- Phase 2.0 Month Close Foundation (`SSOT 60_month_close_foundation`):
+  - checklist DOM selector surface and `data-state` semantics are stable
+  - month selector `ym` round-trip behavior is stable
+  - snapshot controls are hook-only and deterministic (immutability not required in Phase 2.0)
+  - Phase 2.0 reuses existing endpoint contracts and introduces no new JSON lock surface
+- Phase 2.3 Documents contract (`SSOT 61_documents_contracts`):
+  - PDF selector parsing semantics are stable
+  - deterministic filename contract is stable
+  - PDF response/failure status behavior is stable
+  - no new endpoint or registry-key requirement is introduced by this phase
+- Phase 2.4 Documents UX and proof posture (`SSOT 62_documents_ux_proof_posture`):
+  - documents selector UX + URL round-trip behavior are stable
+  - visible validation/error messaging posture is stable
+  - proof/disclaimer posture is stable (immutability still not required)
+  - no new endpoint or registry-key requirement is introduced by this phase
+- Phase 2.5 Month Close reports/documents integration (`SSOT 63_month_close_documents_integration`):
+  - Month Close reports/documents action-selector surface is stable
+  - `ym` round-trip in action URLs is stable
+  - loan-receipt action render rule is stable (render only with deterministic selector source)
+  - no new endpoint or registry-key requirement is introduced by this phase
+- Phase 2.5.1 Month Close documents state derivation (`SSOT 63_1_month_close_documents_state`):
+  - `mc-documents` state derivation rules (`ok|warn|unknown`) are stable
+  - `fail` state is reserved/unused in this phase
+  - additive count selectors (`mc-documents-open-count`, `mc-documents-total-count`) are stable
+  - no new endpoint or registry-key requirement is introduced by this phase
+- Phase 2.6 Month Close state derivation (`SSOT 63_2_month_close_coverage_unbalanced_state`):
+  - deterministic coverage + unbalanced drafts derivation rules
+  - additive selector surface for counts/notes
+  - no endpoint/registry expansion
+- Phase 2.7 Month Close resolution actions (`SSOT 63_3_month_close_resolution_actions`):
+  - resolution actions are navigation-only
+  - `ym` preservation in resolution URLs is stable
+  - no endpoint/registry expansion is introduced by this phase
+- Phase 2.8 Month Close readiness summary (`SSOT 63_4_month_close_readiness_summary`):
+  - readiness roll-up state (`ready|attention|unknown`) is stable
+  - additive selectors for message/next-action are stable
+  - next-action guidance maps to existing Phase 2.7 navigation-only actions where applicable
+  - no endpoint/registry expansion is introduced
+- Phase 2.8.1 Month Close readiness next-action linkage hardening (`SSOT 63_4_1_month_close_readiness_linkage`):
+  - next-action mapping/enabled/linkage semantics are stable
+  - readiness link presence/absence rules are stable
+  - no endpoint/registry expansion is introduced
+- Phase 2.10.1 Month Close documents deep-link lock (`SSOT 63_6_month_close_documents_deeplink_lock`):
+  - month-close documents action deep-links to `/accounting` with `ym` preserved
+  - self-link to `/accounting/month_close` for documents resolution is forbidden
+  - target-page documents hydration entry posture is stable
+  - no endpoint/registry expansion is introduced
 
 ### 99.3.1 Frontend Contract Surface Ownership
 - Architect owns SSOT definitions in `project/docs/ssot/55_frontend_contracts.md`.
@@ -143,6 +190,70 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Frontend owns details toggle/render behavior and SSOT 59/59_1 selector stability.
 - QA owns contract-shape checks for details selector presence/absence rules and dismiss preservation checks.
 
+### 99.3.9 Phase 2.0 Month Close Foundation Ownership
+- Architect owns `project/docs/ssot/60_month_close_foundation.md`.
+- Frontend owns checklist rendering and deterministic item-state UI behavior.
+- Backend owns any future computed month-close summaries without changing existing reporting endpoint contracts in Phase 2.0.
+- QA owns contract-shape checks for month-close DOM markers and item-state attributes.
+
+### 99.3.10 Phase 2.3 Documents Ownership
+- Architect owns `project/docs/ssot/61_documents_contracts.md`.
+- Backend owns selector parsing, deterministic PDF response behavior, and filename stability.
+- Frontend owns selector controls and URL round-trip behavior for document downloads.
+- QA owns contract tests in `tests/test_documents_contract.py` and failure-prefix enforcement.
+- DevOps owns merge-blocking CI wiring for documents contract tests.
+
+### 99.3.11 Phase 2.4 Documents UX/Proof Posture Ownership
+- Architect owns `project/docs/ssot/62_documents_ux_proof_posture.md`.
+- Frontend owns selector UX, URL round-trip, visible validation, and download affordance behavior.
+- Backend owns endpoint stability under SSOT 61; no new endpoints in this phase.
+- QA owns:
+  - primary contract assertions in `tests/test_documents_contract.py`
+  - optional selector-surface assertions in `tests/test_frontend_contracts.py`.
+- DevOps keeps documents contract checks merge-blocking without adding a new gate family.
+
+### 99.3.12 Phase 2.5 Month Close Reports/Documents Integration Ownership
+- Architect owns `project/docs/ssot/63_month_close_documents_integration.md`.
+- Frontend owns Month Close checklist action rendering and URL builder behavior for reports/documents.
+- Backend owns server-rendered Month Close context behavior only; no new endpoint requirement in this phase.
+- QA owns contract-shape checks for Month Close reports/documents selectors and state markers.
+- DevOps keeps merge-blocking coverage for impacted frontend contract tests.
+
+### 99.3.13 Phase 2.5.1 Month Close Documents State Ownership
+- Architect owns `project/docs/ssot/63_1_month_close_documents_state.md`.
+- Frontend owns Month Close documents state rendering and additive count-selector stability.
+- Backend owns deterministic documents-state derivation behavior using existing sources only; no endpoint expansion.
+- QA owns contract-shape checks for state/count selectors and deterministic state outcomes (`warn`/`ok` seeded scenarios).
+- DevOps keeps merge-blocking coverage for impacted frontend contract tests.
+
+### 99.3.14 Phase 2.7 Month Close Resolution Actions Ownership
+- Architect owns `project/docs/ssot/63_3_month_close_resolution_actions.md`.
+- Frontend owns resolution-action selector rendering and URL construction.
+- Backend owns reuse-only navigation targets and month-close context emission without endpoint expansion.
+- QA owns contract-shape checks for selector presence and `ym` URL preservation.
+- DevOps keeps merge-blocking coverage under existing required checks.
+
+### 99.3.15 Phase 2.8 Month Close Readiness Ownership
+- Architect owns `project/docs/ssot/63_4_month_close_readiness_summary.md`.
+- Backend owns deterministic readiness derivation emission in month-close render context (reuse-only).
+- Frontend owns selector rendering and non-blocking interaction behavior.
+- QA owns contract-shape checks for readiness selector surface and seeded deterministic outcomes.
+- DevOps keeps merge-blocking coverage under existing required checks.
+
+### 99.3.16 Phase 2.8.1 Month Close Readiness Linkage Ownership
+- Architect owns `project/docs/ssot/63_4_1_month_close_readiness_linkage.md`.
+- Backend owns deterministic next-action linkage metadata emission in month-close render context (reuse-only).
+- Frontend owns mapping/rendering of readiness action-key to existing navigation controls and enabled semantics.
+- QA owns contract-shape checks for linkage mapping, enabled semantics, and `ym` preservation.
+- DevOps keeps merge-blocking coverage under existing required checks.
+
+### 99.3.17 Phase 2.10.1 Month Close Documents Deep-Link Ownership
+- Architect owns `project/docs/ssot/63_6_month_close_documents_deeplink_lock.md`.
+- Backend owns month-close documents URL emission and `ym` propagation in deep-link targets.
+- Frontend owns `/accounting?ym` first-load documents hydration behavior and selector stability.
+- QA owns contract-shape checks for deep-link path/ym/self-link prohibition and target selector surface.
+- DevOps keeps merge-blocking coverage under existing required checks.
+
 ## 99.4 Forbidden Changes
 - Reporting code must not compute ranked totals from legacy `Transaction` rows.
 - Reporting code must not enable or silently emulate mixed mode aggregation.
@@ -171,6 +282,25 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Backend and Frontend must not drop `page`/`per_page` preservation on edit-list refresh flows in Phase 1.2.3.
 - Backend and Frontend must not introduce new endpoints, new registry keys, or row-level embedded JSON blobs for Phase 1.2.4 without SSOT update and QA evidence.
 - Frontend must not remove or rename SSOT 58_4 locked usability selectors (when implemented) without SSOT update and QA evidence.
+- Backend and Frontend must not introduce new month-close JSON endpoint locks or registry-key requirements in Phase 2.0 without SSOT update and QA evidence.
+- Frontend must not remove or rename SSOT 60_month_close_foundation checklist selectors or `data-state="ok|warn|fail|unknown"` contract semantics without SSOT update and QA evidence.
+- Backend and Frontend must not rename SSOT 61 locked documents selectors (`ym`, `status`, `party`, `min_amount`, `max_amount`, `loan_id`, `entry_id`) without SSOT update and QA evidence.
+- Backend and Frontend must not change deterministic documents filename patterns or selector error semantics without SSOT update and QA evidence.
+- Backend and Frontend must not introduce per-row embedded JSON blobs for documents generation in Phase 2.3.
+- Backend and Frontend must not rename SSOT 62 locked documents UX selectors (`#documents-panel`, `[data-role="docs-selectors"]`, `[data-role="docs-error"]`, download action selectors) without SSOT update and QA evidence.
+- Frontend must not regress documents selector URL round-trip or shift validation failures to console-only behavior in Phase 2.4.
+- Backend and Frontend must not introduce new documents endpoints or new registry-key requirements in Phase 2.4 without SSOT update and QA evidence.
+- Backend and Frontend must not rename SSOT 63 Month Close reports/documents action selectors (`[data-role="mc-documents"]`, required report/document action selectors) without SSOT update and QA evidence.
+- Frontend must not omit `ym` in Month Close generated report/document action URLs where SSOT 63 requires month-context propagation.
+- Backend and Frontend must not render Month Close loan-receipt action without deterministic selector source in Phase 2.5.
+- Backend and Frontend must not introduce new endpoint/registry-key requirements for Phase 2.5 without SSOT update and QA evidence.
+- Backend and Frontend must not change SSOT 63_1 documents-state derivation rules or remove/rename `[data-role="mc-documents-open-count"]` / `[data-role="mc-documents-total-count"]` without SSOT update and QA evidence.
+- Backend and Frontend must not introduce new endpoint/registry-key requirements for Phase 2.7 Month Close resolution actions without SSOT update and QA evidence.
+- Backend and Frontend must not convert Phase 2.7 resolution actions from navigation-only behavior into API-call behavior without SSOT update and QA evidence.
+- Backend and Frontend must not introduce new endpoint/registry-key requirements for Phase 2.8.1 readiness linkage hardening without SSOT update and QA evidence.
+- Backend and Frontend must not break deterministic mapping/enabled rules between readiness action keys and existing navigation controls defined by SSOT 63_4_1.
+- Backend and Frontend must not point `mc-open-documents-panel` to `/accounting/month_close`; deep-link target is locked to `/accounting` under SSOT 63_6.
+- Backend and Frontend must not regress `/accounting?ym` first-load documents hydration posture defined in SSOT 63_6.
 
 ## 99.5 SSOT Change Protocol (Mandatory)
 - Any PR that changes a stable interface or forbidden-change area must:
@@ -207,6 +337,33 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Any PR that changes Phase 1.2.4 edit usability-polish contracts (`SSOT 58_4`) must include:
   - SSOT 58_4 section references
   - QA contract evidence for additive selector surface and registry-stability checks
+- Any PR that changes Phase 2.0 Month Close Foundation contracts (`SSOT 60_month_close_foundation`) must include:
+  - SSOT 60_month_close_foundation section references
+  - QA contract evidence for month-close selector surface and checklist state-marker semantics
+- Any PR that changes Phase 2.3 Documents contracts (`SSOT 61_documents_contracts`) must include:
+  - SSOT 61_documents_contracts section references
+  - QA contract evidence from `tests/test_documents_contract.py`
+- Any PR that changes Phase 2.4 Documents UX/proof posture contracts (`SSOT 62_documents_ux_proof_posture`) must include:
+  - SSOT 62_documents_ux_proof_posture section references
+  - QA contract evidence from `tests/test_documents_contract.py` and `tests/test_frontend_contracts.py` when selector checks are in scope
+- Any PR that changes Phase 2.5 Month Close reports/documents integration contracts (`SSOT 63_month_close_documents_integration`) must include:
+  - SSOT 63_month_close_documents_integration section references
+  - QA contract evidence from `tests/test_frontend_contracts.py`
+- Any PR that changes Phase 2.5.1 Month Close documents-state derivation contracts (`SSOT 63_1_month_close_documents_state`) must include:
+  - SSOT 63_1_month_close_documents_state section references
+  - QA contract evidence from `tests/test_frontend_contracts.py`
+- Any PR that changes Phase 2.7 Month Close resolution-action contracts (`SSOT 63_3_month_close_resolution_actions`) must include:
+  - SSOT 63_3_month_close_resolution_actions section references
+  - QA contract evidence from `tests/test_frontend_contracts.py`
+- Any PR that changes Phase 2.8 readiness contracts (`SSOT 63_4_month_close_readiness_summary`) must include:
+  - SSOT 63_4_month_close_readiness_summary section references
+  - QA contract evidence from `tests/test_frontend_contracts.py`
+- Any PR that changes Phase 2.8.1 readiness linkage contracts (`SSOT 63_4_1_month_close_readiness_linkage`) must include:
+  - SSOT 63_4_1_month_close_readiness_linkage section references
+  - QA contract evidence from `tests/test_frontend_contracts.py`
+- Any PR that changes Phase 2.10.1 month-close documents deep-link/hydration contracts (`SSOT 63_6_month_close_documents_deeplink_lock`) must include:
+  - SSOT 63_6_month_close_documents_deeplink_lock section references
+  - QA contract evidence from `tests/test_frontend_contracts.py`
 - If behavior is intentionally transitional, PR must include:
   - explicit temporary rule
   - expiration date

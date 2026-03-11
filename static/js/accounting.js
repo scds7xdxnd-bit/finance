@@ -11,6 +11,11 @@
     return res.json().catch(() => ({}));
   }
 
+  function shouldOpenReceivablesFromQuery(){
+    const ym = (new URLSearchParams(window.location.search || '').get('ym') || '').trim();
+    return /^\d{4}-(0[1-9]|1[0-2])$/.test(ym);
+  }
+
   function showView(view) {
     const foldersBtn = document.getElementById('btn-view-folders');
     const accountsBtn = document.getElementById('btn-view-accounts');
@@ -462,11 +467,12 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     const storedView = localStorage.getItem('accountingView') || 'folders';
-    showView(storedView);
-    if (storedView === 'journal' && typeof window.ensureJournalLoaded === 'function') {
+    const initialView = shouldOpenReceivablesFromQuery() ? 'receivables' : storedView;
+    showView(initialView);
+    if (initialView === 'journal' && typeof window.ensureJournalLoaded === 'function') {
       window.ensureJournalLoaded();
     }
-    if (storedView === 'receivables' && typeof window.initReceivableDebtUI === 'function') {
+    if (initialView === 'receivables' && typeof window.initReceivableDebtUI === 'function') {
       window.initReceivableDebtUI();
     }
     const btnF = document.getElementById('btn-view-folders'); if (btnF) btnF.addEventListener('click', () => showView('folders'));

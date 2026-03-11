@@ -1,5 +1,5 @@
 # Quality Gates
-_Last updated: 2026-03-09_
+_Last updated: 2026-03-11_
 
 ## 80.1 Scope
 Release-blocking invariants and required CI/local gate sequence for vNext correctness.
@@ -118,6 +118,10 @@ If check names change, update branch protection and this SSOT section in the sam
 - Startup/migration contract suite: `tests/test_startup_migration_contract.py`
 - DB integrity contract: `project/docs/ssot/20_domain_model.md` (SSOT 20.6), `project/docs/ssot/60_schema_capabilities.md` (SSOT 60.9)
 - DB integrity gate suite: `tests/test_db_integrity_gate.py`
+- Month close foundation contract (advisory in Phase 2.0): `project/docs/ssot/60_month_close_foundation.md`
+- Month close contract-shape test pointer (when implemented): `tests/test_frontend_contracts.py` (month-close section)
+- Documents contract test pointer (Phase 2.3): `tests/test_documents_contract.py`
+- Month close reports/documents integration contract pointer (Phase 2.5): `project/docs/ssot/63_month_close_documents_integration.md`
 - PR checklist enforcement: `.github/pull_request_template.md`
 
 ## 80.9 `GATE-SCHEMA` Acceptance Criteria (Authoritative)

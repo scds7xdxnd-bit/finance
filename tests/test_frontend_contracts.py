@@ -13,6 +13,7 @@ from finance_app import (
     AccountCategory,
     JournalEntry,
     JournalLine,
+    ReceivableTracker,
     TrialBalanceSetting,
     User,
     create_app,
@@ -30,6 +31,13 @@ TRANSACTION_EDIT_STATE_FAILURE_PREFIX = "Transaction edit state contract failed:
 TRANSACTION_EDIT_REFRESH_SAFETY_FAILURE_PREFIX = "Transaction edit refresh safety contract failed:"
 TRANSACTION_EDIT_USABILITY_FAILURE_PREFIX = "Transaction edit usability contract failed:"
 CSV_IMPORT_DETAILS_UX_FAILURE_PREFIX = "CSV import details UX contract failed:"
+MONTH_CLOSE_FAILURE_PREFIX = "Month close contract failed:"
+MONTH_CLOSE_DOCUMENTS_FAILURE_PREFIX = "Month close documents contract failed:"
+MONTH_CLOSE_DOCUMENTS_STATE_FAILURE_PREFIX = "Month close documents state contract failed:"
+MONTH_CLOSE_COVERAGE_FAILURE_PREFIX = "Month close coverage contract failed:"
+MONTH_CLOSE_RESOLUTION_FAILURE_PREFIX = "Month close resolution contract failed:"
+MONTH_CLOSE_READINESS_FAILURE_PREFIX = "Month close readiness contract failed:"
+MONTH_CLOSE_READINESS_LINKAGE_FAILURE_PREFIX = "Month close readiness linkage contract failed:"
 
 
 def _sqlite_url(db_path) -> str:
@@ -200,6 +208,34 @@ def _csv_import_details_contract_assert(condition: bool, message: str) -> None:
     assert condition, f"{CSV_IMPORT_DETAILS_UX_FAILURE_PREFIX} {message}"
 
 
+def _month_close_contract_assert(condition: bool, message: str) -> None:
+    assert condition, f"{MONTH_CLOSE_FAILURE_PREFIX} {message}"
+
+
+def _month_close_documents_contract_assert(condition: bool, message: str) -> None:
+    assert condition, f"{MONTH_CLOSE_DOCUMENTS_FAILURE_PREFIX} {message}"
+
+
+def _month_close_documents_state_contract_assert(condition: bool, message: str) -> None:
+    assert condition, f"{MONTH_CLOSE_DOCUMENTS_STATE_FAILURE_PREFIX} {message}"
+
+
+def _month_close_coverage_contract_assert(condition: bool, message: str) -> None:
+    assert condition, f"{MONTH_CLOSE_COVERAGE_FAILURE_PREFIX} {message}"
+
+
+def _month_close_resolution_contract_assert(condition: bool, message: str) -> None:
+    assert condition, f"{MONTH_CLOSE_RESOLUTION_FAILURE_PREFIX} {message}"
+
+
+def _month_close_readiness_contract_assert(condition: bool, message: str) -> None:
+    assert condition, f"{MONTH_CLOSE_READINESS_FAILURE_PREFIX} {message}"
+
+
+def _month_close_readiness_linkage_contract_assert(condition: bool, message: str) -> None:
+    assert condition, f"{MONTH_CLOSE_READINESS_LINKAGE_FAILURE_PREFIX} {message}"
+
+
 def _set_last_import_result_session(client, payload: dict) -> None:
     with client.session_transaction() as sess:
         sess["last_import_result_v1"] = payload
@@ -209,6 +245,36 @@ def _extract_form_open_tag(html: str, action_path: str) -> str | None:
     pattern = re.compile(rf"<form\b[^>]*action=\"[^\"]*{re.escape(action_path)}[^\"]*\"[^>]*>", flags=re.IGNORECASE)
     match = pattern.search(html)
     return match.group(0) if match else None
+
+
+def _extract_action_url(html: str, action_key: str) -> str | None:
+    action_match = re.search(
+        rf"<(?P<tag>\w+)\b[^>]*data-action=\"{re.escape(action_key)}\"[^>]*>",
+        html,
+        flags=re.IGNORECASE,
+    )
+    if action_match is None:
+        return None
+
+    action_open_tag = action_match.group(0)
+    for attr in ("href", "formaction", "action", "data-url"):
+        attr_match = re.search(rf'{attr}=\"([^\"]+)\"', action_open_tag, flags=re.IGNORECASE)
+        if attr_match:
+            return unescape(attr_match.group(1))
+
+    action_start = action_match.start()
+    form_open_start = html.rfind("<form", 0, action_start)
+    if form_open_start < 0:
+        return None
+    form_open_end = html.find(">", form_open_start)
+    form_close = html.find("</form>", action_start)
+    if form_open_end < 0 or form_close < 0 or not (form_open_end < action_start < form_close):
+        return None
+    form_open_tag = html[form_open_start : form_open_end + 1]
+    form_action_match = re.search(r'action=\"([^\"]+)\"', form_open_tag, flags=re.IGNORECASE)
+    if form_action_match:
+        return unescape(form_action_match.group(1))
+    return None
 
 
 def _assert_unbalanced_update_mapping(frontend_contract_ctx, monkeypatch) -> None:
@@ -241,6 +307,258 @@ def _assert_unbalanced_update_mapping(frontend_contract_ctx, monkeypatch) -> Non
     assert payload["ok"] is False
     assert "error" in payload and isinstance(payload["error"], str)
     assert payload.get("error_code") == "JOURNAL_NOT_BALANCED"
+
+
+def _seed_month_close_documents_state_scenario(
+    frontend_contract_ctx,
+    *,
+    open_documents_count: int,
+    total_documents_count: int,
+) -> None:
+    app = frontend_contract_ctx["app"]
+    user_id = int(frontend_contract_ctx["user_id"])
+    expense_account_id = int(frontend_contract_ctx["expense_account_id"])
+    income_account_id = int(frontend_contract_ctx["income_account_id"])
+    open_count = max(0, int(open_documents_count))
+    total_count = max(open_count, int(total_documents_count))
+
+    with app.app_context():
+        receivable_cat = AccountCategory(user_id=user_id, name=f"Accounts Receivable 63_1 {uuid4().hex[:6]}", tb_group="asset")
+        payable_cat = AccountCategory(user_id=user_id, name=f"Short-term Debt 63_1 {uuid4().hex[:6]}", tb_group="liability")
+        db.session.add_all([receivable_cat, payable_cat])
+        db.session.flush()
+
+        receivable_acc = Account(user_id=user_id, name=f"AR 63_1 {uuid4().hex[:6]}", category_id=receivable_cat.id, currency_code="KRW", active=True)
+        payable_acc = Account(user_id=user_id, name=f"Debt 63_1 {uuid4().hex[:6]}", category_id=payable_cat.id, currency_code="KRW", active=True)
+        db.session.add_all([receivable_acc, payable_acc])
+        db.session.flush()
+
+        for idx in range(total_count):
+            kind = "receivable" if idx % 2 == 0 else "debt"
+            is_open = idx < open_count
+            base_amount = Decimal("100.00")
+
+            entry = JournalEntry(
+                user_id=user_id,
+                date=f"2026/03/{(idx % 27) + 1:02d}",
+                date_parsed=dt.date(2026, 3, (idx % 27) + 1),
+                description=f"63_1 documents state seed {idx}",
+                posted_at=dt.datetime(2026, 3, 20, 12, 0, 0),
+            )
+            db.session.add(entry)
+            db.session.flush()
+
+            if kind == "receivable":
+                doc_line = JournalLine(journal_id=entry.id, account_id=receivable_acc.id, dc="D", amount_base=base_amount, line_no=1)
+                counter_line = JournalLine(journal_id=entry.id, account_id=income_account_id, dc="C", amount_base=base_amount, line_no=2)
+            else:
+                doc_line = JournalLine(journal_id=entry.id, account_id=payable_acc.id, dc="C", amount_base=base_amount, line_no=1)
+                counter_line = JournalLine(journal_id=entry.id, account_id=expense_account_id, dc="D", amount_base=base_amount, line_no=2)
+            db.session.add_all([doc_line, counter_line])
+            db.session.flush()
+
+            db.session.add(
+                ReceivableTracker(
+                    user_id=user_id,
+                    journal_id=entry.id,
+                    journal_line_id=doc_line.id,
+                    account_id=doc_line.account_id,
+                    category=kind,
+                    contact_name=f"Doc Contact {idx}",
+                    transaction_value=base_amount,
+                    amount_paid=Decimal("0.00") if is_open else base_amount,
+                    remaining_amount=base_amount if is_open else Decimal("0.00"),
+                    status="UNPAID" if is_open else "PAID",
+                    currency_code="KRW",
+                )
+            )
+
+        db.session.commit()
+
+
+def _assert_month_close_documents_state_scenario(
+    frontend_contract_ctx,
+    *,
+    open_documents_count: int,
+    total_documents_count: int,
+    expected_state: str,
+) -> None:
+    _seed_month_close_documents_state_scenario(
+        frontend_contract_ctx,
+        open_documents_count=open_documents_count,
+        total_documents_count=total_documents_count,
+    )
+
+    client = frontend_contract_ctx["client"]
+    requested_ym = "2026-03"
+    response = client.get("/accounting/month_close", query_string={"ym": requested_ym})
+    _month_close_documents_state_contract_assert(
+        response.status_code == 200,
+        f"expected GET /accounting/month_close?ym={requested_ym} to return 200, got {response.status_code}",
+    )
+    html = response.get_data(as_text=True)
+
+    for selector in (
+        'data-role="mc-documents"',
+        'data-role="mc-documents-open-count"',
+        'data-role="mc-documents-total-count"',
+    ):
+        _month_close_documents_state_contract_assert(selector in html, f"missing required selector {selector}")
+
+    docs_match = re.search(r"<[^>]*data-role=\"mc-documents\"[^>]*>", html)
+    _month_close_documents_state_contract_assert(docs_match is not None, "missing mc-documents open tag")
+    docs_open_tag = docs_match.group(0) if docs_match else ""
+    state_match = re.search(r'data-state="([^"]+)"', docs_open_tag)
+    _month_close_documents_state_contract_assert(state_match is not None, "mc-documents must include data-state")
+    state_value = state_match.group(1) if state_match else ""
+    _month_close_documents_state_contract_assert(
+        state_value == expected_state,
+        f"mc-documents state mismatch: expected {expected_state!r}, got {state_value!r}",
+    )
+
+    open_match = re.search(r"<[^>]*data-role=\"mc-documents-open-count\"[^>]*>(.*?)</[^>]+>", html, flags=re.DOTALL)
+    total_match = re.search(r"<[^>]*data-role=\"mc-documents-total-count\"[^>]*>(.*?)</[^>]+>", html, flags=re.DOTALL)
+    _month_close_documents_state_contract_assert(open_match is not None, "missing mc-documents-open-count value slot")
+    _month_close_documents_state_contract_assert(total_match is not None, "missing mc-documents-total-count value slot")
+
+    open_text = re.sub(r"<[^>]+>", "", open_match.group(1) if open_match else "").strip()
+    total_text = re.sub(r"<[^>]+>", "", total_match.group(1) if total_match else "").strip()
+    open_digits = re.search(r"-?\d+", open_text or "")
+    total_digits = re.search(r"-?\d+", total_text or "")
+    _month_close_documents_state_contract_assert(open_digits is not None, f"open count text must include numeric value, got {open_text!r}")
+    _month_close_documents_state_contract_assert(total_digits is not None, f"total count text must include numeric value, got {total_text!r}")
+    _month_close_documents_state_contract_assert(
+        int(open_digits.group(0)) == int(open_documents_count),
+        f"open count mismatch: expected {open_documents_count}, got {int(open_digits.group(0)) if open_digits else 'n/a'}",
+    )
+    _month_close_documents_state_contract_assert(
+        int(total_digits.group(0)) == int(total_documents_count),
+        f"total count mismatch: expected {total_documents_count}, got {int(total_digits.group(0)) if total_digits else 'n/a'}",
+    )
+
+    optional_actions = (
+        "mc-download-tb-pdf",
+        "mc-download-statement-pdf",
+        "mc-download-receivables-pdf",
+        "mc-download-payables-pdf",
+        "mc-download-loan-receipt-pdf",
+    )
+    for action_key in optional_actions:
+        if f'data-action="{action_key}"' in html:
+            action_url = _extract_action_url(html, action_key)
+            _month_close_documents_state_contract_assert(
+                action_url is not None,
+                f"{action_key} must render URL when selector is present",
+            )
+            _month_close_documents_state_contract_assert(
+                "ym=2026-03" in str(action_url),
+                f"{action_key} URL must include ym=2026-03, got {action_url!r}",
+            )
+
+
+def _seed_month_close_draft_entry(frontend_contract_ctx, *, debit_amount: Decimal, credit_amount: Decimal) -> None:
+    app = frontend_contract_ctx["app"]
+    user_id = int(frontend_contract_ctx["user_id"])
+    expense_account_id = int(frontend_contract_ctx["expense_account_id"])
+    income_account_id = int(frontend_contract_ctx["income_account_id"])
+
+    with app.app_context():
+        entry = JournalEntry(
+            user_id=user_id,
+            date="2026/03/25",
+            date_parsed=dt.date(2026, 3, 25),
+            description=f"63_2 draft seed debit={debit_amount} credit={credit_amount}",
+            posted_at=None,
+        )
+        db.session.add(entry)
+        db.session.flush()
+        db.session.add(
+            JournalLine(
+                journal_id=entry.id,
+                account_id=expense_account_id,
+                dc="D",
+                amount_base=debit_amount,
+                line_no=1,
+            )
+        )
+        db.session.add(
+            JournalLine(
+                journal_id=entry.id,
+                account_id=income_account_id,
+                dc="C",
+                amount_base=credit_amount,
+                line_no=2,
+            )
+        )
+        db.session.commit()
+
+
+def _extract_role_state(html: str, role: str) -> str | None:
+    tag_open = _extract_role_open_tag(html, role)
+    if tag_open is None:
+        return None
+    state_match = re.search(r'data-state="([^"]+)"', tag_open)
+    if state_match is None:
+        return None
+    return state_match.group(1)
+
+
+def _extract_role_open_tag(html: str, role: str) -> str | None:
+    tag_match = re.search(rf"<[^>]*data-role=\"{re.escape(role)}\"[^>]*>", html)
+    if tag_match is None:
+        return None
+    return tag_match.group(0)
+
+
+def _extract_role_attr(html: str, role: str, attr: str) -> str | None:
+    tag_open = _extract_role_open_tag(html, role)
+    if tag_open is None:
+        return None
+    attr_match = re.search(rf'{re.escape(attr)}="([^"]+)"', tag_open, flags=re.IGNORECASE)
+    if attr_match is None:
+        return None
+    return attr_match.group(1)
+
+
+def _extract_role_url(html: str, role: str) -> str | None:
+    role_match = re.search(
+        rf"<(?P<tag>\w+)\b[^>]*data-role=\"{re.escape(role)}\"[^>]*>",
+        html,
+        flags=re.IGNORECASE,
+    )
+    if role_match is None:
+        return None
+
+    role_open_tag = role_match.group(0)
+    for attr in ("href", "formaction", "action", "data-url"):
+        attr_match = re.search(rf'{attr}=\"([^\"]+)\"', role_open_tag, flags=re.IGNORECASE)
+        if attr_match:
+            return unescape(attr_match.group(1))
+
+    role_start = role_match.start()
+    form_open_start = html.rfind("<form", 0, role_start)
+    if form_open_start < 0:
+        return None
+    form_open_end = html.find(">", form_open_start)
+    form_close = html.find("</form>", role_start)
+    if form_open_end < 0 or form_close < 0 or not (form_open_end < role_start < form_close):
+        return None
+    form_open_tag = html[form_open_start : form_open_end + 1]
+    form_action_match = re.search(r'action=\"([^\"]+)\"', form_open_tag, flags=re.IGNORECASE)
+    if form_action_match:
+        return unescape(form_action_match.group(1))
+    return None
+
+
+def _extract_role_numeric_value(html: str, role: str) -> int | None:
+    value_match = re.search(rf"<[^>]*data-role=\"{re.escape(role)}\"[^>]*>(.*?)</[^>]+>", html, flags=re.DOTALL)
+    if value_match is None:
+        return None
+    text = re.sub(r"<[^>]+>", "", value_match.group(1)).strip()
+    int_match = re.search(r"-?\d+", text)
+    if int_match is None:
+        return None
+    return int(int_match.group(0))
 
 
 def test_frontend_contract_add_transaction_envelope_and_shape(frontend_contract_ctx):
@@ -1056,3 +1374,764 @@ def test_frontend_contract_phase13_dismiss_redirect_preserves_active_filter_para
     query = parse_qs(parsed.query, keep_blank_values=True)
     for key in params:
         _csv_import_contract_assert(key in query, f"dismiss redirect missing preserved key {key}")
+
+
+def test_frontend_contract_phase20_month_close_foundation_selector_surface(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    requested_ym = "2026-03"
+    response = client.get("/accounting/month_close", query_string={"ym": requested_ym})
+    _month_close_contract_assert(
+        response.status_code == 200,
+        f"expected GET /accounting/month_close?ym={requested_ym} to return 200, got {response.status_code}",
+    )
+
+    html = response.get_data(as_text=True)
+    required_selectors = (
+        "#month-close-page",
+        'data-role="month-close-ym"',
+        'data-role="month-close-checklist"',
+        'data-role="mc-coverage"',
+        'data-role="mc-unbalanced-drafts"',
+        'data-role="mc-reports"',
+        'data-role="mc-snapshot"',
+    )
+    for selector in required_selectors:
+        _month_close_contract_assert(selector in html, f"missing required selector {selector}")
+
+    state_roles = (
+        "mc-coverage",
+        "mc-unbalanced-drafts",
+        "mc-reports",
+        "mc-snapshot",
+    )
+    allowed_states = {"ok", "warn", "fail", "unknown"}
+    for role in state_roles:
+        tag_match = re.search(rf"<[^>]*data-role=\"{re.escape(role)}\"[^>]*>", html)
+        _month_close_contract_assert(tag_match is not None, f"missing checklist item tag for {role}")
+        open_tag = tag_match.group(0) if tag_match else ""
+        data_state_match = re.search(r'data-state="([^"]+)"', open_tag)
+        _month_close_contract_assert(data_state_match is not None, f"missing data-state attribute on {role}")
+        state_value = data_state_match.group(1) if data_state_match else ""
+        _month_close_contract_assert(
+            state_value in allowed_states,
+            f"invalid data-state on {role}: {state_value!r}; allowed={sorted(allowed_states)}",
+        )
+
+    ym_text_match = re.search(
+        r"<[^>]*data-role=\"month-close-ym\"[^>]*>(.*?)</[^>]+>",
+        html,
+        flags=re.DOTALL,
+    )
+    _month_close_contract_assert(ym_text_match is not None, "missing month-close-ym text container")
+    ym_text = re.sub(r"<[^>]+>", "", ym_text_match.group(1) if ym_text_match else "")
+    ym_text = unescape(ym_text).strip()
+    _month_close_contract_assert(bool(ym_text), "month-close-ym text must be non-empty")
+    _month_close_contract_assert(
+        requested_ym in ym_text,
+        f"month-close-ym text must contain requested ym {requested_ym!r}, got {ym_text!r}",
+    )
+
+    # Optional selectors: assert only when implemented in markup.
+    optional_selectors = (
+        'data-action="mc-create-snapshot"',
+        'data-role="mc-snapshot-status"',
+        'data-role="mc-snapshot-list"',
+    )
+    for selector in optional_selectors:
+        if selector in html:
+            continue
+
+
+def test_frontend_contract_phase21_month_close_snapshot_section_shape(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    requested_ym = "2026-03"
+    response = client.get("/accounting/month_close", query_string={"ym": requested_ym})
+    _month_close_contract_assert(
+        response.status_code == 200,
+        f"expected GET /accounting/month_close?ym={requested_ym} to return 200, got {response.status_code}",
+    )
+    html = response.get_data(as_text=True)
+
+    # Phase 2.0 selector regression guard remains required in 2.1.
+    for selector in (
+        "#month-close-page",
+        'data-role="month-close-ym"',
+        'data-role="month-close-checklist"',
+        'data-role="mc-coverage"',
+        'data-role="mc-unbalanced-drafts"',
+        'data-role="mc-reports"',
+        'data-role="mc-snapshot"',
+    ):
+        _month_close_contract_assert(selector in html, f"missing required selector {selector}")
+
+    _month_close_contract_assert('data-role="mc-snapshot"' in html, "missing snapshot section data-role=\"mc-snapshot\"")
+    _month_close_contract_assert('data-role="mc-snapshot-status"' in html, "missing snapshot status data-role=\"mc-snapshot-status\"")
+    _month_close_contract_assert('data-action="mc-create-snapshot"' in html, "missing snapshot action data-action=\"mc-create-snapshot\"")
+    _month_close_contract_assert(
+        re.search(
+            r"<form\b[^>]*method=[\"']post[\"'][^>]*>.*?data-action=\"mc-create-snapshot\".*?</form>",
+            html,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        is not None,
+        "snapshot action must be rendered inside a POST form",
+    )
+
+    list_match = re.search(r"<ul\b[^>]*data-role=\"mc-snapshot-list\"[^>]*>(.*?)</ul>", html, flags=re.IGNORECASE | re.DOTALL)
+    if list_match is not None:
+        list_inner = list_match.group(1).strip()
+        _month_close_contract_assert(bool(list_inner), "snapshot list container must be non-empty when present")
+
+
+def test_frontend_contract_phase21_month_close_snapshot_create_redirect_shape(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    csrf_token = frontend_contract_ctx["csrf_token"]
+    requested_ym = "2026-03"
+
+    create_resp = client.post(
+        "/accounting/month_close/snapshot",
+        query_string={"ym": requested_ym},
+        data={"csrf_token": csrf_token},
+        headers={"X-CSRF-Token": csrf_token},
+        follow_redirects=False,
+    )
+    _month_close_contract_assert(
+        300 <= create_resp.status_code < 400,
+        f"snapshot create must redirect, got status {create_resp.status_code}",
+    )
+
+    location = str(create_resp.headers.get("Location") or "")
+    _month_close_contract_assert(bool(location), "snapshot create redirect missing Location header")
+    parsed_location = urlparse(location)
+    _month_close_contract_assert(
+        parsed_location.path.endswith("/accounting/month_close"),
+        f"snapshot create redirect must point to /accounting/month_close, got {parsed_location.path!r}",
+    )
+    location_qs = parse_qs(parsed_location.query, keep_blank_values=True)
+    _month_close_contract_assert("ym" in location_qs, "snapshot create redirect missing ym query key")
+    _month_close_contract_assert(
+        requested_ym in (location_qs.get("ym") or []),
+        f"snapshot create redirect must preserve ym={requested_ym!r}, got {location_qs.get('ym')!r}",
+    )
+
+    follow_resp = client.get(location)
+    _month_close_contract_assert(
+        follow_resp.status_code == 200,
+        f"expected redirected month-close page to return 200, got {follow_resp.status_code}",
+    )
+    follow_html = follow_resp.get_data(as_text=True)
+    snapshot_status_success = re.search(
+        r"data-role=\"mc-snapshot-status\"[^>]*>.*?(success|created|saved).*?</",
+        follow_html,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    _month_close_contract_assert(
+        snapshot_status_success is not None or 'data-role="mc-snapshot-list"' in follow_html,
+        "after snapshot create redirect, snapshot status must indicate success or snapshot list must be present",
+    )
+
+
+def test_frontend_contract_phase25_month_close_reports_documents_integration_surface(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    requested_ym = "2026-03"
+    response = client.get("/accounting/month_close", query_string={"ym": requested_ym})
+    _month_close_documents_contract_assert(
+        response.status_code == 200,
+        f"expected GET /accounting/month_close?ym={requested_ym} to return 200, got {response.status_code}",
+    )
+    html = response.get_data(as_text=True)
+
+    required_selectors = (
+        'data-role="mc-reports"',
+        'data-action="mc-download-tb-pdf"',
+        'data-action="mc-download-statement-pdf"',
+        'data-role="mc-documents"',
+        'data-action="mc-download-receivables-pdf"',
+        'data-action="mc-download-payables-pdf"',
+    )
+    for selector in required_selectors:
+        _month_close_documents_contract_assert(selector in html, f"missing required selector {selector}")
+
+    documents_tag_match = re.search(r"<[^>]*data-role=\"mc-documents\"[^>]*>", html)
+    _month_close_documents_contract_assert(documents_tag_match is not None, "missing mc-documents container open tag")
+    documents_open_tag = documents_tag_match.group(0) if documents_tag_match else ""
+    documents_state_match = re.search(r'data-state="([^"]+)"', documents_open_tag)
+    _month_close_documents_contract_assert(documents_state_match is not None, "mc-documents must include data-state")
+    documents_state = documents_state_match.group(1) if documents_state_match else ""
+    _month_close_documents_contract_assert(
+        documents_state in {"ok", "warn", "fail", "unknown"},
+        f"mc-documents data-state must be one of ok|warn|fail|unknown, got {documents_state!r}",
+    )
+
+    ym_region_match = re.search(r"<[^>]*data-role=\"month-close-ym\"[^>]*>(.*?)</[^>]+>", html, flags=re.DOTALL)
+    _month_close_documents_contract_assert(ym_region_match is not None, "missing month-close ym region")
+    ym_region_text = re.sub(r"<[^>]+>", "", ym_region_match.group(1) if ym_region_match else "")
+    ym_region_text = unescape(ym_region_text).strip()
+    _month_close_documents_contract_assert(
+        requested_ym in ym_region_text,
+        f"month-close ym region must contain {requested_ym!r}, got {ym_region_text!r}",
+    )
+
+    required_action_urls = (
+        "mc-download-tb-pdf",
+        "mc-download-statement-pdf",
+        "mc-download-receivables-pdf",
+        "mc-download-payables-pdf",
+    )
+    for action_key in required_action_urls:
+        action_url = _extract_action_url(html, action_key)
+        _month_close_documents_contract_assert(action_url is not None, f"{action_key} must render href/form action URL")
+        _month_close_documents_contract_assert(
+            "ym=2026-03" in str(action_url),
+            f"{action_key} URL must include ym=2026-03, got {action_url!r}",
+        )
+
+    if 'data-action="mc-download-loan-receipt-pdf"' in html:
+        loan_action_url = _extract_action_url(html, "mc-download-loan-receipt-pdf")
+        _month_close_documents_contract_assert(
+            loan_action_url is not None,
+            "mc-download-loan-receipt-pdf must render href/form action URL when present",
+        )
+        loan_action_url = str(loan_action_url or "")
+        _month_close_documents_contract_assert(
+            "ym=2026-03" in loan_action_url,
+            f"mc-download-loan-receipt-pdf URL must include ym=2026-03, got {loan_action_url!r}",
+        )
+        has_loan_id = "loan_id=" in loan_action_url
+        has_entry_id = "entry_id=" in loan_action_url
+        _month_close_documents_contract_assert(
+            has_loan_id ^ has_entry_id,
+            f"mc-download-loan-receipt-pdf must include exactly one of loan_id or entry_id, got {loan_action_url!r}",
+        )
+
+
+def test_frontend_contract_phase251_month_close_documents_state_warn_when_open_documents_exist(frontend_contract_ctx):
+    _assert_month_close_documents_state_scenario(
+        frontend_contract_ctx,
+        open_documents_count=2,
+        total_documents_count=3,
+        expected_state="warn",
+    )
+
+
+def test_frontend_contract_phase251_month_close_documents_state_ok_when_no_open_documents(frontend_contract_ctx):
+    _assert_month_close_documents_state_scenario(
+        frontend_contract_ctx,
+        open_documents_count=0,
+        total_documents_count=2,
+        expected_state="ok",
+    )
+
+
+def test_frontend_contract_phase262_month_close_coverage_selector_surface(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    response = client.get("/accounting/month_close", query_string={"ym": "2026-03"})
+    _month_close_coverage_contract_assert(
+        response.status_code == 200,
+        f"expected GET /accounting/month_close?ym=2026-03 to return 200, got {response.status_code}",
+    )
+    html = response.get_data(as_text=True)
+    for selector in (
+        'data-role="mc-coverage-source"',
+        'data-role="mc-coverage-note"',
+        'data-role="mc-drafts-count"',
+        'data-role="mc-unbalanced-drafts-count"',
+    ):
+        _month_close_coverage_contract_assert(selector in html, f"missing required selector {selector}")
+
+
+def test_frontend_contract_phase262_unbalanced_drafts_warn_when_unbalanced_count_gt_zero(frontend_contract_ctx):
+    _seed_month_close_draft_entry(
+        frontend_contract_ctx,
+        debit_amount=Decimal("100.00"),
+        credit_amount=Decimal("70.00"),
+    )
+    client = frontend_contract_ctx["client"]
+    response = client.get("/accounting/month_close", query_string={"ym": "2026-03"})
+    _month_close_coverage_contract_assert(
+        response.status_code == 200,
+        f"expected GET /accounting/month_close?ym=2026-03 to return 200, got {response.status_code}",
+    )
+    html = response.get_data(as_text=True)
+
+    state_value = _extract_role_state(html, "mc-unbalanced-drafts")
+    _month_close_coverage_contract_assert(state_value is not None, "mc-unbalanced-drafts must include data-state")
+    _month_close_coverage_contract_assert(
+        state_value == "warn",
+        f"mc-unbalanced-drafts must be warn when unbalanced_draft_count > 0, got {state_value!r}",
+    )
+    _month_close_coverage_contract_assert(state_value != "fail", "mc-unbalanced-drafts fail state is not expected in Phase 2.6")
+
+    drafts_count = _extract_role_numeric_value(html, "mc-drafts-count")
+    unbalanced_count = _extract_role_numeric_value(html, "mc-unbalanced-drafts-count")
+    _month_close_coverage_contract_assert(drafts_count is not None, "mc-drafts-count must render a numeric value")
+    _month_close_coverage_contract_assert(unbalanced_count is not None, "mc-unbalanced-drafts-count must render a numeric value")
+    _month_close_coverage_contract_assert(drafts_count == 4, f"expected draft count 4, got {drafts_count!r}")
+    _month_close_coverage_contract_assert(unbalanced_count == 1, f"expected unbalanced draft count 1, got {unbalanced_count!r}")
+
+
+def test_frontend_contract_phase262_unbalanced_drafts_ok_when_unbalanced_count_is_zero(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    response = client.get("/accounting/month_close", query_string={"ym": "2026-03"})
+    _month_close_coverage_contract_assert(
+        response.status_code == 200,
+        f"expected GET /accounting/month_close?ym=2026-03 to return 200, got {response.status_code}",
+    )
+    html = response.get_data(as_text=True)
+
+    state_value = _extract_role_state(html, "mc-unbalanced-drafts")
+    _month_close_coverage_contract_assert(state_value is not None, "mc-unbalanced-drafts must include data-state")
+    _month_close_coverage_contract_assert(
+        state_value == "ok",
+        f"mc-unbalanced-drafts must be ok when unbalanced_draft_count == 0, got {state_value!r}",
+    )
+    _month_close_coverage_contract_assert(state_value != "fail", "mc-unbalanced-drafts fail state is not expected in Phase 2.6")
+
+    drafts_count = _extract_role_numeric_value(html, "mc-drafts-count")
+    unbalanced_count = _extract_role_numeric_value(html, "mc-unbalanced-drafts-count")
+    _month_close_coverage_contract_assert(drafts_count is not None, "mc-drafts-count must render a numeric value")
+    _month_close_coverage_contract_assert(unbalanced_count is not None, "mc-unbalanced-drafts-count must render a numeric value")
+    _month_close_coverage_contract_assert(drafts_count == 3, f"expected draft count 3, got {drafts_count!r}")
+    _month_close_coverage_contract_assert(unbalanced_count == 0, f"expected unbalanced draft count 0, got {unbalanced_count!r}")
+
+
+def test_frontend_contract_phase262_coverage_state_non_unknown_when_computable(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    response = client.get("/accounting/month_close", query_string={"ym": "2026-03"})
+    _month_close_coverage_contract_assert(
+        response.status_code == 200,
+        f"expected GET /accounting/month_close?ym=2026-03 to return 200, got {response.status_code}",
+    )
+    html = response.get_data(as_text=True)
+    coverage_state = _extract_role_state(html, "mc-coverage")
+    _month_close_coverage_contract_assert(coverage_state is not None, "mc-coverage must include data-state")
+    _month_close_coverage_contract_assert(
+        coverage_state != "unknown",
+        f"mc-coverage must not be unknown when computable, got {coverage_state!r}",
+    )
+    _month_close_coverage_contract_assert(coverage_state != "fail", "mc-coverage fail state is not expected in Phase 2.6")
+
+
+def test_frontend_contract_phase262_coverage_state_unknown_when_schema_not_ready(frontend_contract_ctx, monkeypatch):
+    import blueprints.accounting as accounting_module
+
+    client = frontend_contract_ctx["client"]
+
+    def _raise_schema_not_ready(*_args, **_kwargs):
+        raise RuntimeError("schema not ready simulated")
+
+    monkeypatch.setattr(accounting_module, "_build_month_close_snapshot_payload", _raise_schema_not_ready)
+
+    response = client.get("/accounting/month_close", query_string={"ym": "2026-03"})
+    _month_close_coverage_contract_assert(
+        response.status_code == 200,
+        f"expected GET /accounting/month_close?ym=2026-03 to return 200, got {response.status_code}",
+    )
+    html = response.get_data(as_text=True)
+    coverage_state = _extract_role_state(html, "mc-coverage")
+    _month_close_coverage_contract_assert(coverage_state is not None, "mc-coverage must include data-state")
+    _month_close_coverage_contract_assert(
+        coverage_state == "unknown",
+        f"mc-coverage must be unknown when schema-not-ready is simulated, got {coverage_state!r}",
+    )
+    _month_close_coverage_contract_assert(coverage_state != "fail", "mc-coverage fail state is not expected in Phase 2.6")
+
+
+def test_frontend_contract_phase263_month_close_resolution_actions_preserve_ym(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    requested_ym = "2026-03"
+    response = client.get("/accounting/month_close", query_string={"ym": requested_ym})
+    _month_close_resolution_contract_assert(
+        response.status_code == 200,
+        f"expected GET /accounting/month_close?ym={requested_ym} to return 200, got {response.status_code}",
+    )
+    html = response.get_data(as_text=True)
+
+    required_actions = (
+        "mc-open-tb",
+        "mc-open-statements",
+        "mc-open-journal-drafts",
+    )
+    for action_key in required_actions:
+        _month_close_resolution_contract_assert(
+            f'data-action="{action_key}"' in html,
+            f"missing required selector data-action=\"{action_key}\"",
+        )
+
+    optional_actions = []
+    if 'data-action="mc-open-documents-panel"' in html:
+        optional_actions.append("mc-open-documents-panel")
+
+    page_ctx_match = re.search(r'data-(?:current-)?page="([^"]+)"', html, flags=re.IGNORECASE)
+    per_page_ctx_match = re.search(r'data-per-page="([^"]+)"', html, flags=re.IGNORECASE)
+    if page_ctx_match is None:
+        page_ctx_match = re.search(r'name="page"[^>]*value="([^"]+)"', html, flags=re.IGNORECASE)
+    if per_page_ctx_match is None:
+        per_page_ctx_match = re.search(r'name="per_page"[^>]*value="([^"]+)"', html, flags=re.IGNORECASE)
+    page_ctx = page_ctx_match.group(1) if page_ctx_match else None
+    per_page_ctx = per_page_ctx_match.group(1) if per_page_ctx_match else None
+
+    for action_key in tuple(required_actions) + tuple(optional_actions):
+        action_url = _extract_action_url(html, action_key)
+        _month_close_resolution_contract_assert(
+            action_url is not None,
+            f"{action_key} must render href/formaction/action/data-url/form action URL",
+        )
+        parsed = urlparse(str(action_url))
+        query = parse_qs(parsed.query, keep_blank_values=True)
+        _month_close_resolution_contract_assert("ym" in query, f"{action_key} URL must include ym query key, got {action_url!r}")
+        _month_close_resolution_contract_assert(
+            requested_ym in (query.get("ym") or []),
+            f"{action_key} URL ym must match {requested_ym!r}, got {query.get('ym')!r}",
+        )
+
+        indicates_paginated_target = (
+            ("page" in query or "per_page" in query)
+            or ("/journal" in parsed.path)
+            or ("/transactions" in parsed.path)
+        )
+        if page_ctx and per_page_ctx and indicates_paginated_target:
+            _month_close_resolution_contract_assert(
+                "page" in query,
+                f"{action_key} paginated target must preserve page when context provides it, got {action_url!r}",
+            )
+            _month_close_resolution_contract_assert(
+                "per_page" in query,
+                f"{action_key} paginated target must preserve per_page when context provides it, got {action_url!r}",
+            )
+
+
+def test_frontend_contract_phase29_month_close_documents_panel_resolution_link(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    requested_ym = "2026-03"
+    response = client.get("/accounting/month_close", query_string={"ym": requested_ym})
+    _month_close_resolution_contract_assert(
+        response.status_code == 200,
+        f"expected GET /accounting/month_close?ym={requested_ym} to return 200, got {response.status_code}",
+    )
+    html = response.get_data(as_text=True)
+
+    _month_close_resolution_contract_assert(
+        'data-action="mc-open-documents-panel"' in html,
+        'missing required selector data-action="mc-open-documents-panel"',
+    )
+
+    documents_panel_url = _extract_action_url(html, "mc-open-documents-panel")
+    _month_close_resolution_contract_assert(
+        documents_panel_url is not None,
+        "mc-open-documents-panel must render href/formaction/action/data-url/form action URL",
+    )
+    normalized_documents_panel_url = str(documents_panel_url or "").strip()
+    _month_close_resolution_contract_assert(
+        bool(normalized_documents_panel_url),
+        "mc-open-documents-panel URL must be non-empty",
+    )
+    _month_close_resolution_contract_assert(
+        normalized_documents_panel_url != "#",
+        'mc-open-documents-panel URL must not be placeholder "#"',
+    )
+
+    documents_panel_parsed = urlparse(normalized_documents_panel_url)
+    _month_close_resolution_contract_assert(
+        documents_panel_parsed.path != "/accounting/month_close",
+        f"mc-open-documents-panel URL must not self-link to /accounting/month_close, got {normalized_documents_panel_url!r}",
+    )
+    _month_close_resolution_contract_assert(
+        documents_panel_parsed.path == "/accounting",
+        f"mc-open-documents-panel URL must target /accounting, got path={documents_panel_parsed.path!r}",
+    )
+
+    documents_panel_query = parse_qs(documents_panel_parsed.query, keep_blank_values=True)
+    _month_close_resolution_contract_assert(
+        requested_ym in (documents_panel_query.get("ym") or []),
+        f"mc-open-documents-panel URL must include ym={requested_ym!r}, got ym={documents_panel_query.get('ym')!r}",
+    )
+
+    readiness_action_key = _extract_role_attr(html, "mc-readiness-next-action", "data-action-key")
+    readiness_enabled = _extract_role_attr(html, "mc-readiness-next-action", "data-enabled")
+    if readiness_action_key == "open_documents" and readiness_enabled == "true":
+        readiness_link_url = _extract_role_url(html, "mc-readiness-next-action-link")
+        _month_close_resolution_contract_assert(
+            readiness_link_url is not None,
+            "mc-readiness-next-action-link must exist when readiness action-key=open_documents and data-enabled=true",
+        )
+        _month_close_resolution_contract_assert(
+            str(readiness_link_url) == normalized_documents_panel_url,
+            f"readiness open_documents link must equal mc-open-documents-panel URL; got readiness={readiness_link_url!r}, expected={normalized_documents_panel_url!r}",
+        )
+
+
+def test_frontend_contract_phase36_accounting_documents_panel_surface(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    requested_ym = "2026-03"
+    response = client.get("/accounting", query_string={"ym": requested_ym})
+    _month_close_resolution_contract_assert(
+        response.status_code == 200,
+        f"expected GET /accounting?ym={requested_ym} to return 200, got {response.status_code}",
+    )
+    html = response.get_data(as_text=True)
+
+    for selector in (
+        'id="documents-panel"',
+        'data-role="docs-selectors"',
+        'data-role="docs-error"',
+    ):
+        _month_close_resolution_contract_assert(
+            selector in html,
+            f"missing required selector {selector} on /accounting?ym={requested_ym}",
+        )
+
+
+def _assert_month_close_readiness_surface_and_enums(html: str, requested_ym: str) -> tuple[str, str]:
+    for selector in (
+        'data-role="mc-readiness"',
+        'data-role="mc-readiness-message"',
+        'data-role="mc-readiness-next-action"',
+    ):
+        _month_close_readiness_contract_assert(selector in html, f"missing required selector {selector}")
+
+    readiness_state = _extract_role_attr(html, "mc-readiness", "data-state")
+    _month_close_readiness_contract_assert(readiness_state is not None, "mc-readiness must include data-state")
+    _month_close_readiness_contract_assert(
+        readiness_state in {"ready", "attention", "unknown"},
+        f"mc-readiness data-state must be one of ready|attention|unknown, got {readiness_state!r}",
+    )
+
+    action_key = _extract_role_attr(html, "mc-readiness-next-action", "data-action-key")
+    _month_close_readiness_contract_assert(
+        action_key is not None,
+        "mc-readiness-next-action must include data-action-key",
+    )
+    _month_close_readiness_contract_assert(
+        action_key in {
+            "open_journal_drafts",
+            "open_documents",
+            "open_statements",
+            "retry_refresh",
+            "create_snapshot",
+        },
+        f"mc-readiness-next-action data-action-key has invalid value {action_key!r}",
+    )
+
+    data_enabled = _extract_role_attr(html, "mc-readiness-next-action", "data-enabled")
+    _month_close_readiness_contract_assert(
+        data_enabled is not None,
+        "mc-readiness-next-action must include data-enabled",
+    )
+    _month_close_readiness_contract_assert(
+        data_enabled in {"true", "false"},
+        f"mc-readiness-next-action data-enabled must be true|false, got {data_enabled!r}",
+    )
+
+    if 'data-role="mc-readiness-next-action-link"' in html:
+        action_link_url = _extract_role_url(html, "mc-readiness-next-action-link")
+        _month_close_readiness_contract_assert(
+            action_link_url is not None,
+            "mc-readiness-next-action-link must render href/formaction/action/data-url/form action URL",
+        )
+        normalized_url = str(action_link_url or "").strip()
+        _month_close_readiness_contract_assert(
+            "ym=2026-03" in normalized_url,
+            f"mc-readiness-next-action-link URL must include ym={requested_ym}, got {normalized_url!r}",
+        )
+        _month_close_readiness_contract_assert(
+            not normalized_url.lower().startswith("javascript:"),
+            f"mc-readiness-next-action-link must be navigation URL, got {normalized_url!r}",
+        )
+    return str(readiness_state), str(action_key)
+
+
+def test_frontend_contract_phase284_month_close_readiness_selector_surface_and_enums(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    requested_ym = "2026-03"
+    response = client.get("/accounting/month_close", query_string={"ym": requested_ym})
+    _month_close_readiness_contract_assert(
+        response.status_code == 200,
+        f"expected GET /accounting/month_close?ym={requested_ym} to return 200, got {response.status_code}",
+    )
+    html = response.get_data(as_text=True)
+    _assert_month_close_readiness_surface_and_enums(html, requested_ym)
+
+
+def test_frontend_contract_phase284_readiness_attention_when_unbalanced_drafts_exist(frontend_contract_ctx):
+    _seed_month_close_documents_state_scenario(
+        frontend_contract_ctx,
+        open_documents_count=0,
+        total_documents_count=2,
+    )
+    _seed_month_close_draft_entry(
+        frontend_contract_ctx,
+        debit_amount=Decimal("100.00"),
+        credit_amount=Decimal("70.00"),
+    )
+
+    client = frontend_contract_ctx["client"]
+    requested_ym = "2026-03"
+    response = client.get("/accounting/month_close", query_string={"ym": requested_ym})
+    _month_close_readiness_contract_assert(
+        response.status_code == 200,
+        f"expected GET /accounting/month_close?ym={requested_ym} to return 200, got {response.status_code}",
+    )
+    html = response.get_data(as_text=True)
+    readiness_state, action_key = _assert_month_close_readiness_surface_and_enums(html, requested_ym)
+    _month_close_readiness_contract_assert(
+        readiness_state == "attention",
+        f"expected readiness attention when drafts warn, got {readiness_state!r}",
+    )
+    _month_close_readiness_contract_assert(
+        action_key == "open_journal_drafts",
+        f"expected readiness next action open_journal_drafts when drafts warn, got {action_key!r}",
+    )
+
+
+def test_frontend_contract_phase284_readiness_ready_when_all_green(frontend_contract_ctx):
+    _seed_month_close_documents_state_scenario(
+        frontend_contract_ctx,
+        open_documents_count=0,
+        total_documents_count=2,
+    )
+
+    client = frontend_contract_ctx["client"]
+    requested_ym = "2026-03"
+    response = client.get("/accounting/month_close", query_string={"ym": requested_ym})
+    _month_close_readiness_contract_assert(
+        response.status_code == 200,
+        f"expected GET /accounting/month_close?ym={requested_ym} to return 200, got {response.status_code}",
+    )
+    html = response.get_data(as_text=True)
+    readiness_state, action_key = _assert_month_close_readiness_surface_and_enums(html, requested_ym)
+    _month_close_readiness_contract_assert(
+        readiness_state == "ready",
+        f"expected readiness ready when all checks are ok, got {readiness_state!r}",
+    )
+    _month_close_readiness_contract_assert(
+        action_key == "create_snapshot",
+        f"expected readiness next action create_snapshot when all checks are ok, got {action_key!r}",
+    )
+
+
+def test_frontend_contract_phase284_readiness_unknown_with_retry_refresh_on_unknown_input(frontend_contract_ctx, monkeypatch):
+    import blueprints.accounting as accounting_module
+
+    def _raise_snapshot_payload_error(*_args, **_kwargs):
+        raise RuntimeError("month-close readiness unknown drill")
+
+    monkeypatch.setattr(accounting_module, "_build_month_close_snapshot_payload", _raise_snapshot_payload_error)
+
+    client = frontend_contract_ctx["client"]
+    requested_ym = "2026-03"
+    response = client.get("/accounting/month_close", query_string={"ym": requested_ym})
+    _month_close_readiness_contract_assert(
+        response.status_code == 200,
+        f"expected GET /accounting/month_close?ym={requested_ym} to return 200, got {response.status_code}",
+    )
+    html = response.get_data(as_text=True)
+    readiness_state, action_key = _assert_month_close_readiness_surface_and_enums(html, requested_ym)
+    _month_close_readiness_contract_assert(
+        readiness_state == "unknown",
+        f"expected readiness unknown when any input is unknown, got {readiness_state!r}",
+    )
+    _month_close_readiness_contract_assert(
+        action_key == "retry_refresh",
+        f"expected readiness next action retry_refresh when readiness is unknown, got {action_key!r}",
+    )
+
+
+def test_frontend_contract_phase2841_readiness_next_action_linkage_contract(frontend_contract_ctx):
+    client = frontend_contract_ctx["client"]
+    requested_ym = "2026-03"
+    response = client.get("/accounting/month_close", query_string={"ym": requested_ym})
+    _month_close_readiness_linkage_contract_assert(
+        response.status_code == 200,
+        f"expected GET /accounting/month_close?ym={requested_ym} to return 200, got {response.status_code}",
+    )
+    html = response.get_data(as_text=True)
+
+    _month_close_readiness_linkage_contract_assert(
+        'data-role="mc-readiness-next-action"' in html,
+        'missing required selector data-role="mc-readiness-next-action"',
+    )
+
+    action_key = _extract_role_attr(html, "mc-readiness-next-action", "data-action-key")
+    _month_close_readiness_linkage_contract_assert(
+        action_key in {
+            "open_journal_drafts",
+            "open_documents",
+            "open_statements",
+            "retry_refresh",
+            "create_snapshot",
+        },
+        f"mc-readiness-next-action data-action-key has invalid value {action_key!r}",
+    )
+
+    data_enabled = _extract_role_attr(html, "mc-readiness-next-action", "data-enabled")
+    _month_close_readiness_linkage_contract_assert(
+        data_enabled in {"true", "false"},
+        f"mc-readiness-next-action data-enabled must be true|false, got {data_enabled!r}",
+    )
+
+    is_enabled = data_enabled == "true"
+    readiness_link_present = 'data-role="mc-readiness-next-action-link"' in html
+    readiness_link_url = _extract_role_url(html, "mc-readiness-next-action-link") if readiness_link_present else None
+    readiness_link_url = str(readiness_link_url or "")
+
+    if not is_enabled:
+        _month_close_readiness_linkage_contract_assert(
+            not readiness_link_present,
+            "mc-readiness-next-action-link must be absent when data-enabled=false",
+        )
+    else:
+        linkable_keys = {
+            "open_journal_drafts",
+            "open_documents",
+            "open_statements",
+            "retry_refresh",
+        }
+        if action_key in linkable_keys:
+            _month_close_readiness_linkage_contract_assert(
+                readiness_link_present and bool(readiness_link_url),
+                f"mc-readiness-next-action-link must exist with URL when action-key={action_key!r} and data-enabled=true",
+            )
+            _month_close_readiness_linkage_contract_assert(
+                f"ym={requested_ym}" in readiness_link_url,
+                f"mc-readiness-next-action-link URL must include ym={requested_ym!r}, got {readiness_link_url!r}",
+            )
+
+        if action_key == "open_journal_drafts":
+            expected_url = _extract_action_url(html, "mc-open-journal-drafts")
+            _month_close_readiness_linkage_contract_assert(
+                expected_url is not None,
+                "missing data-action=\"mc-open-journal-drafts\" URL for linkage mapping",
+            )
+            _month_close_readiness_linkage_contract_assert(
+                readiness_link_url == str(expected_url),
+                f"readiness link URL must equal mc-open-journal-drafts URL; got readiness={readiness_link_url!r}, expected={expected_url!r}",
+            )
+        elif action_key == "open_statements":
+            expected_url = _extract_action_url(html, "mc-open-statements")
+            _month_close_readiness_linkage_contract_assert(
+                expected_url is not None,
+                "missing data-action=\"mc-open-statements\" URL for linkage mapping",
+            )
+            _month_close_readiness_linkage_contract_assert(
+                readiness_link_url == str(expected_url),
+                f"readiness link URL must equal mc-open-statements URL; got readiness={readiness_link_url!r}, expected={expected_url!r}",
+            )
+        elif action_key == "retry_refresh":
+            parsed_retry_url = urlparse(readiness_link_url)
+            retry_qs = parse_qs(parsed_retry_url.query, keep_blank_values=True)
+            _month_close_readiness_linkage_contract_assert(
+                parsed_retry_url.path.endswith("/accounting/month_close"),
+                f"retry_refresh readiness link must target /accounting/month_close, got path={parsed_retry_url.path!r}",
+            )
+            _month_close_readiness_linkage_contract_assert(
+                requested_ym in (retry_qs.get("ym") or []),
+                f"retry_refresh readiness link must preserve ym={requested_ym!r}, got ym={retry_qs.get('ym')!r}",
+            )
+
+    snapshot_control_exists = 'data-action="mc-create-snapshot"' in html
+    if action_key == "create_snapshot" and is_enabled and not snapshot_control_exists:
+        _month_close_readiness_linkage_contract_assert(
+            False,
+            "create_snapshot must not be enabled=true when snapshot control is absent",
+        )
