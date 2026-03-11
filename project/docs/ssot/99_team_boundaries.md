@@ -1,5 +1,5 @@
 # Team Boundaries and Change Rules
-_Last updated: 2026-03-10_
+_Last updated: 2026-03-11_
 
 ## 99.1 Scope
 Ownership boundaries, stable interfaces, and forbidden changes for vNext correctness work.
@@ -61,6 +61,11 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
   - panel selector/data-role surface is stable
   - dismiss semantics are stable (`POST /transactions/import_result/dismiss`, auth+CSRF, redirect param preservation)
   - `/upload_csv` remains no-JSON contract surface
+- Phase 1.3.1 CSV import details polish contract (`SSOT 59_1`):
+  - details rendering selectors and visibility-state semantics are stable
+  - details toggle presence rule is stable (render toggle only when details data exists)
+  - default details state is stable (`data-state="collapsed"` when details container exists)
+  - no endpoint/registry expansion is allowed in this phase
 - Phase 1.2.1 transaction edit UX hardening (`SSOT 58_1`):
   - deterministic preload/render behavior for edit modal
   - deterministic balance-state and save-gating behavior
@@ -76,6 +81,11 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
   - local-buffer authority under active modal session is mandatory
   - background refresh must preserve active query params and must not overwrite local editor buffer
   - no new endpoint or registry key is allowed in this phase
+- Phase 1.2.4 transaction edit usability polish (`SSOT 58_4`):
+  - additive usability selectors are stable where declared
+  - keyboard/focus, balance clarity, and save-status semantics are deterministic
+  - JS-state preload posture remains unchanged (`JOURNAL_STATE.byId`, no row JSON blobs)
+  - no endpoint or registry-key expansion is allowed in this phase
 
 ### 99.3.1 Frontend Contract Surface Ownership
 - Architect owns SSOT definitions in `project/docs/ssot/55_frontend_contracts.md`.
@@ -119,6 +129,20 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Backend owns existing endpoint behavior only; no endpoint expansion.
 - QA owns contract-shape checks for refresh-safety markers and registry stability.
 
+### 99.3.7 Phase 1.2.4 Ownership
+- Architect owns `project/docs/ssot/58_4_phase1_2_4_transaction_edit_usability_polish.md`.
+- Frontend owns additive usability selector implementation and deterministic behavior.
+- Backend owns existing endpoint behavior only; no endpoint expansion.
+- QA owns selector-surface and registry-stability contract checks.
+
+### 99.3.8 Phase 1.3.1 Ownership
+- Architect owns `project/docs/ssot/59_1_phase1_3_csv_import_details_polish.md`.
+- Backend owns:
+  - session summary optional details-key population when data exists
+  - dismiss redirect parameter preservation semantics on existing dismiss endpoint.
+- Frontend owns details toggle/render behavior and SSOT 59/59_1 selector stability.
+- QA owns contract-shape checks for details selector presence/absence rules and dismiss preservation checks.
+
 ## 99.4 Forbidden Changes
 - Reporting code must not compute ranked totals from legacy `Transaction` rows.
 - Reporting code must not enable or silently emulate mixed mode aggregation.
@@ -137,12 +161,16 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Frontend must not bypass `window.FINANCE_ENDPOINTS.accounting.journal.list` and `window.FINANCE_ENDPOINTS.accounting.journal.updateTemplate` in Phase 1.2 flows.
 - Backend and Frontend must not introduce `/upload_csv` JSON response contracts without SSOT update and QA evidence.
 - Backend and Frontend must not rename `session["last_import_result_v1"]` or SSOT 59 locked panel selectors/data-role markers without SSOT update and QA evidence.
+- Backend and Frontend must not remove/rename SSOT 59_1 details selectors (`[data-role="import-details-failures"]`, `[data-role="import-details-warnings"]`, `[data-role="import-details-meta"]`) or details `data-state="collapsed|expanded"` semantics without SSOT update and QA evidence.
+- Frontend must not render details toggle when both `failure_samples` and `warnings` are absent/empty; this visibility rule is locked by SSOT 59_1.
 - Backend and Frontend must not introduce new edit/list endpoints or new registry keys for Phase 1.2.1 without SSOT update and QA evidence.
 - Backend and Frontend must not break query-param preservation (`page`/`per_page`) on post-save list refresh in Phase 1.2.1 flows.
 - Backend and Frontend must not introduce new preload read endpoints for Phase 1.2.2 without SSOT update and QA evidence.
 - Frontend must not remove or rename preload-state marker contract (`[data-role="preload-state"]` with allowed `data-state` values) without SSOT update and QA evidence.
 - Backend and Frontend must not remove or rename Phase 1.2.3 refresh-safety markers (`[data-role="edit-session"]`, `[data-role="stale-warning"]`, `data-buffer-authority="local"`) without SSOT update and QA evidence.
 - Backend and Frontend must not drop `page`/`per_page` preservation on edit-list refresh flows in Phase 1.2.3.
+- Backend and Frontend must not introduce new endpoints, new registry keys, or row-level embedded JSON blobs for Phase 1.2.4 without SSOT update and QA evidence.
+- Frontend must not remove or rename SSOT 58_4 locked usability selectors (when implemented) without SSOT update and QA evidence.
 
 ## 99.5 SSOT Change Protocol (Mandatory)
 - Any PR that changes a stable interface or forbidden-change area must:
@@ -164,6 +192,9 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Any PR that changes Phase 1.3 CSV import UX contracts (`SSOT 59`) must include:
   - SSOT 59 section references
   - QA contract evidence for panel selectors, dismiss semantics, and filter-param preservation checks
+- Any PR that changes Phase 1.3.1 CSV import details polish contracts (`SSOT 59_1`) must include:
+  - SSOT 59_1 section references
+  - QA contract evidence for details toggle visibility rules, details-selector state surface, and dismiss redirect-param preservation checks
 - Any PR that changes Phase 1.2.1 edit hardening contracts (`SSOT 58_1`) must include:
   - SSOT 58_1 section references
   - QA contract evidence for preload/render selectors, error mapping, and post-save query-param preservation checks
@@ -173,6 +204,9 @@ Ownership boundaries, stable interfaces, and forbidden changes for vNext correct
 - Any PR that changes Phase 1.2.3 edit refresh-safety contracts (`SSOT 58_3`) must include:
   - SSOT 58_3 section references
   - QA contract evidence for edit-session marker, stale-warning selector, buffer-authority marker, and refresh-param preservation checks
+- Any PR that changes Phase 1.2.4 edit usability-polish contracts (`SSOT 58_4`) must include:
+  - SSOT 58_4 section references
+  - QA contract evidence for additive selector surface and registry-stability checks
 - If behavior is intentionally transitional, PR must include:
   - explicit temporary rule
   - expiration date

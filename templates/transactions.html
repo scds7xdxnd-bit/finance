@@ -197,7 +197,7 @@
       font-weight: 600;
       color: var(--text-strong);
     }
-    .tx-import-details [data-role="import-details"] {
+    .tx-import-details .tx-import-details-body {
       margin-top: 8px;
       color: var(--text-muted);
       display: flex;
@@ -547,7 +547,8 @@
           {% set failed_count = (last_import_result.failed_count or 0)|int %}
           {% set failure_samples = last_import_result.failure_samples if last_import_result.failure_samples is defined and last_import_result.failure_samples else [] %}
           {% set import_warnings = last_import_result.warnings if last_import_result.warnings is defined and last_import_result.warnings else [] %}
-          {% set has_import_details = (failure_samples|length > 0) or (import_warnings|length > 0) %}
+          {% set import_write_mode = (last_import_result.write_mode|string).strip() if last_import_result.write_mode is defined and last_import_result.write_mode else '' %}
+          {% set has_import_details = (failure_samples|length > 0) or (import_warnings|length > 0) or (import_write_mode|length > 0) %}
           {% if failed_count > 0 and imported_count > 0 %}
             {% set import_severity = "partial" %}
           {% elif failed_count > 0 and imported_count == 0 %}
@@ -576,28 +577,38 @@
               <span data-role="import-counts">Imported: {{ imported_count }} | Duplicates: {{ duplicate_count }} | Failed: {{ failed_count }}</span>
               <span data-role="import-filename">File: {{ last_import_result.source_filename or "Unknown" }}</span>
               <span data-role="import-recorded-at">Recorded: {{ last_import_result.recorded_at or "Unknown" }}</span>
-              {% if import_severity in ["partial", "failed"] and has_import_details %}
+              {% if has_import_details %}
                 <details class="tx-import-details">
                   <summary data-action="toggle-import-details">Show import details</summary>
-                  <div data-role="import-details">
+                  <div class="tx-import-details-body" data-role="import-details" data-state="collapsed">
                     {% if import_warnings|length > 0 %}
-                      <div><strong>Warnings</strong></div>
-                      <ul>
-                        {% for warning in import_warnings %}
-                          <li>{{ warning }}</li>
-                        {% endfor %}
-                      </ul>
+                      <div data-role="import-details-warnings">
+                        <div><strong>Warnings</strong></div>
+                        <ul>
+                          {% for warning in import_warnings %}
+                            <li>{{ warning }}</li>
+                          {% endfor %}
+                        </ul>
+                      </div>
                     {% endif %}
                     {% if failure_samples|length > 0 %}
-                      <div><strong>Failed rows</strong></div>
-                      <ul>
-                        {% for sample in failure_samples %}
-                          <li>
-                            {% if sample.line_number is defined %}Line {{ sample.line_number }}:{% endif %}
-                            {{ sample.message if sample.message is defined else sample }}
-                          </li>
-                        {% endfor %}
-                      </ul>
+                      <div data-role="import-details-failures">
+                        <div><strong>Failed rows</strong></div>
+                        <ul>
+                          {% for sample in failure_samples %}
+                            <li>
+                              {% if sample.line_number is defined %}Line {{ sample.line_number }}:{% endif %}
+                              {{ sample.message if sample.message is defined else sample }}
+                            </li>
+                          {% endfor %}
+                        </ul>
+                      </div>
+                    {% endif %}
+                    {% if import_write_mode %}
+                      <div data-role="import-details-meta">
+                        <strong>Write mode</strong>
+                        <span>{{ import_write_mode }}</span>
+                      </div>
                     {% endif %}
                   </div>
                 </details>
@@ -1423,6 +1434,24 @@
       });
     }
 
+    function initImportDetailsToggle(){
+      const detailsRoot = document.querySelector('.tx-import-details');
+      if (!detailsRoot) return;
+      const toggle = detailsRoot.querySelector('summary');
+      if (!toggle) return;
+      const detailsBody = detailsRoot.querySelector('.tx-import-details-body');
+      if (!detailsBody) return;
+
+      const syncDetailsState = () => {
+        const expanded = !!detailsRoot.open;
+        detailsBody.dataset.state = expanded ? 'expanded' : 'collapsed';
+        toggle.textContent = expanded ? 'Hide import details' : 'Show import details';
+      };
+
+      syncDetailsState();
+      detailsRoot.addEventListener('toggle', syncDetailsState);
+    }
+
     function extractEntrySuggestion(card){
       // Build a lightweight suggestion object from the rendered entry lines
       const suggestion = { entries: [] };
@@ -1466,6 +1495,7 @@
       }
       attachFilterHandler();
       attachTxListDelegation();
+      initImportDetailsToggle();
       const toggleBtn = document.getElementById('toggle-tx-btn');
       if (toggleBtn){
         toggleBtn.addEventListener('click', () => {

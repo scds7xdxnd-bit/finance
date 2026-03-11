@@ -127,3 +127,8 @@ _Last updated: 2026-03-10_
 - Phase 1.2.3 refresh-safety contract details are defined in `SSOT 58_3`.
 - Phase 1.2.2 preload-state and stale-detection rules remain authoritative unless explicitly tightened by SSOT 58_3.
 - Phase 1.2.3 introduces no new endpoint, no new registry key, and no JSON contract expansion.
+
+## 58.2.11 Phase 1.2.4 Companion (Usability Polish)
+- Phase 1.2.4 usability polish contract details are defined in `SSOT 58_4`.
+- Phase 1.2.2 preload-source lock and preload-state marker rules remain authoritative unless explicitly tightened additively by SSOT 58_4.
+- Phase 1.2.4 introduces no new endpoint, no new registry key, and no JSON contract expansion.

@@ -98,3 +98,9 @@ _Last updated: 2026-03-10_
 - Startup/migration gates: SSOT 60.8 / 80.13
 - Security compliance gate: SSOT 70 / 80.12
 - DB integrity gate: SSOT 20.6 / 60.9 / 80.14
+
+
+## 58.3.10 Phase 1.2.4 Companion (Usability Polish)
+- Phase 1.2.4 usability polish contract details are defined in `SSOT 58_4`.
+- Phase 1.2.3 refresh-safety marker and local-buffer authority rules remain authoritative unless explicitly tightened additively by SSOT 58_4.
+- Phase 1.2.4 introduces no new endpoint, no new registry key, and no JSON contract expansion.

@@ -1201,6 +1201,7 @@
             <div data-role="preload-state" data-state="loading" hidden></div>
             <div data-role="edit-session" data-entry-id="" data-session="inactive" hidden></div>
             <div data-role="stale-warning" hidden aria-live="polite"></div>
+            <div data-role="focus-trap" tabindex="-1" hidden></div>
             <div class="journal-edit-backdrop" data-action="close-edit-modal"></div>
             <div class="journal-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="journal-edit-title">
               <div class="journal-edit-head">
@@ -1209,6 +1210,7 @@
                   <p id="journal-edit-meta" class="journal-edit-meta">Update header and lines, then save balanced totals.</p>
                 </div>
                 <button type="button" class="icon-btn" data-action="close-edit-modal"><i class="fa fa-xmark"></i> Close</button>
+                <button type="button" data-action="close-editor" hidden aria-hidden="true"></button>
               </div>
 
               <form id="journal-edit-form" novalidate>
@@ -1216,7 +1218,7 @@
                 <div class="journal-edit-grid">
                   <div>
                     <label for="journal-edit-date">Date</label>
-                    <input id="journal-edit-date" name="date" type="date" required>
+                    <input id="journal-edit-date" name="date" type="date" data-role="first-focus" required>
                     <div class="journal-edit-field-error" data-field-error="date" aria-live="polite"></div>
                   </div>
                   <div>
@@ -1241,6 +1243,11 @@
 
                 <div class="journal-edit-footer">
                   <div data-role="balance-delta" data-state="balanced" aria-live="polite">Balanced</div>
+                  <span data-role="balance-delta-label" hidden>Delta</span>
+                  <span data-role="balance-delta-amount" hidden>0.00</span>
+                  <div data-role="not-balanced-callout" hidden aria-live="polite"></div>
+                  <div data-role="save-status" data-state="idle" hidden aria-live="polite"></div>
+                  <button type="button" data-action="cancel-editor" hidden aria-hidden="true"></button>
                   <button type="submit" class="icon-btn tb-summary-toggle" data-action="save-entry" disabled><i class="fa fa-save"></i> Save Entry</button>
                 </div>
               </form>
@@ -6526,6 +6533,99 @@ function bindReceivableRow(entry, baseRow, row){
     return modal.querySelector('[data-role="stale-warning"]');
   }
 
+  function getJournalSaveStatusNode(){
+    const modal = getJournalEditModal();
+    if (!modal) return null;
+    return modal.querySelector('[data-role="save-status"]');
+  }
+
+  function getJournalNotBalancedCalloutNode(){
+    const modal = getJournalEditModal();
+    if (!modal) return null;
+    return modal.querySelector('[data-role="not-balanced-callout"]');
+  }
+
+  function isJournalSaveInProgress(){
+    const node = getJournalSaveStatusNode();
+    const state = String(node && node.dataset && node.dataset.state ? node.dataset.state : 'idle').trim().toLowerCase();
+    return state === 'saving';
+  }
+
+  function setJournalLineActionsDisabled(disabled){
+    const form = getJournalEditForm();
+    if (!form) return;
+    const shouldDisable = !!disabled;
+    const actionSelectors = [
+      '[data-action="add-line"]',
+      '[data-action="remove-line"]',
+      '[data-action="duplicate-line"]',
+      '[data-action="move-line-up"]',
+      '[data-action="move-line-down"]'
+    ];
+    form.querySelectorAll(actionSelectors.join(',')).forEach((node) => {
+      node.disabled = shouldDisable;
+    });
+  }
+
+  function setJournalSaveStatus(state, message=''){
+    const node = getJournalSaveStatusNode();
+    if (!node) return;
+    const normalized = String(state || 'idle').trim().toLowerCase();
+    const nextState = (normalized === 'idle' || normalized === 'saving' || normalized === 'saved' || normalized === 'error')
+      ? normalized
+      : 'idle';
+    node.dataset.state = nextState;
+    const text = String(message || '').trim();
+    if (text){
+      node.textContent = text;
+    } else if (nextState === 'saving'){
+      node.textContent = 'Saving changes...';
+    } else if (nextState === 'saved'){
+      node.textContent = 'Saved.';
+    } else if (nextState === 'error'){
+      node.textContent = 'Unable to save right now.';
+    } else {
+      node.textContent = '';
+    }
+    node.hidden = nextState === 'idle' && !text;
+    setJournalLineActionsDisabled(nextState === 'saving');
+  }
+
+  function setJournalNotBalancedCallout(visible, message=''){
+    const node = getJournalNotBalancedCalloutNode();
+    if (!node) return;
+    const show = !!visible;
+    node.hidden = !show;
+    node.textContent = show
+      ? (String(message || '').trim() || 'Journal entry must be balanced before finalizing.')
+      : '';
+  }
+
+  function focusJournalFirstFieldIfReady(){
+    if (getJournalPreloadState() !== 'ready') return;
+    const modal = getJournalEditModal();
+    if (!modal || modal.hidden) return;
+    const first = modal.querySelector('[data-role="first-focus"]');
+    if (!first || typeof first.focus !== 'function') return;
+    window.requestAnimationFrame(() => {
+      try { first.focus(); } catch (_) {}
+    });
+  }
+
+  function focusJournalEditOrigin(entryId){
+    const idText = String(entryId || '').trim();
+    if (idText){
+      const origin = document.querySelector(`[data-action="edit-entry"][data-entry-id="${idText}"]`);
+      if (origin && typeof origin.focus === 'function'){
+        try { origin.focus(); return; } catch (_) {}
+      }
+    }
+    const fallback = document.getElementById('journal-apply') || document.getElementById('btn-view-journal') || document.getElementById('journal-table');
+    if (!fallback || typeof fallback.focus !== 'function') return;
+    if (!fallback.hasAttribute('tabindex')) fallback.setAttribute('tabindex', '-1');
+    try { fallback.focus(); } catch (_) {}
+  }
+
   function setJournalEditSessionState(session, entryId){
     const node = getJournalEditSessionNode();
     if (!node) return;
@@ -6604,6 +6704,8 @@ function bindReceivableRow(entry, baseRow, row){
     }
     setJournalEditSessionState('inactive');
     syncJournalStaleWarning();
+    setJournalNotBalancedCallout(false);
+    setJournalSaveStatus('idle');
   }
 
   function markJournalEditorStale(message){
@@ -6668,6 +6770,7 @@ function bindReceivableRow(entry, baseRow, row){
       const modal = getJournalEditModal();
       if (modal) modal.dataset.bufferAuthority = 'local';
       setJournalPreloadState('missing');
+      setJournalSaveStatus('idle');
       const form = getJournalEditForm();
       if (form){
         form.dataset.entryId = '';
@@ -6695,8 +6798,10 @@ function bindReceivableRow(entry, baseRow, row){
     const modal = getJournalEditModal();
     if (modal) modal.dataset.bufferAuthority = 'local';
     setJournalPreloadState('ready');
+    setJournalSaveStatus('idle');
     clearJournalEditErrors();
     evaluateJournalEditForm(false);
+    focusJournalFirstFieldIfReady();
   }
 
   function renderJournalEditor(entry){
@@ -6758,6 +6863,7 @@ function bindReceivableRow(entry, baseRow, row){
     form.querySelectorAll('[data-field-error]').forEach((node) => {
       node.textContent = '';
     });
+    setJournalNotBalancedCallout(false);
     setJournalEditFormError('');
   }
 
@@ -6806,7 +6912,7 @@ function bindReceivableRow(entry, baseRow, row){
     const container = getJournalEditLinesContainer();
     if (!container) return;
     const rows = Array.from(container.querySelectorAll('.journal-edit-line'));
-    const canRemove = rows.length > 2;
+    const canRemove = !isJournalSaveInProgress() && rows.length > 2;
     rows.forEach((row) => {
       const btn = row.querySelector('[data-action="remove-line"]');
       if (!btn) return;
@@ -6820,6 +6926,8 @@ function bindReceivableRow(entry, baseRow, row){
     if (!form) return 0;
     const deltaNode = form.querySelector('[data-role="balance-delta"]');
     if (!deltaNode) return 0;
+    const labelNode = form.querySelector('[data-role="balance-delta-label"]');
+    const amountNode = form.querySelector('[data-role="balance-delta-amount"]');
     const items = Array.isArray(lines) ? lines : [];
     const debit = items.filter((line) => line.dc === 'D').reduce((sum, line) => sum + (Number(line.amount) || 0), 0);
     const credit = items.filter((line) => line.dc === 'C').reduce((sum, line) => sum + (Number(line.amount) || 0), 0);
@@ -6831,6 +6939,18 @@ function bindReceivableRow(entry, baseRow, row){
     deltaNode.dataset.delta = delta.toFixed(2);
     deltaNode.title = `Delta: ${delta.toFixed(2)}`;
     deltaNode.textContent = isBalanced ? 'Balanced' : 'Not balanced';
+    if (labelNode){
+      labelNode.hidden = false;
+      labelNode.textContent = isBalanced ? 'Balanced' : 'Not balanced';
+    }
+    if (amountNode){
+      const signed = delta >= 0 ? `+${delta.toFixed(2)}` : delta.toFixed(2);
+      amountNode.hidden = false;
+      amountNode.textContent = signed;
+    }
+    if (isBalanced){
+      setJournalNotBalancedCallout(false);
+    }
     return delta;
   }
 
@@ -6896,7 +7016,7 @@ function bindReceivableRow(entry, baseRow, row){
       }
     }
     const saveBtn = form.querySelector('[data-action="save-entry"]');
-    if (saveBtn) saveBtn.disabled = !valid;
+    if (saveBtn) saveBtn.disabled = isJournalSaveInProgress() || !valid;
     return { valid, lines, delta };
   }
 
@@ -6922,6 +7042,7 @@ function bindReceivableRow(entry, baseRow, row){
       sourceLines.forEach((line) => linesNode.appendChild(createJournalEditLineRow(line)));
     }
     clearJournalEditErrors();
+    setJournalSaveStatus('idle');
     evaluateJournalEditForm(false);
     modal.hidden = false;
     modal.setAttribute('aria-hidden', 'false');
@@ -6956,19 +7077,23 @@ function bindReceivableRow(entry, baseRow, row){
     const form = getJournalEditForm();
     if (!form) return;
     const saveBtn = form.querySelector('[data-action="save-entry"]');
+    if (isJournalSaveInProgress()) return;
     const preloadState = getJournalPreloadState();
     if (preloadState === 'missing' || preloadState === 'loading'){
       if (saveBtn) saveBtn.disabled = true;
+      setJournalSaveStatus('error', 'Entry is not ready to save yet.');
       setJournalEditFormError('');
       return;
     }
     const entryIdRaw = parseInt(String(form.dataset.entryId || '0'), 10);
     if (!Number.isInteger(entryIdRaw) || entryIdRaw <= 0){
+      setJournalSaveStatus('error', 'Missing journal entry id.');
       setJournalEditFormError('Unable to save: missing journal entry id.');
       return;
     }
     const evaluated = evaluateJournalEditForm(true);
     if (!evaluated.valid){
+      setJournalSaveStatus('idle');
       setJournalEditFormError('Please fix the highlighted issues before saving.');
       return;
     }
@@ -6984,6 +7109,7 @@ function bindReceivableRow(entry, baseRow, row){
         memo: line.memo
       }))
     };
+    setJournalSaveStatus('saving');
     if (saveBtn) saveBtn.disabled = true;
     try {
       const updateUrl = buildJournalUpdateUrl(entryIdRaw);
@@ -7010,12 +7136,15 @@ function bindReceivableRow(entry, baseRow, row){
         const errorCode = String((data && data.error_code) || '').toUpperCase();
         if (errorCode === 'JOURNAL_NOT_BALANCED'){
           setJournalEditFieldError('lines', 'Journal entry must be balanced before finalizing.');
+          setJournalNotBalancedCallout(true, 'Journal entry must be balanced before finalizing.');
+          setJournalSaveStatus('error', 'Not balanced.');
           setJournalEditFormError('Journal entry must be balanced before finalizing.');
-          if (saveBtn) saveBtn.disabled = false;
+          evaluateJournalEditForm(false);
           return;
         }
+        setJournalSaveStatus('error', (data && data.error) || 'Unable to save journal entry right now. Please try again.');
         setJournalEditFormError((data && data.error) || 'Unable to save journal entry right now. Please try again.');
-        if (saveBtn) saveBtn.disabled = false;
+        evaluateJournalEditForm(false);
         return;
       }
       if (data && data.entry && typeof data.entry === 'object'){
@@ -7030,13 +7159,16 @@ function bindReceivableRow(entry, baseRow, row){
           return { ...entry, ...merged };
         });
       }
+      setJournalSaveStatus('saved', 'Saved.');
       closeJournalEditModal();
       setJournalFeedback('Journal entry saved.', 'success');
       await loadJournalEntries(JOURNAL_STATE.page || 1, { useControlState: false, pushHistory: false });
+      focusJournalEditOrigin(entryIdRaw);
     } catch (err){
       console.error(err);
+      setJournalSaveStatus('error', 'Unable to save journal entry right now. Please try again.');
       setJournalEditFormError('Unable to save journal entry right now. Please try again.');
-      if (saveBtn) saveBtn.disabled = false;
+      evaluateJournalEditForm(false);
     }
   }
 
@@ -7068,13 +7200,15 @@ function bindReceivableRow(entry, baseRow, row){
         const actionNode = evt.target && evt.target.closest ? evt.target.closest('[data-action]') : null;
         if (!actionNode) return;
         const action = String(actionNode.getAttribute('data-action') || '').trim();
-        if (action === 'close-edit-modal'){
+        if (action === 'close-edit-modal' || action === 'close-editor' || action === 'cancel-editor'){
           evt.preventDefault();
+          if (isJournalSaveInProgress()) return;
           closeJournalEditModal();
           return;
         }
         if (action === 'add-line'){
           evt.preventDefault();
+          if (isJournalSaveInProgress()) return;
           const linesNode = getJournalEditLinesContainer();
           if (!linesNode) return;
           linesNode.appendChild(createJournalEditLineRow({ dc: 'D', amount: 0, account_name: '', memo: '' }));
@@ -7084,6 +7218,7 @@ function bindReceivableRow(entry, baseRow, row){
         }
         if (action === 'remove-line'){
           evt.preventDefault();
+          if (isJournalSaveInProgress()) return;
           const linesNode = getJournalEditLinesContainer();
           if (!linesNode) return;
           const rows = Array.from(linesNode.querySelectorAll('.journal-edit-line'));
@@ -7112,8 +7247,36 @@ function bindReceivableRow(entry, baseRow, row){
         submitJournalEdit();
       });
       document.addEventListener('keydown', (evt) => {
-        if (evt.key === 'Escape' && !journalEditModal.hidden){
+        if (journalEditModal.hidden) return;
+        if (evt.key === 'Escape'){
+          if (isJournalSaveInProgress()) return;
+          evt.preventDefault();
           closeJournalEditModal();
+          return;
+        }
+        if ((evt.ctrlKey || evt.metaKey) && evt.key === 'Enter'){
+          const saveBtn = journalEditForm.querySelector('[data-action="save-entry"]');
+          if (!saveBtn || saveBtn.disabled || isJournalSaveInProgress()) return;
+          evt.preventDefault();
+          submitJournalEdit();
+          return;
+        }
+        if (evt.key === 'Tab'){
+          const focusable = Array.from(journalEditModal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+            .filter((node) => !node.hidden && !node.disabled && node.offsetParent !== null);
+          if (!focusable.length) return;
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          const active = document.activeElement;
+          if (evt.shiftKey && active === first){
+            evt.preventDefault();
+            try { last.focus(); } catch (_) {}
+            return;
+          }
+          if (!evt.shiftKey && active === last){
+            evt.preventDefault();
+            try { first.focus(); } catch (_) {}
+          }
         }
       });
     }

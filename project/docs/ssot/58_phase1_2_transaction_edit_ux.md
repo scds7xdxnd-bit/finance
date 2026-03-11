@@ -145,3 +145,8 @@ _Last updated: 2026-03-10_
 - Phase 1.2.3 refresh-safety details are defined in `SSOT 58_3`.
 - Phase 1.2 endpoint and registry decisions in this file remain authoritative and unchanged.
 - Phase 1.2.3 introduces no new endpoint, no new registry key, no JSON expansion, and no DB/migration requirement.
+
+## 58.14 Phase 1.2.4 Companion (Usability Polish, Non-Contradiction)
+- Phase 1.2.4 usability polish details are defined in `SSOT 58_4`.
+- Phase 1.2 endpoint and registry decisions in this file remain authoritative and unchanged.
+- Phase 1.2.4 introduces no new endpoint, no new registry key, no JSON expansion, and no DB/migration requirement.

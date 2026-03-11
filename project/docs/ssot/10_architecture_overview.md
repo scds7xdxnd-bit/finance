@@ -1,5 +1,5 @@
 # vNext Architecture Overview
-_Last updated: 2026-03-10_
+_Last updated: 2026-03-11_
 
 ## 10.1 Scope
 This document defines the canonical runtime architecture for correctness-critical finance flows (ledger posting, CSV import, convergence, reporting, schema guard, and release gates).
@@ -242,3 +242,36 @@ Quality gates in `tests/test_vnext_gate.py` and related suites are release-block
   - no new registry keys
   - no new JSON contracts
   - no `/upload_csv` JSON behavior changes (SSOT 58_3).
+
+## 10.14 Phase 1.2.4 Transaction Edit Usability Polish Integration Points
+- Data source posture remains unchanged:
+  - list rows remain minimal HTML (`data-entry-id` + action markers, no per-row JSON blobs).
+  - full entry payloads remain in `JOURNAL_STATE.byId` from `GET /accounting/journal/list`.
+- Editor flow remains endpoint-stable:
+  - update: `PUT /accounting/journal/<entry_id>`
+  - refresh: `GET /accounting/journal/list` via existing registry keys only.
+- Additive usability polish:
+  - keyboard/focus markers and save-status markers are additive DOM contracts only.
+  - line affordance actions are additive and must preserve existing save-gating rules.
+  - stale-warning CTA (when implemented) remains non-blocking and local-buffer-safe.
+- Contract boundary:
+  - no new endpoints
+  - no new registry keys
+  - no new JSON contracts
+  - no `/upload_csv` JSON behavior changes (SSOT 58_4).
+
+## 10.15 Phase 1.3.1 CSV Import Details Polish Integration Points (No JSON)
+- Import + persist flow remains unchanged:
+  - `POST /upload_csv` computes import summary and writes `session["last_import_result_v1"]`.
+  - response remains redirect/flash (no JSON upload response contract).
+- Transactions render flow remains server-rendered:
+  - `GET /transactions` reads session summary and renders panel/details selectors when details data exists.
+  - details default state is collapsed and toggle is local UI behavior only (no fetch endpoint).
+- Dismiss flow remains unchanged:
+  - `POST /transactions/import_result/dismiss` clears session summary and redirects to `/transactions`.
+  - redirect must preserve active SSOT 57 query params.
+- Contract boundary:
+  - no new endpoints
+  - no new registry keys
+  - no new JSON contracts
+  - no `/upload_csv` JSON behavior changes (SSOT 59 + SSOT 59_1).
